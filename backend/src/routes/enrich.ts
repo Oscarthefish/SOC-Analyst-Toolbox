@@ -174,7 +174,7 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
   };
 
   let providerList = chooseProviders(ioc, workflowId, requestedProviders);
-  if (includeHunter && (ioc.type === 'domain' || ioc.type === 'url') && !providerList.includes('hunter')) {
+  if (includeHunter && (ioc.type === 'domain' || ioc.type === 'url' || ioc.type === 'email') && !providerList.includes('hunter')) {
     providerList = [...providerList, 'hunter'];
   }
 

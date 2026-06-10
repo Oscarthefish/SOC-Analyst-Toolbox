@@ -381,7 +381,10 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
 
   const isEmailHeader = ioc?.isEmailHeader === true;
   const disabled = !ioc || (ioc.type === 'unknown' && !isEmailHeader);
-  const hunterApplicable = ioc?.type === 'domain' || ioc?.type === 'url';
+  const hunterApplicable = ioc?.type === 'domain' || ioc?.type === 'url' || ioc?.type === 'email';
+  const hunterLabel = ioc?.type === 'email'
+    ? 'email verify + person enrichment (uses 2 credits)'
+    : 'company profile & email intel (uses 1 credit)';
 
   useEffect(() => {
     setResult(null);
@@ -461,7 +464,7 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
             </svg>
             <span className="text-xs font-medium text-[#344054]">Include Hunter.io</span>
-            <span className="text-[11px] text-[#98a2b3]">— company profile &amp; email intel (uses credits)</span>
+            <span className="text-[11px] text-[#98a2b3]">— {hunterLabel}</span>
           </div>
           <button
             role="switch"

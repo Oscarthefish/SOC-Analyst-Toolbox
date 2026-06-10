@@ -410,7 +410,7 @@ router.post('/analyse', async (req: Request, res: Response): Promise<void> => {
   };
 
   let providerList = ANALYSE_PROVIDERS[ioc.type] ?? [];
-  if (includeHunter && (ioc.type === 'domain' || ioc.type === 'url') && !providerList.includes('hunter')) {
+  if (includeHunter && (ioc.type === 'domain' || ioc.type === 'url' || ioc.type === 'email') && !providerList.includes('hunter')) {
     providerList = [...providerList, 'hunter'];
   }
 
