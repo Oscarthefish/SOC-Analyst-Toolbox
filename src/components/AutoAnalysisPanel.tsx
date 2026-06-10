@@ -380,6 +380,8 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
   const [result, setResult] = useState<AnyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [includeHunter, setIncludeHunter] = useState(false);
+  // Tracks the current run so stale results from previous in-flight requests are discarded.
+  const runGenRef = useRef(0);
 
   const isEmailHeader = ioc?.isEmailHeader === true;
   const disabled = !ioc || (ioc.type === 'unknown' && !isEmailHeader);
@@ -389,6 +391,8 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
     : 'company profile & email intel (uses 1 credit)';
 
   useEffect(() => {
+    runGenRef.current++;   // invalidate any in-flight analysis for the previous IOC
+    setLoading(false);     // un-disable the button immediately on IOC change
     setResult(null);
     setError(null);
     if (autoRun && ioc && !disabled) {
@@ -400,6 +404,7 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
   const handleRun = useCallback(async (forceRefresh = false) => {
     if (!ioc || disabled) return;
     const snap = ioc;
+    const gen = ++runGenRef.current;
     setLoading(true); setError(null); setResult(null);
     try {
       if (snap.isEmailHeader) {
@@ -407,6 +412,7 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
           rawHeaders: snap.original,
           options: { forceRefresh },
         });
+        if (runGenRef.current !== gen) return;
         if (!r) setError('Analysis failed — check the backend is running.');
         else setResult(r);
       } else {
@@ -415,13 +421,15 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
           workflowId: workflowId ?? undefined,
           options: { forceRefresh, includeHunter },
         });
+        if (runGenRef.current !== gen) return;
         if (!r) { setError('Analysis failed — check the backend is running.'); }
         else { setResult(r); onComplete?.(r); }
       }
     } catch (err) {
+      if (runGenRef.current !== gen) return;
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
-      setLoading(false);
+      if (runGenRef.current === gen) setLoading(false);
     }
   }, [ioc, workflowId, disabled, onComplete]); // onComplete is stable (useCallback in App)
 
