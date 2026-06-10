@@ -17,6 +17,7 @@ import { ThreatFeedPanel } from './components/ThreatFeedPanel';
 import { AboutPanel } from './components/AboutPanel';
 import { checkBackendHealth } from './lib/apiClient';
 import { loadFavorites, saveFavorites } from './lib/favorites';
+import { detectIoc } from './lib/detectIoc';
 import toolsData from './data/tools.json';
 import workflowsData from './data/workflows.json';
 
@@ -108,8 +109,19 @@ export default function App() {
   }, []);
 
   const handleInvestigate = useCallback((iocValue: string) => {
+    const detected = detectIoc(iocValue);
+    // Set ioc directly so it changes in the same render as autoRun=true,
+    // guaranteeing the AutoAnalysisPanel useEffect fires with both values ready.
+    setIoc(detected);
+    setSelectedWorkflow(prev => {
+      if (!prev || !detected) return prev;
+      const supported =
+        prev.allowedInputTypes.includes(detected.type) ||
+        (detected.type === 'url' && prev.allowedInputTypes.includes('domain'));
+      return supported ? prev : null;
+    });
     setAutoRunAnalysis(true);
-    setPrefillIoc(iocValue);
+    setPrefillIoc(iocValue);   // keeps IocInput display in sync
     setActiveTab('single');
   }, []);
 
