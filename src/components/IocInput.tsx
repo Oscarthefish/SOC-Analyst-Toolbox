@@ -221,9 +221,10 @@ interface IocInputProps {
   onDetect: (ioc: DetectedIoc | null) => void;
   onReset: () => void;
   prefillValue?: string;
+  onPrefillConsumed?: () => void;
 }
 
-export function IocInput({ onDetect, onReset, prefillValue }: IocInputProps) {
+export function IocInput({ onDetect, onReset, prefillValue, onPrefillConsumed }: IocInputProps) {
   const [value, setValue] = useState('');
   const [ioc, setIoc] = useState<DetectedIoc | null>(null);
   const [history, setHistory] = useState<string[]>(() => loadHistory());
@@ -255,6 +256,8 @@ export function IocInput({ onDetect, onReset, prefillValue }: IocInputProps) {
         setIoc(null);
         onDetect(null);
       }
+      // Tell App to clear prefillIoc so future re-renders don't re-fire this effect
+      onPrefillConsumed?.();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillValue]);

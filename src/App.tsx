@@ -117,6 +117,10 @@ export default function App() {
     setAutoRunAnalysis(false);
   }, []);
 
+  const handlePrefillConsumed = useCallback(() => {
+    setPrefillIoc(undefined);
+  }, []);
+
   const handleAnalysisComplete = useCallback((r: AnalysisResponse | null) => {
     setAnalysisResults(r);
   }, []);
@@ -193,6 +197,7 @@ export default function App() {
               onDetect={handleDetect}
               onReset={handleReset}
               prefillValue={prefillIoc}
+              onPrefillConsumed={handlePrefillConsumed}
             />
 
             {/* Main grid: left column + sticky right rail */}
