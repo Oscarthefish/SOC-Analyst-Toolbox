@@ -69,6 +69,7 @@ export default function App() {
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
   const [prefillIoc, setPrefillIoc] = useState<string | undefined>(undefined);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResponse | null>(null);
+  const [autoRunAnalysis, setAutoRunAnalysis] = useState(false);
 
   // Clear results whenever the IOC changes so stale data never shows under a new IOC
   useEffect(() => {
@@ -99,6 +100,7 @@ export default function App() {
     setSelectedWorkflow(null);
     setPrefillIoc(undefined);
     setAnalysisResults(null);
+    setAutoRunAnalysis(false);
   }, []);
 
   const handleWorkflowSelect = useCallback((workflow: Workflow) => {
@@ -106,8 +108,13 @@ export default function App() {
   }, []);
 
   const handleInvestigate = useCallback((iocValue: string) => {
+    setAutoRunAnalysis(true);
     setPrefillIoc(iocValue);
     setActiveTab('single');
+  }, []);
+
+  const handleAutoRunConsumed = useCallback(() => {
+    setAutoRunAnalysis(false);
   }, []);
 
   const handleAnalysisComplete = useCallback((r: AnalysisResponse | null) => {
@@ -221,6 +228,8 @@ export default function App() {
                   workflowId={selectedWorkflow?.id ?? null}
                   onComplete={handleAnalysisComplete}
                   onPivot={handleInvestigate}
+                  autoRun={autoRunAnalysis}
+                  onAutoRunConsumed={handleAutoRunConsumed}
                 />
               </div>
             </div>

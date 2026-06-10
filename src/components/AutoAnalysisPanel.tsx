@@ -9,6 +9,8 @@ interface AutoAnalysisPanelProps {
   workflowId: string | null;
   onComplete?: (response: AnalysisResponse | null) => void;
   onPivot?: (iocValue: string) => void;
+  autoRun?: boolean;
+  onAutoRunConsumed?: () => void;
 }
 
 // ── Narrative parser ──────────────────────────────────────────────────────
@@ -373,7 +375,7 @@ function SparkIcon() {
 
 type AnyResult = AnalysisResponse | EmailHeaderAnalysisResponse;
 
-export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPivot }: AutoAnalysisPanelProps) {
+export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPivot, autoRun, onAutoRunConsumed }: AutoAnalysisPanelProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -389,7 +391,11 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
   useEffect(() => {
     setResult(null);
     setError(null);
-  }, [ioc?.normalised, workflowId]);
+    if (autoRun && ioc && !disabled) {
+      onAutoRunConsumed?.();
+      void handleRun(false);
+    }
+  }, [ioc?.normalised, workflowId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRun = useCallback(async (forceRefresh = false) => {
     if (!ioc || disabled) return;
