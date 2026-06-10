@@ -1,0 +1,1537 @@
+[
+  {
+    "id": "virustotal-domain",
+    "name": "VirusTotal Domain",
+    "category": "Reputation",
+    "description": "Check a domain against 80+ antivirus engines and threat intelligence sources.",
+    "inputTypes": [
+      "domain",
+      "url"
+    ],
+    "workflows": [
+      "domain-triage",
+      "url-phishing",
+      "suspicious-connection",
+      "ransomware-context"
+    ],
+    "urlTemplate": "https://www.virustotal.com/gui/domain/{{domain}}",
+    "whyUse": "Aggregates reputation data from dozens of vendors in one place. Fast first pivot for any domain.",
+    "lookFor": "Detection ratio, community scores, passive DNS history, WHOIS, subdomains, related files.",
+    "riskNote": "Submitting a domain will be logged by VirusTotal. Avoid submitting sensitive internal domains.",
+    "submissionRisk": "medium",
+    "requiresAccount": "none",
+    "tags": [
+      "reputation",
+      "domain",
+      "av",
+      "threat-intel"
+    ]
+  },
+  {
+    "id": "virustotal-ip",
+    "name": "VirusTotal IP",
+    "category": "Reputation",
+    "description": "Check an IP address against VirusTotal's threat intel aggregator.",
+    "inputTypes": [
+      "ipv4",
+      "ipv6"
+    ],
+    "workflows": [
+      "ip-triage",
+      "suspicious-connection",
+      "waf-web-attack",
+      "ransomware-context"
+    ],
+    "urlTemplate": "https://www.virustotal.com/gui/ip-address/{{ip}}",
+    "whyUse": "Quick reputation check for IPs. Shows detections, passive DNS, communicating files, and community notes.",
+    "lookFor": "Detection flags, associated domains, communicating samples, last seen timestamps.",
+    "riskNote": "IP lookups are logged. Do not use for sensitive internal IPs.",
+    "submissionRisk": "medium",
+    "requiresAccount": "none",
+    "tags": [
+      "reputation",
+      "ip",
+      "av",
+      "threat-intel"
+    ]
+  },
+  {
+    "id": "virustotal-hash",
+    "name": "VirusTotal File Hash",
+    "category": "Malware Analysis",
+    "description": "Look up a file hash (MD5, SHA1, SHA256) in VirusTotal to check for known malware.",
+    "inputTypes": [
+      "md5",
+      "sha1",
+      "sha256"
+    ],
+    "workflows": [
+      "malware-hash",
+      "ransomware-context"
+    ],
+    "urlTemplate": "https://www.virustotal.com/gui/file/{{hash}}",
+    "whyUse": "Fastest way to check if a file is known malicious. Covers 80+ AV engines.",
+    "lookFor": "Detection ratio, engine names, file type, first/last seen, behaviour reports if available.",
+    "riskNote": "Hash lookups are logged by VirusTotal. The hash itself is low-risk to submit but confirms you have the file.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "hash",
+      "malware",
+      "av",
+      "reputation"
+    ]
+  },
+  {
+    "id": "urlscan-search",
+    "name": "urlscan.io Search",
+    "category": "URL Analysis",
+    "description": "Search urlscan.io for historical scans of a domain or URL.",
+    "inputTypes": [
+      "domain",
+      "url",
+      "ipv4"
+    ],
+    "workflows": [
+      "url-phishing",
+      "domain-triage",
+      "suspicious-connection",
+      "waf-web-attack",
+      "takedown-reporting"
+    ],
+    "urlTemplate": "https://urlscan.io/search/#{{encodedQuery}}",
+    "whyUse": "Shows historical screenshots, DOM snapshots, and network activity for previous scans of a site. Excellent for phishing triage.",
+    "lookFor": "Page screenshots, external resource loads, certificates, IP resolutions, phishing indicators.",
+    "riskNote": "Searching is low risk. Submitting a new scan will take a live screenshot \u2014 do not submit sensitive URLs.",
+    "submissionRisk": "medium",
+    "requiresAccount": "none",
+    "tags": [
+      "url",
+      "phishing",
+      "screenshot",
+      "search"
+    ]
+  },
+  {
+    "id": "greynoise-ip",
+    "name": "GreyNoise IP",
+    "category": "Threat Intelligence",
+    "description": "Check if an IP is known internet background noise (scanners, crawlers, mass exploit attempts).",
+    "inputTypes": [
+      "ipv4"
+    ],
+    "workflows": [
+      "ip-triage",
+      "waf-web-attack",
+      "suspicious-connection"
+    ],
+    "urlTemplate": "https://viz.greynoise.io/ip/{{ip}}",
+    "whyUse": "Differentiates targeted attacks from mass internet noise. Reduces false positives for WAF and firewall alerts.",
+    "lookFor": "Classification (noise/riot/malicious), tags (Mirai, scanner, Tor, etc.), first/last seen, ASN.",
+    "riskNote": "IP lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "ip",
+      "noise",
+      "threat-intel",
+      "waf"
+    ]
+  },
+  {
+    "id": "abuseipdb",
+    "name": "AbuseIPDB",
+    "category": "Reputation",
+    "description": "Community-driven IP abuse reporting database. Check and report malicious IPs.",
+    "inputTypes": [
+      "ipv4",
+      "ipv6"
+    ],
+    "workflows": [
+      "ip-triage",
+      "waf-web-attack",
+      "spam-source",
+      "suspicious-connection"
+    ],
+    "urlTemplate": "https://www.abuseipdb.com/check/{{ip}}",
+    "whyUse": "Shows community abuse reports for an IP including categories (brute force, port scan, spam, etc.).",
+    "lookFor": "Abuse confidence score, number of reports, categories, last reported date, ISP.",
+    "riskNote": "Lookup only. Reporting an IP makes it public.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "ip",
+      "reputation",
+      "abuse",
+      "community"
+    ]
+  },
+  {
+    "id": "ipinfo",
+    "name": "IPinfo",
+    "category": "IP Intelligence",
+    "description": "Detailed IP geolocation, ASN, and hosting provider information.",
+    "inputTypes": [
+      "ipv4",
+      "ipv6"
+    ],
+    "workflows": [
+      "ip-triage",
+      "waf-web-attack",
+      "spam-source",
+      "suspicious-connection",
+      "email-header-review",
+      "external-exposure"
+    ],
+    "urlTemplate": "https://ipinfo.io/{{ip}}",
+    "whyUse": "Quickly identify the owning ASN, hosting provider, and geographic location of an IP.",
+    "lookFor": "ASN, organisation, city/country, hosting vs residential, abuse contact.",
+    "riskNote": "Lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "ip",
+      "geo",
+      "asn",
+      "hosting"
+    ]
+  },
+  {
+    "id": "ipvoid",
+    "name": "IPVoid",
+    "category": "Reputation",
+    "description": "Multi-source IP blacklist check across many threat feeds.",
+    "inputTypes": [
+      "ipv4"
+    ],
+    "workflows": [
+      "ip-triage",
+      "waf-web-attack",
+      "spam-source"
+    ],
+    "urlTemplate": "https://www.ipvoid.com/ip-blacklist-check/",
+    "whyUse": "Aggregates many blacklists in one check. Useful when you want breadth of coverage.",
+    "lookFor": "Number of blacklists flagging the IP, which specific lists, detection ratio.",
+    "riskNote": "Navigate to the site and enter IP manually. Template links to the tool homepage.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "ip",
+      "blacklist",
+      "reputation"
+    ]
+  },
+  {
+    "id": "urlvoid",
+    "name": "URLVoid",
+    "category": "Reputation",
+    "description": "Multi-source domain/URL blacklist check.",
+    "inputTypes": [
+      "domain",
+      "url"
+    ],
+    "workflows": [
+      "domain-triage",
+      "url-phishing"
+    ],
+    "urlTemplate": "https://www.urlvoid.com/scan/{{domain}}",
+    "whyUse": "Aggregates domain reputation across multiple threat feeds and blacklists.",
+    "lookFor": "Detection count, which blacklists flagged it, WHOIS data, IP address.",
+    "riskNote": "Submits domain to scan. Avoid internal domain names.",
+    "submissionRisk": "medium",
+    "requiresAccount": "none",
+    "tags": [
+      "domain",
+      "url",
+      "blacklist",
+      "reputation"
+    ]
+  },
+  {
+    "id": "talos",
+    "name": "Talos Reputation Center",
+    "category": "Reputation",
+    "description": "Cisco Talos reputation lookup for IPs, domains, and URLs.",
+    "inputTypes": [
+      "ipv4",
+      "ipv6",
+      "domain",
+      "url",
+      "email"
+    ],
+    "workflows": [
+      "ip-triage",
+      "domain-triage",
+      "url-phishing",
+      "spam-source",
+      "malware-hash",
+      "suspicious-connection",
+      "waf-web-attack",
+      "takedown-reporting",
+      "ransomware-context",
+      "email-header-review"
+    ],
+    "urlTemplate": "https://talosintelligence.com/reputation_center/lookup?search={{encodedValue}}",
+    "whyUse": "Cisco Talos has broad visibility from email gateways, firewalls, and endpoint products. Strong for spam and email threat context.",
+    "lookFor": "Reputation score, email volume history, threat category, Sender Base score.",
+    "riskNote": "Lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "ip",
+      "domain",
+      "email",
+      "reputation",
+      "cisco",
+      "spam"
+    ]
+  },
+  {
+    "id": "fortiguard",
+    "name": "FortiGuard Web Filter",
+    "category": "Web Categorisation",
+    "description": "FortiGuard URL and domain categorisation lookup.",
+    "inputTypes": [
+      "domain",
+      "url",
+      "ipv4"
+    ],
+    "workflows": [
+      "domain-triage",
+      "url-phishing",
+      "takedown-reporting"
+    ],
+    "urlTemplate": "https://www.fortiguard.com/webfilter?q={{encodedValue}}",
+    "whyUse": "Check how FortiGuard categorises a domain. Useful if your org uses FortiGate and you need to understand why traffic was blocked or allowed.",
+    "lookFor": "Category assigned, risk level, FortiGuard recommendation.",
+    "riskNote": "Lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "domain",
+      "url",
+      "web-category",
+      "fortinet"
+    ]
+  },
+  {
+    "id": "brightcloud",
+    "name": "BrightCloud URL/IP Lookup",
+    "category": "Web Categorisation",
+    "description": "BrightCloud (Webroot) reputation and categorisation lookup.",
+    "inputTypes": [
+      "domain",
+      "url",
+      "ipv4"
+    ],
+    "workflows": [
+      "domain-triage",
+      "url-phishing",
+      "takedown-reporting"
+    ],
+    "urlTemplate": "https://www.brightcloud.com/tools/url-ip-lookup.php",
+    "whyUse": "Webroot-powered reputation. Useful for cross-referencing if Webroot products are in your environment.",
+    "lookFor": "Reputation score, category, first seen date.",
+    "riskNote": "Navigate and enter manually. Template links to tool homepage.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "domain",
+      "url",
+      "web-category",
+      "webroot"
+    ]
+  },
+  {
+    "id": "alienvault-otx",
+    "name": "AlienVault OTX",
+    "category": "Threat Intelligence",
+    "description": "Open Threat Exchange \u2014 community threat intelligence pulses for IPs, domains, hashes, and more.",
+    "inputTypes": [
+      "ipv4",
+      "ipv6",
+      "domain",
+      "url",
+      "md5",
+      "sha1",
+      "sha256"
+    ],
+    "workflows": [
+      "ip-triage",
+      "domain-triage",
+      "suspicious-connection",
+      "malware-hash",
+      "ransomware-context",
+      "external-exposure"
+    ],
+    "urlTemplate": "https://otx.alienvault.com/browse/global/pulses?q={{encodedValue}}",
+    "whyUse": "Broad community-sourced threat intel. Check for associated malware campaigns, threat actor attribution, and related indicators.",
+    "lookFor": "Pulse count, threat actor tags, related indicators, MITRE ATT&CK techniques.",
+    "riskNote": "Lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "ip",
+      "domain",
+      "hash",
+      "threat-intel",
+      "community"
+    ]
+  },
+  {
+    "id": "ibm-xforce",
+    "name": "IBM X-Force Exchange",
+    "category": "Threat Intelligence",
+    "description": "IBM X-Force threat intelligence platform for IPs, URLs, hashes, and vulnerabilities.",
+    "inputTypes": [
+      "ipv4",
+      "ipv6",
+      "domain",
+      "url",
+      "md5",
+      "sha1",
+      "sha256"
+    ],
+    "workflows": [
+      "ip-triage",
+      "domain-triage",
+      "suspicious-connection",
+      "malware-hash"
+    ],
+    "urlTemplate": "https://exchange.xforce.ibmcloud.com/search/{{encodedValue}}",
+    "whyUse": "IBM's commercial threat feed. Good cross-reference especially for enterprise environments.",
+    "lookFor": "Risk score, categories, associated reports, malware families.",
+    "riskNote": "Lookup only. Some features require account.",
+    "submissionRisk": "low",
+    "requiresAccount": "free_account",
+    "tags": [
+      "ip",
+      "domain",
+      "hash",
+      "threat-intel",
+      "ibm"
+    ]
+  },
+  {
+    "id": "dnsdumpster",
+    "name": "DNSDumpster",
+    "category": "DNS / OSINT",
+    "description": "Free DNS recon tool. Shows DNS records, subdomains, and related hosts.",
+    "inputTypes": [
+      "domain"
+    ],
+    "workflows": [
+      "domain-triage",
+      "suspicious-connection",
+      "external-exposure"
+    ],
+    "urlTemplate": "https://dnsdumpster.com/",
+    "whyUse": "Quickly enumerate a domain's DNS posture \u2014 useful for understanding attack surface or verifying legitimate infrastructure.",
+    "lookFor": "MX records, A/AAAA records, subdomains, hosting providers, related IPs.",
+    "riskNote": "Enter domain manually on the site. Template links to the tool homepage.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "dns",
+      "domain",
+      "recon",
+      "osint"
+    ]
+  },
+  {
+    "id": "crtsh",
+    "name": "crt.sh Certificate Search",
+    "category": "Certificate / OSINT",
+    "description": "Search Certificate Transparency logs for domains and subdomains.",
+    "inputTypes": [
+      "domain"
+    ],
+    "workflows": [
+      "domain-triage",
+      "suspicious-connection",
+      "external-exposure"
+    ],
+    "urlTemplate": "https://crt.sh/?q={{encodedDomain}}",
+    "whyUse": "Certificate Transparency logs reveal all SSL certificates ever issued for a domain, including subdomains. Essential for attack surface mapping.",
+    "lookFor": "Subdomains, certificate issue dates, certificate authority, wildcard certs.",
+    "riskNote": "Lookup only. Public CT log data \u2014 no sensitivity.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "certificate",
+      "domain",
+      "subdomain",
+      "ct-logs",
+      "osint"
+    ]
+  },
+  {
+    "id": "shodan-host",
+    "name": "Shodan Host",
+    "category": "Exposure",
+    "description": "View open ports, services, and banners for a specific IP address.",
+    "inputTypes": [
+      "ipv4",
+      "ipv6"
+    ],
+    "workflows": [
+      "ip-triage",
+      "suspicious-connection",
+      "waf-web-attack",
+      "external-exposure"
+    ],
+    "urlTemplate": "https://www.shodan.io/host/{{ip}}",
+    "whyUse": "Shows what services are exposed on an IP. Useful for confirming if a server is a known scanner, VPN node, or exposed service.",
+    "lookFor": "Open ports, service banners, SSL certificates, known vulnerabilities (CVEs), hostnames.",
+    "riskNote": "Lookup only. Shodan may have indexed your assets \u2014 no additional exposure from searching.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "ip",
+      "exposure",
+      "ports",
+      "shodan"
+    ]
+  },
+  {
+    "id": "shodan-search",
+    "name": "Shodan Search",
+    "category": "Exposure",
+    "description": "Search Shodan for domains, hostnames, and internet-exposed assets.",
+    "inputTypes": [
+      "domain",
+      "url",
+      "ipv4"
+    ],
+    "workflows": [
+      "domain-triage",
+      "external-exposure"
+    ],
+    "urlTemplate": "https://www.shodan.io/search?query={{encodedQuery}}",
+    "whyUse": "Search Shodan for services associated with a domain name. Reveals hosting, infrastructure, and exposed assets.",
+    "lookFor": "Servers hosting the domain, exposed services, cloud providers, unusual ports.",
+    "riskNote": "Lookup only.",
+    "submissionRisk": "low",
+    "requiresAccount": "free_account",
+    "tags": [
+      "domain",
+      "exposure",
+      "shodan",
+      "osint"
+    ]
+  },
+  {
+    "id": "censys-host",
+    "name": "Censys Host",
+    "category": "Exposure",
+    "description": "Censys host-level view of open ports, services, and certificates for an IP.",
+    "inputTypes": [
+      "ipv4",
+      "ipv6"
+    ],
+    "workflows": [
+      "ip-triage",
+      "suspicious-connection",
+      "waf-web-attack",
+      "external-exposure"
+    ],
+    "urlTemplate": "https://search.censys.io/hosts/{{ip}}",
+    "whyUse": "Similar to Shodan. Good for cross-referencing open ports and certificates on an IP.",
+    "lookFor": "Open ports, TLS certificates, ASN, hostnames, services.",
+    "riskNote": "Lookup only.",
+    "submissionRisk": "low",
+    "requiresAccount": "free_account",
+    "tags": [
+      "ip",
+      "exposure",
+      "censys",
+      "ports"
+    ]
+  },
+  {
+    "id": "censys-search",
+    "name": "Censys Search",
+    "category": "Exposure",
+    "description": "Search Censys for domains, certificates, and internet-facing assets.",
+    "inputTypes": [
+      "domain",
+      "url",
+      "ipv4"
+    ],
+    "workflows": [
+      "domain-triage",
+      "external-exposure"
+    ],
+    "urlTemplate": "https://search.censys.io/search?resource=hosts&q={{encodedQuery}}",
+    "whyUse": "Useful for finding all IPs hosting a domain or certificate. Good for external attack surface enumeration.",
+    "lookFor": "Hosts, certificates, exposed services linked to the domain.",
+    "riskNote": "Lookup only.",
+    "submissionRisk": "low",
+    "requiresAccount": "free_account",
+    "tags": [
+      "domain",
+      "exposure",
+      "censys",
+      "osint"
+    ]
+  },
+  {
+    "id": "whoisxml",
+    "name": "WhoisXML API",
+    "category": "WHOIS / Registration",
+    "description": "WHOIS lookup for domain registration details.",
+    "inputTypes": [
+      "domain",
+      "url",
+      "email"
+    ],
+    "workflows": [
+      "domain-triage",
+      "spam-source",
+      "dark-web-exposure",
+      "takedown-reporting",
+      "external-exposure"
+    ],
+    "urlTemplate": "https://whois.whoisxmlapi.com/lookup",
+    "whyUse": "Check domain registration dates, registrar, registrant details, and nameservers. Useful for takedowns and phishing investigations.",
+    "lookFor": "Registration date (newly registered = suspicious), registrar, privacy shield, nameservers, registrant contact.",
+    "riskNote": "Navigate to the site. Template links to the lookup page. Enter domain manually.",
+    "submissionRisk": "low",
+    "requiresAccount": "free_account",
+    "tags": [
+      "domain",
+      "whois",
+      "registration"
+    ]
+  },
+  {
+    "id": "domaintools-whois",
+    "name": "DomainTools WHOIS",
+    "category": "WHOIS / Registration",
+    "description": "DomainTools WHOIS lookup with historical registration data.",
+    "inputTypes": [
+      "domain",
+      "url"
+    ],
+    "workflows": [
+      "domain-triage",
+      "dark-web-exposure",
+      "takedown-reporting",
+      "external-exposure"
+    ],
+    "urlTemplate": "https://whois.domaintools.com/{{domain}}",
+    "whyUse": "DomainTools has historical WHOIS and domain registration pivots. Useful for tracking domain infrastructure changes over time.",
+    "lookFor": "Registration history, related domains by registrant, nameserver changes, registrar.",
+    "riskNote": "Lookup only. Full pivots require paid account.",
+    "submissionRisk": "low",
+    "requiresAccount": "mixed",
+    "tags": [
+      "domain",
+      "whois",
+      "registration",
+      "history"
+    ]
+  },
+  {
+    "id": "cyberchef",
+    "name": "CyberChef",
+    "category": "Analysis / Decoding",
+    "description": "Browser-based data transformation and decoding tool from GCHQ.",
+    "inputTypes": [
+      "url",
+      "domain",
+      "md5",
+      "sha1",
+      "sha256",
+      "ipv4",
+      "ipv6",
+      "email"
+    ],
+    "workflows": [
+      "url-phishing",
+      "malware-hash",
+      "waf-web-attack",
+      "email-header-review"
+    ],
+    "urlTemplate": "https://cyberchef.org/",
+    "whyUse": "Decode base64, URL encoding, XOR, hash, and many other transformations. Runs entirely in your browser \u2014 no data leaves your machine.",
+    "lookFor": "Decoded payloads, obfuscated URLs, encoded commands, base64 blobs.",
+    "riskNote": "Runs locally in your browser. No data is sent to any server. Safe for sensitive data.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "decode",
+      "analysis",
+      "local",
+      "encoding",
+      "safe"
+    ]
+  },
+  {
+    "id": "unfurl",
+    "name": "Unfurl",
+    "category": "URL Analysis",
+    "description": "Visual URL decomposer \u2014 breaks URLs into their component parts for forensic analysis.",
+    "inputTypes": [
+      "url"
+    ],
+    "workflows": [
+      "url-phishing",
+      "email-header-review"
+    ],
+    "urlTemplate": "https://dfir.blog/unfurl/",
+    "whyUse": "Visually decodes URL structures including base64 parameters, timestamps, and tracking tokens. Runs in browser.",
+    "lookFor": "Hidden parameters, tracking IDs, encoded values, structural anomalies.",
+    "riskNote": "Runs in your browser. Low risk if you paste URL into the local tool rather than submitting to external API.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "url",
+      "decode",
+      "forensics",
+      "analysis"
+    ]
+  },
+  {
+    "id": "phishtool",
+    "name": "PhishTool",
+    "category": "Phishing Analysis",
+    "description": "Email and phishing triage platform. Analyse email headers and URLs.",
+    "inputTypes": [
+      "url",
+      "domain",
+      "email"
+    ],
+    "workflows": [
+      "url-phishing",
+      "spam-source",
+      "email-header-review"
+    ],
+    "urlTemplate": "https://app.phishtool.com/",
+    "whyUse": "Purpose-built for phishing triage. Parses email headers, analyses URLs, and provides contextualised threat intel.",
+    "lookFor": "Header anomalies, SPF/DKIM/DMARC results, URL analysis, threat classification.",
+    "riskNote": "Uploading email samples sends data to PhishTool. Check your data handling policy.",
+    "submissionRisk": "high",
+    "requiresAccount": "free_account",
+    "tags": [
+      "phishing",
+      "email",
+      "url",
+      "header-analysis"
+    ]
+  },
+  {
+    "id": "urlhaus",
+    "name": "URLhaus",
+    "category": "Malware / URL",
+    "description": "Abuse.ch database of malware distribution URLs.",
+    "inputTypes": [
+      "url",
+      "domain",
+      "ipv4",
+      "md5",
+      "sha1",
+      "sha256"
+    ],
+    "workflows": [
+      "url-phishing",
+      "malware-hash",
+      "suspicious-connection",
+      "ransomware-context"
+    ],
+    "urlTemplate": "https://urlhaus.abuse.ch/browse.php?search={{encodedValue}}",
+    "whyUse": "Check if a URL or domain has been reported as a malware distribution point.",
+    "lookFor": "Malware type, associated tags, status (online/offline), date added, payloads.",
+    "riskNote": "Lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "url",
+      "malware",
+      "distribution",
+      "abuse-ch"
+    ]
+  },
+  {
+    "id": "threatfox",
+    "name": "ThreatFox",
+    "category": "Threat Intelligence",
+    "description": "Abuse.ch IOC sharing platform for malware C2s, URLs, and hashes.",
+    "inputTypes": [
+      "url",
+      "domain",
+      "ipv4",
+      "md5",
+      "sha1",
+      "sha256"
+    ],
+    "workflows": [
+      "url-phishing",
+      "malware-hash",
+      "suspicious-connection",
+      "ransomware-context"
+    ],
+    "urlTemplate": "https://threatfox.abuse.ch/browse.php?search=ioc:{{value}}",
+    "whyUse": "Check if an IOC is a known malware C2 or has been associated with a threat actor.",
+    "lookFor": "Malware family, threat actor, confidence level, first/last seen, related IOCs.",
+    "riskNote": "Lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "c2",
+      "malware",
+      "threat-intel",
+      "abuse-ch"
+    ]
+  },
+  {
+    "id": "anyrun-intel",
+    "name": "ANY.RUN Intelligence",
+    "category": "Threat Intelligence",
+    "description": "ANY.RUN threat intelligence portal. Search for IOC associations, malware families, and threat actor infrastructure.",
+    "inputTypes": [
+      "md5",
+      "sha1",
+      "sha256",
+      "url",
+      "domain",
+      "ipv4"
+    ],
+    "workflows": [
+      "malware-hash",
+      "ransomware-context"
+    ],
+    "urlTemplate": "https://intelligence.any.run/",
+    "whyUse": "Search for malware family associations, threat actor infrastructure, network indicators, and related IOCs from sandbox telemetry.",
+    "lookFor": "Malware family classifications, associated C2 domains/IPs, threat actor clusters, related samples.",
+    "riskNote": "Lookup only against existing intelligence. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "free_account",
+    "tags": [
+      "threat-intel",
+      "malware",
+      "hash",
+      "c2",
+      "any-run"
+    ]
+  },
+  {
+    "id": "anyrun-sandbox",
+    "name": "ANY.RUN Sandbox",
+    "category": "Sandbox",
+    "description": "Interactive online malware sandbox. Search for existing reports or submit samples for dynamic analysis.",
+    "inputTypes": [
+      "md5",
+      "sha1",
+      "sha256",
+      "url"
+    ],
+    "workflows": [
+      "malware-hash",
+      "ransomware-context"
+    ],
+    "urlTemplate": "https://app.any.run/",
+    "whyUse": "Run or find interactive sandbox reports with live process trees, network capture, and behaviour classification.",
+    "lookFor": "Process tree, network connections (DNS, HTTP, C2), dropped files, registry changes, MITRE ATT&CK mapping.",
+    "riskNote": "Submitting a new sample makes it public on the free tier. Searching existing reports is lower risk. Check your SOC policy before submitting.",
+    "submissionRisk": "high",
+    "requiresAccount": "free_account",
+    "tags": [
+      "sandbox",
+      "malware",
+      "dynamic-analysis",
+      "hash",
+      "any-run"
+    ]
+  },
+  {
+    "id": "lookyloo",
+    "name": "Lookyloo",
+    "category": "URL Analysis",
+    "description": "Web page capture and analysis tool. Takes a full browser rendering of a URL.",
+    "inputTypes": [
+      "url",
+      "domain"
+    ],
+    "workflows": [
+      "url-phishing",
+      "takedown-reporting"
+    ],
+    "urlTemplate": "https://lookyloo.circl.lu/",
+    "whyUse": "Captures full page renders with resource loads, redirects, and DOM screenshots. Good for phishing and takedown evidence.",
+    "lookFor": "Redirect chains, credential harvesting forms, external resource loads, final rendered page.",
+    "riskNote": "Lookyloo makes an active request to the target URL. Do not use for sensitive or internal URLs. The capture may be public.",
+    "submissionRisk": "high",
+    "requiresAccount": "none",
+    "tags": [
+      "url",
+      "screenshot",
+      "phishing",
+      "redirect"
+    ]
+  },
+  {
+    "id": "phish-report",
+    "name": "phish.report",
+    "category": "Phishing Reporting",
+    "description": "Submit phishing URLs for takedown via phish.report's automated reporting pipeline.",
+    "inputTypes": [
+      "url",
+      "domain"
+    ],
+    "workflows": [
+      "url-phishing",
+      "takedown-reporting"
+    ],
+    "urlTemplate": "https://phish.report/analysis",
+    "whyUse": "Streamlines phishing takedown requests by submitting to hosting providers, registrars, and abuse contacts.",
+    "lookFor": "Abuse contact found, takedown timeline, report confirmation.",
+    "riskNote": "Submitting a URL triggers active takedown requests. Confirm the URL is malicious before submitting.",
+    "submissionRisk": "high",
+    "requiresAccount": "none",
+    "tags": [
+      "phishing",
+      "takedown",
+      "reporting",
+      "url"
+    ]
+  },
+  {
+    "id": "google-safebrowsing",
+    "name": "Google Safe Browsing Report Phish",
+    "category": "Phishing Reporting",
+    "description": "Report a phishing URL to Google Safe Browsing for protective blacklisting.",
+    "inputTypes": [
+      "url",
+      "domain"
+    ],
+    "workflows": [
+      "url-phishing",
+      "takedown-reporting"
+    ],
+    "urlTemplate": "https://safebrowsing.google.com/safebrowsing/report_phish/",
+    "whyUse": "Reporting to Google Safe Browsing gets the URL flagged in Chrome, Firefox, and other browsers that use GSB.",
+    "lookFor": "Confirmation of report submission.",
+    "riskNote": "Submitting reports the URL to Google. Do not submit internal or false-positive URLs.",
+    "submissionRisk": "high",
+    "requiresAccount": "none",
+    "tags": [
+      "phishing",
+      "takedown",
+      "reporting",
+      "google"
+    ]
+  },
+  {
+    "id": "synapsint",
+    "name": "SynapsInt",
+    "category": "OSINT",
+    "description": "Unified OSINT platform for domains, IPs, emails, and certificates.",
+    "inputTypes": [
+      "domain",
+      "ipv4",
+      "email"
+    ],
+    "workflows": [
+      "domain-triage"
+    ],
+    "urlTemplate": "https://synapsint.com/",
+    "whyUse": "Aggregates multiple OSINT sources into a single interface. Good for rapid domain/IP pivoting.",
+    "lookFor": "Associated domains, IP infrastructure, certificates, social media presence.",
+    "riskNote": "Enter IOC manually on the site. Template links to homepage.",
+    "submissionRisk": "medium",
+    "requiresAccount": "none",
+    "tags": [
+      "osint",
+      "domain",
+      "ip",
+      "email",
+      "pivot"
+    ]
+  },
+  {
+    "id": "intelligence-x",
+    "name": "Intelligence X",
+    "category": "Dark Web / OSINT",
+    "description": "Search engine for dark web, data leaks, and OSINT across many sources.",
+    "inputTypes": [
+      "email",
+      "domain",
+      "ipv4",
+      "url"
+    ],
+    "workflows": [
+      "dark-web-exposure"
+    ],
+    "urlTemplate": "https://intelx.io/tools?tab=search",
+    "whyUse": "Searches dark web forums, Telegram, paste sites, and data breach archives for mentions of an IOC.",
+    "lookFor": "Credential leaks, mentions in breach data, dark web discussions, paste site exposures.",
+    "riskNote": "Navigate and search manually. Some features require paid tier.",
+    "submissionRisk": "low",
+    "requiresAccount": "mixed",
+    "tags": [
+      "dark-web",
+      "breach",
+      "osint",
+      "email",
+      "leak"
+    ]
+  },
+  {
+    "id": "whiteintel",
+    "name": "WhiteIntel",
+    "category": "Dark Web / Credential",
+    "description": "Platform for monitoring dark web credential exposure and stealer logs.",
+    "inputTypes": [
+      "email",
+      "domain"
+    ],
+    "workflows": [
+      "dark-web-exposure"
+    ],
+    "urlTemplate": "https://platform.whiteintel.io/dashboard",
+    "whyUse": "Monitors stealer malware logs for compromised credentials associated with your domain or email addresses.",
+    "lookFor": "Stolen credentials, session tokens from infostealers, affected usernames.",
+    "riskNote": "Navigate to the platform. Registration required.",
+    "submissionRisk": "low",
+    "requiresAccount": "free_account",
+    "tags": [
+      "dark-web",
+      "credential",
+      "stealer",
+      "breach"
+    ]
+  },
+  {
+    "id": "ipqualityscore",
+    "name": "IPQualityScore",
+    "category": "Fraud / Proxy Detection",
+    "description": "IP reputation, proxy/VPN/Tor detection, and fraud scoring.",
+    "inputTypes": [
+      "ipv4"
+    ],
+    "workflows": [
+      "ip-triage",
+      "dark-web-exposure"
+    ],
+    "urlTemplate": "https://www.ipqualityscore.com/free-ip-lookup-proxy-vpn-test/lookup/{{ip}}",
+    "whyUse": "Detects VPNs, proxies, Tor exit nodes, and residential proxies. Strong fraud scoring.",
+    "lookFor": "Proxy/VPN/Tor flag, fraud score, ISP, connection type, abuse history.",
+    "riskNote": "Lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "ip",
+      "proxy",
+      "vpn",
+      "fraud",
+      "detection"
+    ]
+  },
+  {
+    "id": "spur",
+    "name": "Spur",
+    "category": "Proxy / VPN Detection",
+    "description": "Specialised IP proxy and VPN intelligence. Identifies residential proxies, VPN exits, and anonymisation infrastructure.",
+    "inputTypes": [
+      "ipv4"
+    ],
+    "workflows": [
+      "ip-triage",
+      "waf-web-attack",
+      "dark-web-exposure"
+    ],
+    "urlTemplate": "https://app.spur.us/context/{{ip}}",
+    "whyUse": "Spur has deep intelligence on proxy networks, residential proxies, and anonymisation services. Useful for identifying bypass attempts.",
+    "lookFor": "Proxy type, network infrastructure, associated users (anonymised), confidence score.",
+    "riskNote": "Lookup only. Some detail requires paid tier.",
+    "submissionRisk": "low",
+    "requiresAccount": "mixed",
+    "tags": [
+      "ip",
+      "proxy",
+      "vpn",
+      "residential-proxy"
+    ]
+  },
+  {
+    "id": "ip-teoh",
+    "name": "IP Teoh VPN Detection",
+    "category": "Proxy / VPN Detection",
+    "description": "Quick VPN and proxy detection for IP addresses.",
+    "inputTypes": [
+      "ipv4"
+    ],
+    "workflows": [
+      "ip-triage",
+      "waf-web-attack"
+    ],
+    "urlTemplate": "https://ip.teoh.io/vpn-detection?ip={{ip}}",
+    "whyUse": "Lightweight VPN/proxy check. Fast to use for a quick second opinion.",
+    "lookFor": "VPN detected flag, provider name, risk level.",
+    "riskNote": "Lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "ip",
+      "vpn",
+      "proxy",
+      "detection"
+    ]
+  },
+  {
+    "id": "urlquery",
+    "name": "urlquery.net",
+    "category": "URL Analysis",
+    "description": "URL scanning and analysis service. Checks for malicious content and drive-by downloads.",
+    "inputTypes": [
+      "url",
+      "domain"
+    ],
+    "workflows": [
+      "url-phishing"
+    ],
+    "urlTemplate": "https://urlquery.net/search?q={{encodedValue}}",
+    "whyUse": "Scans URLs for malicious scripts, exploit kits, and suspicious redirects.",
+    "lookFor": "IDS alerts, JavaScript anomalies, redirect chains, external resource loads.",
+    "riskNote": "Submitting a URL triggers a live scan. Do not submit sensitive or internal URLs.",
+    "submissionRisk": "high",
+    "requiresAccount": "none",
+    "tags": [
+      "url",
+      "scanning",
+      "malware",
+      "exploit"
+    ]
+  },
+  {
+    "id": "wannabrowser",
+    "name": "WannaBrowser",
+    "category": "URL Analysis",
+    "description": "Headless browser URL analysis. Visit URLs safely to see what they serve.",
+    "inputTypes": [
+      "url",
+      "domain"
+    ],
+    "workflows": [
+      "url-phishing"
+    ],
+    "urlTemplate": "https://www.wannabrowser.net/",
+    "whyUse": "Browse suspicious URLs in a sandboxed browser without exposing your workstation. Good for quick visual analysis.",
+    "lookFor": "Page content, redirects, credentials harvesting forms, malicious scripts.",
+    "riskNote": "WannaBrowser makes an active request to the target URL. Do not use for internal URLs.",
+    "submissionRisk": "high",
+    "requiresAccount": "none",
+    "tags": [
+      "url",
+      "browser",
+      "sandbox",
+      "safe-browse"
+    ]
+  },
+  {
+    "id": "ransomware-live",
+    "name": "Ransomware.live",
+    "category": "Ransomware Intelligence",
+    "description": "Live tracking of ransomware groups, victims, and campaigns.",
+    "inputTypes": [
+      "domain",
+      "ipv4",
+      "md5",
+      "sha1",
+      "sha256"
+    ],
+    "workflows": [
+      "ransomware-context",
+      "dark-web-exposure"
+    ],
+    "urlTemplate": "https://www.ransomware.live/",
+    "whyUse": "Check if a domain or organisation has appeared in ransomware group leak sites. Useful for dark web exposure assessment.",
+    "lookFor": "Victim listings, ransomware group attribution, leak dates, data types exposed.",
+    "riskNote": "Lookup only. Navigate manually.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "ransomware",
+      "dark-web",
+      "victim",
+      "leak"
+    ]
+  },
+  {
+    "id": "mxtoolbox",
+    "name": "MXToolbox",
+    "category": "Email / DNS",
+    "description": "Email deliverability and DNS diagnostics. SPF, DKIM, DMARC, MX record lookup and blacklist check.",
+    "inputTypes": [
+      "domain",
+      "email",
+      "ipv4"
+    ],
+    "workflows": [
+      "spam-source",
+      "email-header-review"
+    ],
+    "urlTemplate": "https://mxtoolbox.com/SuperTool.aspx?action={{encodedValue}}",
+    "whyUse": "Verify email authentication records (SPF, DKIM, DMARC) and check if a domain or IP is on email blacklists.",
+    "lookFor": "SPF/DKIM/DMARC pass/fail, blacklist hits, MX record configuration issues.",
+    "riskNote": "Lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "email",
+      "spf",
+      "dkim",
+      "dmarc",
+      "mx",
+      "blacklist"
+    ]
+  },
+  {
+    "id": "malwarebazaar",
+    "name": "MalwareBazaar",
+    "category": "Malware Analysis",
+    "description": "Abuse.ch malware sample database. Search and download samples by hash, tag, or malware family.",
+    "inputTypes": [
+      "md5",
+      "sha1",
+      "sha256"
+    ],
+    "workflows": [
+      "malware-hash"
+    ],
+    "urlTemplate": "https://bazaar.abuse.ch/browse.php?search={{encodedValue}}",
+    "whyUse": "Check if a hash is a known malware sample. Provides file metadata, signatures, and download of the sample.",
+    "lookFor": "Malware family, file type, first seen, tags, associated YARA/ClamAV rules.",
+    "riskNote": "Lookup only. Downloading samples is only advisable in a secure malware analysis environment.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "hash",
+      "malware",
+      "sample",
+      "abuse-ch"
+    ]
+  },
+  {
+    "id": "hybrid-analysis",
+    "name": "Hybrid Analysis",
+    "category": "Sandbox",
+    "description": "Free malware analysis sandbox with static and dynamic analysis reports.",
+    "inputTypes": [
+      "md5",
+      "sha1",
+      "sha256",
+      "url"
+    ],
+    "workflows": [
+      "malware-hash"
+    ],
+    "urlTemplate": "https://www.hybrid-analysis.com/search?query={{encodedValue}}",
+    "whyUse": "Search historical sandbox reports or submit a sample for analysis. Good for behavioural analysis and C2 extraction.",
+    "lookFor": "Process tree, network connections, dropped files, classification verdict, MITRE ATT&CK mapping.",
+    "riskNote": "Submitting a new sample makes it public. Searching existing reports is low risk.",
+    "submissionRisk": "high",
+    "requiresAccount": "free_account",
+    "tags": [
+      "sandbox",
+      "malware",
+      "dynamic-analysis",
+      "hash"
+    ]
+  },
+  {
+    "id": "ms-header-analyzer",
+    "name": "Microsoft Message Header Analyzer",
+    "category": "Email Analysis",
+    "description": "Paste raw email headers to parse and analyse routing, delays, and authentication results.",
+    "inputTypes": [
+      "email",
+      "domain",
+      "ipv4",
+      "url"
+    ],
+    "workflows": [
+      "email-header-review",
+      "spam-source",
+      "url-phishing"
+    ],
+    "urlTemplate": "https://mha.azurewebsites.net/",
+    "whyUse": "Parses complex email headers into a readable format. Shows hop-by-hop routing, SPF/DKIM/DMARC results, and delivery delays.",
+    "lookFor": "SPF/DKIM/DMARC failures, unusual relay hops, unexpected sending IPs, X-headers from security gateways.",
+    "riskNote": "Runs in your browser. Email headers are processed client-side. Low risk, but avoid submitting full email bodies.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "email",
+      "header",
+      "spf",
+      "dkim",
+      "dmarc",
+      "routing"
+    ]
+  },
+  {
+    "id": "bgp-he",
+    "name": "Hurricane Electric BGP",
+    "category": "IP Intelligence",
+    "description": "IP WHOIS, ASN, BGP routing, and peer information from Hurricane Electric.",
+    "inputTypes": [
+      "ipv4",
+      "ipv6"
+    ],
+    "workflows": [
+      "ip-triage",
+      "suspicious-connection"
+    ],
+    "urlTemplate": "https://bgp.he.net/ip/{{ip}}",
+    "whyUse": "Single view of IP WHOIS from all RIRs alongside ASN, BGP prefixes, and upstream peers. Useful for attributing IPs to hosting providers, ISPs, or known malicious ASNs.",
+    "lookFor": "RIR WHOIS data, owning organisation, ASN, BGP prefix, upstream peers, abuse contact.",
+    "riskNote": "Lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": [
+      "ip",
+      "whois",
+      "asn",
+      "bgp",
+      "routing"
+    ]
+  },
+  {
+    "id": "securitytrails-ip",
+    "name": "SecurityTrails IP History",
+    "category": "DNS / OSINT",
+    "description": "Historical DNS lookup \u2014 shows all domains that have resolved to this IP address over time.",
+    "inputTypes": [
+      "ipv4"
+    ],
+    "workflows": [
+      "ip-triage",
+      "suspicious-connection"
+    ],
+    "urlTemplate": "https://securitytrails.com/list/ip/{{ip}}",
+    "whyUse": "Reveals what domains have historically pointed to an IP. Useful for identifying shared hosting, bulletproof infrastructure, or domain rotation patterns.",
+    "lookFor": "Domains currently or previously resolving to the IP, hosting clusters, suspicious domain patterns, co-hosted malicious sites.",
+    "riskNote": "Lookup only. Free account required for full results.",
+    "submissionRisk": "low",
+    "requiresAccount": "free_account",
+    "tags": [
+      "ip",
+      "dns",
+      "history",
+      "passive-dns",
+      "osint"
+    ]
+  },
+  {
+    "id": "sans-isc",
+    "name": "SANS Internet Storm Center",
+    "category": "Threat Intelligence",
+    "description": "SANS ISC IP reputation feed. Shows if an IP has been reported via their global sensor and honeypot network.",
+    "inputTypes": ["ipv4"],
+    "workflows": ["ip-triage", "suspicious-connection"],
+    "urlTemplate": "https://isc.sans.edu/ipinfo/{{ip}}",
+    "whyUse": "SANS ISC aggregates reports from security practitioners globally. An IP appearing here indicates observed malicious activity reported by the community.",
+    "lookFor": "Report count, attack type, first/last seen, number of sources reporting, threat category.",
+    "riskNote": "Lookup only. Low risk.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": ["ip", "reputation", "threat-intel", "sans", "honeypot"]
+  },
+  {
+    "id": "hunter-domain",
+    "name": "Hunter.io",
+    "category": "Business OSINT",
+    "description": "Identify the company behind a domain. Returns organisation name, industry, employee count, email format pattern, and HQ location.",
+    "inputTypes": ["domain", "url"],
+    "workflows": ["business-domain-osint", "domain-triage", "url-phishing"],
+    "urlTemplate": "https://hunter.io/search/{{domain}}",
+    "whyUse": "Quickly determine if a domain belongs to a real, identifiable business. No company match is a red flag for lookalike/phishing domains.",
+    "lookFor": "Organisation name (null = unregistered), email pattern, headcount, industry, city/country. Check if it's a disposable or webmail provider.",
+    "riskNote": "Lookup only. Domain is sent to Hunter.io.",
+    "submissionRisk": "low",
+    "requiresAccount": "optional",
+    "tags": ["domain", "business", "email", "osint", "company"]
+  },
+  {
+    "id": "opencorporates",
+    "name": "OpenCorporates",
+    "category": "Business OSINT",
+    "description": "The world's largest open database of companies. Search by company name or domain to find registration details across 140+ jurisdictions.",
+    "inputTypes": ["domain", "url"],
+    "workflows": ["business-domain-osint"],
+    "urlTemplate": "https://opencorporates.com/companies?q={{domain}}",
+    "whyUse": "Verify that a company claiming to own a domain is actually registered. Useful for vendor vetting and supply-chain investigations.",
+    "lookFor": "Company registration number, jurisdiction, registered address, directors, company status (active/dissolved), incorporation date.",
+    "riskNote": "Search query sent to OpenCorporates.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": ["domain", "company", "registration", "osint", "business"]
+  },
+  {
+    "id": "companies-house-uk",
+    "name": "Companies House (UK)",
+    "category": "Business OSINT",
+    "description": "UK government register of companies. Official source for UK company registration, directors, filings, and accounts.",
+    "inputTypes": ["domain", "url"],
+    "workflows": ["business-domain-osint"],
+    "urlTemplate": "https://find-and-update.company-information.service.gov.uk/search?q={{domain}}",
+    "whyUse": "Authoritative UK company verification. For incidents involving UK-based entities, this is the ground truth for company legitimacy.",
+    "lookFor": "Company number, registered address, director names, filing history, company status, SIC code (business type).",
+    "riskNote": "Search query sent to Companies House.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": ["domain", "company", "uk", "registration", "osint", "business"]
+  },
+  {
+    "id": "whoxy",
+    "name": "Whoxy WHOIS History",
+    "category": "Business OSINT",
+    "description": "Historical WHOIS lookup service. Shows how registrant information has changed over time — previously registered to, registrar changes, ownership transfers.",
+    "inputTypes": ["domain", "url"],
+    "workflows": ["business-domain-osint", "domain-triage"],
+    "urlTemplate": "https://www.whoxy.com/{{domain}}",
+    "whyUse": "Exposes domain ownership history that current WHOIS hides. Useful for detecting re-registered domains and ownership changes that coincide with suspicious activity.",
+    "lookFor": "Previous registrant names/emails, registrar history, when privacy protection was added, changes around key dates.",
+    "riskNote": "Domain sent to Whoxy.",
+    "submissionRisk": "low",
+    "requiresAccount": "optional",
+    "tags": ["domain", "whois", "history", "osint", "business", "registration"]
+  },
+  {
+    "id": "wayback-machine",
+    "name": "Wayback Machine",
+    "category": "Business OSINT",
+    "description": "Internet Archive snapshots of web pages over time. Reveals what a domain looked like months or years ago.",
+    "inputTypes": ["domain", "url"],
+    "workflows": ["business-domain-osint", "domain-triage", "url-phishing"],
+    "urlTemplate": "https://web.archive.org/web/*/{{domain}}",
+    "whyUse": "Determine how long a domain has been active and what it was used for previously. A phishing domain typically has zero or very recent snapshots.",
+    "lookFor": "First snapshot date (old = more established), content at key dates, whether the domain was previously legitimate and has been taken over.",
+    "riskNote": "Domain sent to archive.org.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": ["domain", "archive", "history", "osint", "phishing"]
+  },
+  {
+    "id": "builtwith",
+    "name": "BuiltWith",
+    "category": "Business OSINT",
+    "description": "Technology profiler that shows what software, frameworks, CDNs, analytics, and hosting services a domain uses.",
+    "inputTypes": ["domain", "url"],
+    "workflows": ["business-domain-osint", "domain-triage"],
+    "urlTemplate": "https://builtwith.com/{{domain}}",
+    "whyUse": "A legitimate business typically runs recognisable commercial software. A phishing domain often uses minimal infrastructure. Tech stack consistency with claimed identity is a legitimacy signal.",
+    "lookFor": "CMS/ecommerce platform (does it match the business type?), CDN provider, analytics tools, payment providers, hosting location.",
+    "riskNote": "Domain sent to BuiltWith.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": ["domain", "technology", "osint", "infrastructure", "business"]
+  },
+  {
+    "id": "securitytrails-domain",
+    "name": "SecurityTrails",
+    "category": "Business OSINT",
+    "description": "DNS history, subdomain discovery, and WHOIS history for domains. Shows historical A records, nameserver changes, and subdomains.",
+    "inputTypes": ["domain", "url"],
+    "workflows": ["business-domain-osint", "domain-triage"],
+    "urlTemplate": "https://securitytrails.com/domain/{{domain}}/dns",
+    "whyUse": "Reveals historical IP addresses the domain has pointed to, subdomain infrastructure, and nameserver changes that may indicate takeovers or migration.",
+    "lookFor": "Historical A records (which IPs it pointed to), nameserver changes, MX record history, subdomain list, when records changed.",
+    "riskNote": "Domain sent to SecurityTrails.",
+    "submissionRisk": "low",
+    "requiresAccount": "optional",
+    "tags": ["domain", "dns", "history", "subdomains", "osint", "infrastructure"]
+  },
+  {
+    "id": "linkedin-company",
+    "name": "LinkedIn Company Search",
+    "category": "Business OSINT",
+    "description": "Search LinkedIn for a company by domain name to verify size, industry, location, and employee presence.",
+    "inputTypes": ["domain", "url"],
+    "workflows": ["business-domain-osint"],
+    "urlTemplate": "https://www.linkedin.com/search/results/companies/?keywords={{domain}}",
+    "whyUse": "A legitimate company typically has a LinkedIn presence. No presence, or a very recently created page, is a red flag.",
+    "lookFor": "Company page age, employee count, industry, headquarters, whether employees are visible, company description consistency.",
+    "riskNote": "Search terms sent to LinkedIn.",
+    "submissionRisk": "low",
+    "requiresAccount": "optional",
+    "tags": ["domain", "company", "social", "osint", "business"]
+  },
+  {
+    "id": "crunchbase",
+    "name": "Crunchbase",
+    "category": "Business OSINT",
+    "description": "Business information platform covering startup funding, founders, investors, and company profiles.",
+    "inputTypes": ["domain", "url"],
+    "workflows": ["business-domain-osint"],
+    "urlTemplate": "https://www.crunchbase.com/search/organizations/field/organizations/facet_ids/company?q={{domain}}",
+    "whyUse": "Useful for verifying tech/startup companies. A missing Crunchbase profile for a claimed VC-backed or tech company is suspicious.",
+    "lookFor": "Founded date, funding rounds, investor names, employee count, description, whether the domain on file matches.",
+    "riskNote": "Search query sent to Crunchbase.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": ["domain", "company", "startup", "osint", "business"]
+  },
+  {
+    "id": "dnsdumpster",
+    "name": "DNSDumpster",
+    "category": "Business OSINT",
+    "description": "Free domain research tool that discovers hosts related to a domain via DNS enumeration.",
+    "inputTypes": ["domain"],
+    "workflows": ["business-domain-osint", "domain-triage"],
+    "urlTemplate": "https://dnsdumpster.com/",
+    "whyUse": "Quickly maps the DNS attack surface of a domain. Reveals mail servers, name servers, and subdomains that may expose sensitive infrastructure.",
+    "lookFor": "Mail servers (MX), name servers, A records for subdomains, TXT records (SPF, DKIM, DMARC), geolocation of hosts.",
+    "riskNote": "Manual search required — no URL template. Enter the domain on the site.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": ["domain", "dns", "subdomains", "osint", "infrastructure"]
+  },
+  {
+    "id": "icann-whois",
+    "name": "ICANN WHOIS",
+    "category": "Business OSINT",
+    "description": "ICANN's official WHOIS and RDAP lookup. Authoritative registration data for gTLDs directly from the registry.",
+    "inputTypes": ["domain"],
+    "workflows": ["business-domain-osint", "domain-triage"],
+    "urlTemplate": "https://lookup.icann.org/en/lookup?name={{domain}}",
+    "whyUse": "When third-party WHOIS services show redacted data, ICANN's RDAP endpoint often provides more structured registrar and registration information.",
+    "lookFor": "Registrar name, registration/expiry dates, nameservers, RDAP status flags, abuse contact.",
+    "riskNote": "Domain sent to ICANN.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": ["domain", "whois", "registration", "osint", "business"]
+  },
+  {
+    "id": "leakix-domain",
+    "name": "LeakIX",
+    "category": "Business OSINT",
+    "description": "Indexes exposed services, leaked databases, and misconfigurations. Search by domain or organisation to find public exposure.",
+    "inputTypes": ["domain", "url"],
+    "workflows": ["business-domain-osint", "external-exposure"],
+    "urlTemplate": "https://leakix.net/search?scope=leak&q=host:{{domain}}",
+    "whyUse": "Shows if a domain or organisation has publicly exposed sensitive services, databases, or misconfigurations that could indicate a breach or attract attackers.",
+    "lookFor": "Exposed databases, S3 buckets, cloud storage, configuration files, leaked credentials, git repos.",
+    "riskNote": "Domain sent to LeakIX.",
+    "submissionRisk": "low",
+    "requiresAccount": "none",
+    "tags": ["domain", "exposure", "leak", "osint", "infrastructure", "business"]
+  },
+  {
+    "id": "shodan-org",
+    "name": "Shodan Org Search",
+    "category": "Business OSINT",
+    "description": "Search Shodan by organisation name to map the entire internet-facing infrastructure of a business.",
+    "inputTypes": ["domain", "url"],
+    "workflows": ["business-domain-osint", "external-exposure"],
+    "urlTemplate": "https://www.shodan.io/search?query=org:%22{{domain}}%22",
+    "whyUse": "Gives a complete picture of what an organisation exposes to the internet. Useful for vendor risk assessment and attacker-perspective reconnaissance.",
+    "lookFor": "All internet-facing IPs and ports, exposed management interfaces, default credentials, open databases, certificate mismatches.",
+    "riskNote": "Query sent to Shodan. Organisation name derived from domain.",
+    "submissionRisk": "low",
+    "requiresAccount": "optional",
+    "tags": ["domain", "org", "infrastructure", "shodan", "exposure", "osint", "business"]
+  }
+]

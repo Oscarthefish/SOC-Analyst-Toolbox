@@ -1,0 +1,782 @@
+[
+  {
+    "id": "business-domain-osint",
+    "name": "Business Domain Profile",
+    "description": "Validate domain ownership, company identity, and business legitimacy.",
+    "allowedInputTypes": ["domain", "url"],
+    "toolIds": [
+      "hunter-domain",
+      "opencorporates",
+      "companies-house-uk",
+      "whoxy",
+      "wayback-machine",
+      "builtwith",
+      "securitytrails-domain",
+      "linkedin-company",
+      "crunchbase",
+      "dnsdumpster",
+      "icann-whois",
+      "leakix-domain",
+      "shodan-org"
+    ],
+    "checklist": [
+      "Is there a real company registered to this domain?",
+      "Does the organisation name on the domain match the claimed identity in the alert?",
+      "When was the domain registered and how old is it?",
+      "Does the email format match what Hunter.io reports for this org?",
+      "Is there an archived history — or is this a brand new domain?",
+      "Does the LinkedIn/Crunchbase profile match the claimed company size and sector?",
+      "Is the domain registered in the expected country for the claimed company?",
+      "Are there subdomains or related domains that look suspicious (crt.sh)?",
+      "What technology stack does the domain run — does it match a legitimate business?",
+      "Has the domain been involved in any data leaks or exposed services (LeakIX)?"
+    ],
+    "internalSearches": [
+      {
+        "label": "Email gateway — sender domain",
+        "template": "sender_domain={{value}}"
+      },
+      {
+        "label": "Proxy / web filter logs",
+        "template": "domain={{value}}"
+      },
+      {
+        "label": "SIEM — DNS queries to domain",
+        "template": "query={{value}} AND event_type=dns"
+      },
+      {
+        "label": "HR / IAM — vendor onboarding",
+        "template": "vendor_domain={{value}}"
+      }
+    ],
+    "expectedOutcome": "Determine whether the domain is associated with a legitimate, identifiable business or appears to be a newly registered, unregistered, or spoofed entity."
+  },
+  {
+    "id": "ip-triage",
+    "name": "IP Triage",
+    "description": "Investigate an IP address for reputation, geolocation, and threat context.",
+    "allowedInputTypes": [
+      "ipv4",
+      "ipv6"
+    ],
+    "toolIds": [
+      "greynoise-ip",
+      "abuseipdb",
+      "virustotal-ip",
+      "talos",
+      "ipvoid",
+      "ipinfo",
+      "spur",
+      "ipqualityscore",
+      "ip-teoh",
+      "shodan-host",
+      "censys-host",
+      "alienvault-otx",
+      "ibm-xforce",
+      "bgp-he",
+      "securitytrails-ip",
+      "sans-isc"
+    ],
+    "checklist": [
+      "Is the IP known internet background noise (scanners, crawlers)?",
+      "Is it flagged as malicious by multiple reputation sources?",
+      "Is it a VPN, proxy, Tor exit node, or residential proxy?",
+      "What ASN and hosting provider owns it?",
+      "Is it associated with any known threat actors or malware campaigns?",
+      "What ports and services are exposed (Shodan/Censys)?",
+      "Was any internal connection to this IP successful?",
+      "Is the activity one-directional or bidirectional?",
+      "What is the internal context \u2014 which assets communicated with it?",
+      "Should this IP be blocked, monitored, tuned, or escalated?"
+    ],
+    "internalSearches": [
+      {
+        "label": "Firewall logs",
+        "template": "src_ip={{value}} OR dest_ip={{value}}"
+      },
+      {
+        "label": "WAF logs",
+        "template": "src_ip={{value}}"
+      },
+      {
+        "label": "EDR remote connections",
+        "template": "remote_ip={{value}}"
+      },
+      {
+        "label": "VPN/authentication logs",
+        "template": "src_ip={{value}}"
+      },
+      {
+        "label": "Windows security events",
+        "template": "Source_Network_Address={{value}}"
+      },
+      {
+        "label": "DNS responses",
+        "template": "answer={{value}}"
+      },
+      {
+        "label": "Proxy/web gateway",
+        "template": "src_ip={{value}} OR x_forwarded_for={{value}}"
+      },
+      {
+        "label": "SIEM correlation",
+        "template": "src_ip={{value}} AND action=allowed"
+      }
+    ],
+    "expectedOutcome": "Determine whether the IP is a known threat, internet noise, or a legitimate service. Decide on block, monitor, tune, or close as benign."
+  },
+  {
+    "id": "domain-triage",
+    "name": "Domain Triage",
+    "description": "Investigate a domain for reputation, registration, and infrastructure context.",
+    "allowedInputTypes": [
+      "domain",
+      "url"
+    ],
+    "toolIds": [
+      "virustotal-domain",
+      "talos",
+      "fortiguard",
+      "brightcloud",
+      "urlvoid",
+      "alienvault-otx",
+      "ibm-xforce",
+      "dnsdumpster",
+      "crtsh",
+      "whoisxml",
+      "domaintools-whois",
+      "censys-search",
+      "shodan-search",
+      "urlscan-search",
+      "synapsint"
+    ],
+    "checklist": [
+      "When was the domain registered? Newly registered domains are higher risk.",
+      "Does the domain have valid WHOIS data or privacy-shielded registration?",
+      "What is the hosting infrastructure (IP, ASN, CDN)?",
+      "Is the domain flagged by any reputation sources?",
+      "Are there suspicious subdomains in Certificate Transparency logs?",
+      "Does it share infrastructure with known malicious domains?",
+      "Is there DNS evidence of past use (passive DNS)?",
+      "Was the domain resolved internally and was the connection successful?",
+      "Is this a typosquat or lookalike of a legitimate domain?",
+      "Should this domain be blocked or monitored?"
+    ],
+    "internalSearches": [
+      {
+        "label": "DNS query logs",
+        "template": "query={{domain}}"
+      },
+      {
+        "label": "Proxy/web gateway",
+        "template": "url_domain={{domain}}"
+      },
+      {
+        "label": "EDR command line",
+        "template": "command_line contains {{domain}}"
+      },
+      {
+        "label": "Email gateway",
+        "template": "body_domain={{domain}} OR header_from={{domain}}"
+      },
+      {
+        "label": "Firewall",
+        "template": "dest_domain={{domain}}"
+      },
+      {
+        "label": "SIEM",
+        "template": "domain={{domain}} AND action=allowed"
+      }
+    ],
+    "expectedOutcome": "Assess domain age, infrastructure, and reputation to determine if it is malicious, suspicious, or benign. Recommend block or tune."
+  },
+  {
+    "id": "url-phishing",
+    "name": "URL / Phishing",
+    "description": "Analyse a URL for phishing indicators, malicious content, and redirect behaviour.",
+    "allowedInputTypes": [
+      "url",
+      "domain"
+    ],
+    "toolIds": [
+      "ms-header-analyzer",
+      "phishtool",
+      "cyberchef",
+      "unfurl",
+      "urlscan-search",
+      "lookyloo",
+      "urlquery",
+      "wannabrowser",
+      "virustotal-domain",
+      "urlvoid",
+      "urlhaus",
+      "threatfox",
+      "talos",
+      "fortiguard",
+      "brightcloud",
+      "phish-report",
+      "google-safebrowsing"
+    ],
+    "checklist": [
+      "Does the URL use HTTPS or HTTP? Self-signed certificate?",
+      "Does the domain look like a typosquat or impersonation of a legitimate brand?",
+      "When was the domain registered?",
+      "Does the URL contain encoded or obfuscated content?",
+      "Does the URL contain sensitive parameters (tokens, session IDs)?",
+      "Are there redirect chains before reaching the final page?",
+      "What does the page render show (credential form, fake login, etc.)?",
+      "Has the URL been flagged by Google Safe Browsing or other blacklists?",
+      "Did internal users click the link? Was the connection successful?",
+      "Is this part of a broader phishing campaign?",
+      "Should you take down the site and report to hosting provider?"
+    ],
+    "internalSearches": [
+      {
+        "label": "Email gateway \u2014 URL in body",
+        "template": "url={{url}} OR url_domain={{domain}}"
+      },
+      {
+        "label": "Proxy/web gateway",
+        "template": "url={{url}} OR url_domain={{domain}}"
+      },
+      {
+        "label": "DNS query logs",
+        "template": "query={{domain}}"
+      },
+      {
+        "label": "EDR browser history",
+        "template": "url contains {{domain}}"
+      },
+      {
+        "label": "SIEM \u2014 HTTP access logs",
+        "template": "http_host={{domain}} AND status=200"
+      }
+    ],
+    "expectedOutcome": "Confirm whether the URL is phishing or malicious. Identify impacted users. Submit for takedown if appropriate. Block domain/URL."
+  },
+  {
+    "id": "spam-source",
+    "name": "Spam Source",
+    "description": "Investigate a suspected spam-sending IP or domain, including email authentication checks.",
+    "allowedInputTypes": [
+      "ipv4",
+      "ipv6",
+      "domain",
+      "email"
+    ],
+    "toolIds": [
+      "ms-header-analyzer",
+      "phishtool",
+      "talos",
+      "abuseipdb",
+      "ipvoid",
+      "mxtoolbox",
+      "ipinfo",
+      "whoisxml",
+      "domaintools-whois"
+    ],
+    "checklist": [
+      "Does the sending IP have a poor email reputation (Talos, AbuseIPDB)?",
+      "Did SPF pass, fail, or softfail?",
+      "Did DKIM validate correctly?",
+      "Is DMARC configured and what is the policy?",
+      "Is the sending domain newly registered or privacy-shielded?",
+      "Is the sender address spoofed or a lookalike?",
+      "Were other recipients targeted from the same campaign?",
+      "Was the email delivered or quarantined?",
+      "Should the sending IP or domain be blocked at the email gateway?"
+    ],
+    "internalSearches": [
+      {
+        "label": "Email gateway \u2014 sending IP",
+        "template": "sending_ip={{value}}"
+      },
+      {
+        "label": "Email gateway \u2014 sender domain",
+        "template": "sender_domain={{domain}}"
+      },
+      {
+        "label": "Email gateway \u2014 recipient count",
+        "template": "sending_ip={{value}} | stats count by recipient"
+      },
+      {
+        "label": "SIEM \u2014 SMTP connections",
+        "template": "src_ip={{value}} AND dest_port=25"
+      }
+    ],
+    "expectedOutcome": "Confirm spam origin, assess impact to recipients, and recommend gateway rule or block for sending IP/domain."
+  },
+  {
+    "id": "malware-hash",
+    "name": "Malware / Hash",
+    "description": "Investigate a file hash for known malware, sandboxed behaviour, and threat actor association.",
+    "allowedInputTypes": [
+      "md5",
+      "sha1",
+      "sha256",
+      "url",
+      "domain"
+    ],
+    "toolIds": [
+      "virustotal-hash",
+      "anyrun-intel",
+      "anyrun-sandbox",
+      "threatfox",
+      "urlhaus",
+      "malwarebazaar",
+      "hybrid-analysis",
+      "alienvault-otx",
+      "ibm-xforce",
+      "talos",
+      "cyberchef"
+    ],
+    "checklist": [
+      "What is the detection ratio across AV engines?",
+      "What malware family is it classified as?",
+      "Is it associated with a known threat actor or campaign?",
+      "What is the file type and first/last seen date?",
+      "Are there sandbox reports showing dynamic behaviour?",
+      "What C2 infrastructure does the sample connect to?",
+      "Was this file executed on any internal endpoints?",
+      "Was it delivered via email, web download, or USB?",
+      "Should affected endpoints be isolated and reimaged?",
+      "Are there related IOCs to enrich (C2 IPs, dropped files)?"
+    ],
+    "internalSearches": [
+      {
+        "label": "EDR \u2014 file hash",
+        "template": "file_hash={{hash}} OR sha256={{hash}} OR md5={{hash}}"
+      },
+      {
+        "label": "SIEM \u2014 file event",
+        "template": "sha256={{hash}} AND event_type=file_create"
+      },
+      {
+        "label": "Email gateway \u2014 attachment hash",
+        "template": "attachment_hash={{hash}}"
+      },
+      {
+        "label": "EDR \u2014 process by hash",
+        "template": "process_hash={{hash}}"
+      }
+    ],
+    "expectedOutcome": "Confirm whether the hash is known malware, determine scope of infection, and identify response actions (isolate, reimage, block)."
+  },
+  {
+    "id": "suspicious-connection",
+    "name": "Suspicious Connection",
+    "description": "Investigate a suspicious network connection \u2014 IP, domain, or URL \u2014 seen in firewall, proxy, or EDR logs.",
+    "allowedInputTypes": [
+      "ipv4",
+      "ipv6",
+      "domain",
+      "url"
+    ],
+    "toolIds": [
+      "virustotal-ip",
+      "virustotal-domain",
+      "talos",
+      "alienvault-otx",
+      "threatfox",
+      "urlhaus",
+      "greynoise-ip",
+      "abuseipdb",
+      "ipinfo",
+      "censys-host",
+      "shodan-host",
+      "dnsdumpster",
+      "crtsh",
+      "bgp-he",
+      "securitytrails-ip",
+      "sans-isc"
+    ],
+    "checklist": [
+      "Is the destination IP or domain known malicious?",
+      "Is it internet background noise (GreyNoise)?",
+      "What services are exposed on the destination IP?",
+      "Was the connection internal-to-external or vice versa?",
+      "Was the connection allowed or blocked?",
+      "What internal asset made the connection?",
+      "Is this C2 communication, exfiltration, or benign lookup?",
+      "Are there other internal hosts making similar connections?",
+      "What is the data volume and connection duration?",
+      "Should the destination be blocked and the source asset investigated?"
+    ],
+    "internalSearches": [
+      {
+        "label": "Firewall \u2014 destination IP",
+        "template": "dest_ip={{ip}} AND action=allowed"
+      },
+      {
+        "label": "Firewall \u2014 destination domain",
+        "template": "dest_domain={{domain}}"
+      },
+      {
+        "label": "Proxy logs",
+        "template": "url_domain={{domain}} OR dest_ip={{ip}}"
+      },
+      {
+        "label": "EDR \u2014 network connection",
+        "template": "remote_ip={{ip}} OR remote_host={{domain}}"
+      },
+      {
+        "label": "DNS \u2014 query",
+        "template": "query={{domain}}"
+      }
+    ],
+    "expectedOutcome": "Determine if the connection represents a threat (C2, exfiltration, exploitation). Identify scope and recommend block or investigation of affected assets."
+  },
+  {
+    "id": "waf-web-attack",
+    "name": "WAF / Web Attack",
+    "description": "Investigate an IP or domain seen in WAF alerts or web attack logs.",
+    "allowedInputTypes": [
+      "ipv4",
+      "ipv6",
+      "domain",
+      "url"
+    ],
+    "toolIds": [
+      "greynoise-ip",
+      "abuseipdb",
+      "ipvoid",
+      "virustotal-ip",
+      "talos",
+      "ipinfo",
+      "spur",
+      "shodan-host",
+      "censys-host",
+      "urlscan-search",
+      "cyberchef"
+    ],
+    "checklist": [
+      "Is the attacking IP known internet background noise?",
+      "Is it a VPN, proxy, Tor exit, or residential proxy?",
+      "What WAF rules were triggered and how many times?",
+      "Was the attack targeted or part of mass scanning?",
+      "Was any request successful (2xx response)?",
+      "What attack type was it (SQLi, XSS, path traversal, RCE)?",
+      "Is the same IP attacking multiple assets?",
+      "Should the IP be blocked at WAF, firewall, or both?",
+      "Is there a detection gap \u2014 should a new rule be created?",
+      "Is this a false positive that needs tuning?"
+    ],
+    "internalSearches": [
+      {
+        "label": "WAF logs \u2014 source IP",
+        "template": "src_ip={{ip}} AND action=block"
+      },
+      {
+        "label": "WAF logs \u2014 allowed requests from IP",
+        "template": "src_ip={{ip}} AND action=allow"
+      },
+      {
+        "label": "Web server access logs",
+        "template": "client_ip={{ip}}"
+      },
+      {
+        "label": "Firewall \u2014 inbound from IP",
+        "template": "src_ip={{ip}} AND direction=inbound"
+      }
+    ],
+    "expectedOutcome": "Determine if the WAF alert is a targeted attack or background noise. Tune detection rules and block persistent attackers."
+  },
+  {
+    "id": "dark-web-exposure",
+    "name": "Dark Web / Credential Exposure",
+    "description": "Check if an email, domain, or IP has appeared in dark web leak sites, breach data, or stealer logs.",
+    "allowedInputTypes": [
+      "email",
+      "domain",
+      "ipv4"
+    ],
+    "toolIds": [
+      "whiteintel",
+      "intelligence-x",
+      "ipqualityscore",
+      "spur",
+      "whoisxml",
+      "domaintools-whois",
+      "ransomware-live"
+    ],
+    "checklist": [
+      "Has the email address or domain appeared in known breach databases?",
+      "Are there stealer log entries with credentials for this domain?",
+      "Has the organisation appeared on ransomware group leak sites?",
+      "What data types were exposed (credentials, PII, financial)?",
+      "Which accounts are affected?",
+      "When was the data exposed?",
+      "Have the exposed credentials been rotated?",
+      "Has the incident been reported to affected users?",
+      "Is there ongoing dark web activity suggesting active targeting?"
+    ],
+    "internalSearches": [
+      {
+        "label": "Identity provider \u2014 account",
+        "template": "email={{email}} AND event_type=login"
+      },
+      {
+        "label": "SIEM \u2014 account activity",
+        "template": "username={{email}} AND action=login"
+      },
+      {
+        "label": "Email gateway \u2014 inbound threats",
+        "template": "recipient={{email}}"
+      }
+    ],
+    "expectedOutcome": "Identify exposed credentials or sensitive data, notify affected users, force password resets, and assess breach impact."
+  },
+  {
+    "id": "takedown-reporting",
+    "name": "Takedown Reporting",
+    "description": "Gather evidence and submit takedown requests for phishing or malicious domains/URLs.",
+    "allowedInputTypes": [
+      "url",
+      "domain"
+    ],
+    "toolIds": [
+      "phish-report",
+      "google-safebrowsing",
+      "whoisxml",
+      "domaintools-whois",
+      "urlscan-search",
+      "lookyloo",
+      "talos",
+      "fortiguard",
+      "brightcloud"
+    ],
+    "checklist": [
+      "Have you captured screenshot evidence of the malicious page?",
+      "Have you recorded the full URL, hosting IP, and registrar?",
+      "Have you submitted to Google Safe Browsing?",
+      "Have you submitted to phish.report for automated takedown?",
+      "Have you reported to the hosting provider abuse contact?",
+      "Have you reported to the domain registrar?",
+      "Have you reported to NCSC or relevant national authority if applicable?",
+      "Have you blocked the domain internally while takedown is in progress?",
+      "Have you documented the evidence trail for the case record?"
+    ],
+    "internalSearches": [
+      {
+        "label": "Email gateway \u2014 URLs delivered from this domain",
+        "template": "url_domain={{domain}}"
+      },
+      {
+        "label": "Proxy \u2014 users who accessed the domain",
+        "template": "url_domain={{domain}} | stats count by src_user"
+      },
+      {
+        "label": "DNS \u2014 internal resolution of domain",
+        "template": "query={{domain}}"
+      }
+    ],
+    "expectedOutcome": "Submit takedown requests to relevant parties, document evidence, block internally, and confirm site goes offline."
+  },
+  {
+    "id": "ransomware-context",
+    "name": "Ransomware Context",
+    "description": "Investigate IOCs associated with a suspected ransomware incident.",
+    "allowedInputTypes": [
+      "domain",
+      "ipv4",
+      "md5",
+      "sha1",
+      "sha256",
+      "url"
+    ],
+    "toolIds": [
+      "ransomware-live",
+      "threatfox",
+      "urlhaus",
+      "alienvault-otx",
+      "virustotal-domain",
+      "virustotal-ip",
+      "virustotal-hash",
+      "anyrun-intel",
+      "anyrun-sandbox"
+    ],
+    "checklist": [
+      "Has the organisation appeared on ransomware leak sites?",
+      "Is the hash a known ransomware binary?",
+      "What ransomware family is associated with the IOC?",
+      "What are the known C2 IPs and domains for this family?",
+      "What TTPs does this ransomware use (MITRE ATT&CK)?",
+      "Are internal assets communicating with known C2 infrastructure?",
+      "Has encryption started? Which assets are affected?",
+      "Have backups been checked and isolated?",
+      "Has the incident response team been notified?",
+      "Has legal and management been briefed?"
+    ],
+    "internalSearches": [
+      {
+        "label": "EDR \u2014 ransomware indicators",
+        "template": "file_name contains ransom OR event_type=file_encrypt"
+      },
+      {
+        "label": "EDR \u2014 file hash",
+        "template": "file_hash={{hash}}"
+      },
+      {
+        "label": "Firewall \u2014 C2 communication",
+        "template": "dest_ip={{ip}} AND action=allowed"
+      },
+      {
+        "label": "SIEM \u2014 lateral movement",
+        "template": "event_id=4624 AND logon_type=3"
+      },
+      {
+        "label": "Backup systems \u2014 last good backup check",
+        "template": "backup_status=success AND asset={{value}}"
+      }
+    ],
+    "expectedOutcome": "Identify the ransomware family, assess scope, contain affected systems, initiate IR plan, and preserve evidence for forensics."
+  },
+  {
+    "id": "external-exposure",
+    "name": "External Exposure",
+    "description": "Assess the external attack surface of an IP, domain, or CIDR range.",
+    "allowedInputTypes": [
+      "ipv4",
+      "ipv6",
+      "domain",
+      "cidr"
+    ],
+    "toolIds": [
+      "shodan-search",
+      "shodan-host",
+      "censys-search",
+      "censys-host",
+      "crtsh",
+      "dnsdumpster",
+      "whoisxml",
+      "domaintools-whois",
+      "ipinfo"
+    ],
+    "checklist": [
+      "What ports and services are publicly exposed?",
+      "Are there exposed admin interfaces (RDP, SSH, VNC, web admin panels)?",
+      "Are SSL certificates valid and not expired?",
+      "Are there unexpected subdomains in Certificate Transparency logs?",
+      "Is there sensitive content exposed (login pages, default credentials)?",
+      "Are there known CVEs associated with the exposed services?",
+      "What cloud/hosting provider is the asset on?",
+      "Is the asset in scope for your organisation?",
+      "Should any exposed services be restricted or patched?"
+    ],
+    "internalSearches": [
+      {
+        "label": "CMDB \u2014 asset lookup",
+        "template": "ip={{ip}} OR hostname={{domain}}"
+      },
+      {
+        "label": "Vulnerability scanner",
+        "template": "asset={{ip}} AND severity=high"
+      },
+      {
+        "label": "Firewall \u2014 inbound allowed rules for IP",
+        "template": "dest_ip={{ip}} AND action=allow"
+      }
+    ],
+    "expectedOutcome": "Map external attack surface, identify unintended exposure, and recommend remediation (close ports, apply patches, restrict access)."
+  },
+  {
+    "id": "cve-context",
+    "name": "CVE Context",
+    "description": "Look up a CVE ID for CISA KEV exploitation status, severity, and affected products.",
+    "allowedInputTypes": [
+      "cve"
+    ],
+    "toolIds": [
+      "nvd-cve",
+      "cisa-kev",
+      "cve-mitre",
+      "nist-nvd",
+      "greynoise-ip",
+      "talos"
+    ],
+    "checklist": [
+      "Is this CVE in the CISA Known Exploited Vulnerabilities catalogue?",
+      "What is the CVSS base score and vector?",
+      "What products and versions are affected?",
+      "Is there public exploit code available (ExploitDB, GitHub)?",
+      "Is there evidence of active in-the-wild exploitation?",
+      "Are internal assets running the affected product and version?",
+      "Has the vendor issued a patch or mitigation?",
+      "What is the remediation due date if in CISA KEV?",
+      "Has the patch been applied or a compensating control implemented?",
+      "Is there a detection rule or sigma rule available for this CVE?"
+    ],
+    "internalSearches": [
+      {
+        "label": "Vulnerability scanner — CVE",
+        "template": "cve_id={{value}} AND severity=critical"
+      },
+      {
+        "label": "CMDB — affected product",
+        "template": "software contains {{value}}"
+      },
+      {
+        "label": "IDS/IPS — exploitation attempt",
+        "template": "signature={{value}} AND action=alert"
+      },
+      {
+        "label": "WAF — exploitation pattern",
+        "template": "rule_id={{value}}"
+      }
+    ],
+    "expectedOutcome": "Confirm whether the CVE is actively exploited and if internal assets are affected. Prioritise patching based on CISA KEV status and CVSS score."
+  },
+  {
+    "id": "email-header-review",
+    "name": "Email Header Review",
+    "description": "Analyse email headers for routing anomalies, authentication failures, and spoofing indicators.",
+    "allowedInputTypes": [
+      "email",
+      "domain",
+      "ipv4",
+      "url",
+      "ipv6"
+    ],
+    "toolIds": [
+      "ms-header-analyzer",
+      "phishtool",
+      "cyberchef",
+      "unfurl",
+      "talos",
+      "ipinfo",
+      "abuseipdb",
+      "mxtoolbox"
+    ],
+    "checklist": [
+      "Did SPF pass, fail, or softfail for the sending IP?",
+      "Did DKIM verify correctly?",
+      "What is the DMARC policy and did the message pass?",
+      "Does the From address match the sending domain?",
+      "Are there unusual relay hops or unexpected sending IPs?",
+      "Is the sending IP on any email blacklists?",
+      "Does the email contain URLs? Have they been analysed?",
+      "Does the email contain attachments? Have they been sandboxed?",
+      "Was the email delivered or quarantined by the email gateway?",
+      "Does the email impersonate a trusted brand or internal sender?"
+    ],
+    "internalSearches": [
+      {
+        "label": "Email gateway \u2014 message ID",
+        "template": "message_id={{value}}"
+      },
+      {
+        "label": "Email gateway \u2014 sending IP",
+        "template": "sending_ip={{ip}}"
+      },
+      {
+        "label": "Email gateway \u2014 sender domain",
+        "template": "sender_domain={{domain}}"
+      },
+      {
+        "label": "SIEM \u2014 SMTP connection from IP",
+        "template": "src_ip={{ip}} AND dest_port=25"
+      }
+    ],
+    "expectedOutcome": "Determine email authenticity, identify spoofing or phishing indicators, assess delivery impact, and recommend gateway block or tune."
+  }
+]

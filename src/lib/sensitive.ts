@@ -1,0 +1,18 @@
+export const SENSITIVE_URL_TERMS = [
+  'token',
+  'auth',
+  'session',
+  'code',
+  'saml',
+  'jwt',
+  'password',
+  'reset',
+  'email',
+  'user',
+  'id',
+  'key',
+  'secret',
+  'mfa',
+  'otp',
+  'invite',
+];
