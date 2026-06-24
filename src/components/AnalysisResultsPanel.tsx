@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import type { AnalysisResponse } from '../types/analysis';
+import type { EnrichmentResult } from '../types/enrichment';
 import { EnrichmentCard } from './EnrichmentCard';
-import { KeyFactsSummaryStrip, PivotSection, ContradictionBanner } from './enrichmentShared';
+import { KeyFactsSummaryStrip, PivotSection, ContradictionBanner, ProviderComparisonPanel } from './enrichmentShared';
+
+const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, unknown: 4, benign: 5 };
+function sortBySeverity(results: EnrichmentResult[]): EnrichmentResult[] {
+  return [...results].sort((a, b) => (SEVERITY_RANK[a.severity] ?? 4) - (SEVERITY_RANK[b.severity] ?? 4));
+}
 
 interface AnalysisResultsPanelProps {
   response: AnalysisResponse;
@@ -59,6 +65,9 @@ export function AnalysisResultsPanel({ response, onPivot }: AnalysisResultsPanel
       {/* Key facts at a glance */}
       <KeyFactsSummaryStrip results={results} />
 
+      {/* Cross-provider comparison */}
+      <ProviderComparisonPanel results={results} iocType={response.ioc.type} />
+
       {/* Pivot chips */}
       {onPivot && resolvedIps.length > 0 && (
         <PivotSection
@@ -100,7 +109,7 @@ export function AnalysisResultsPanel({ response, onPivot }: AnalysisResultsPanel
         </button>
         {showCards && (
           <div className="mt-2 space-y-1.5">
-            {results.map(result => (
+            {sortBySeverity(results).map(result => (
               <EnrichmentCard key={result.providerId} result={result} />
             ))}
           </div>

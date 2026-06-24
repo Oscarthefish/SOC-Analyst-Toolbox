@@ -213,6 +213,7 @@ interface DomainRdap {
   nameservers?: Array<{ ldhName?: string }>;
   status?: string[];
 }
+interface RdapRemark { description?: string[] }
 interface IpRdap {
   name?: string;
   startAddress?: string;
@@ -220,6 +221,7 @@ interface IpRdap {
   ipVersion?: string;
   country?: string;
   entities?: RdapEntity[];
+  remarks?: RdapRemark[];
 }
 
 function getEventDate(events: RdapEvent[], action: string): string | undefined {
@@ -317,34 +319,50 @@ async function queryRdap(ioc: IocInput): Promise<EnrichmentResult> {
       });
     } else {
       const body = await res.json() as IpRdap;
-      const registrantEntity = body.entities?.find(e => e.roles.includes('registrant'));
+
+      // Prefer 'registrant' entity, fall back to 'rir' or first available
+      const registrantEntity =
+        body.entities?.find(e => e.roles.includes('registrant')) ??
+        body.entities?.find(e => e.roles.includes('rir'));
       const registrantOrg = registrantEntity ? extractFn(registrantEntity.vcardArray) : undefined;
+
+      // Some RIRs (e.g. AfriNIC) include a description in remarks
+      const description = body.remarks
+        ?.flatMap(r => r.description ?? [])
+        .find(d => d && !d.startsWith('%%') && !d.startsWith('%'))
+        ?? null;
+
+      const networkRange = body.startAddress && body.endAddress
+        ? `${body.startAddress}–${body.endAddress}`
+        : null;
 
       const summaryParts: string[] = [];
       if (body.name) summaryParts.push(`Network: ${body.name}`);
+      if (registrantOrg && registrantOrg !== body.name) summaryParts.push(`Org: ${registrantOrg}`);
       if (body.country) summaryParts.push(`Country: ${body.country}`);
-      if (registrantOrg) summaryParts.push(`Org: ${registrantOrg}`);
-      if (body.startAddress && body.endAddress) summaryParts.push(`Range: ${body.startAddress}–${body.endAddress}`);
+      if (networkRange) summaryParts.push(`Range: ${networkRange}`);
 
       return makeResult({
         status: 'ok',
         summary: `WHOIS/RDAP: ${summaryParts.join(' | ') || 'IP registration data found.'}`,
         severity: 'unknown',
-        confidence: 'medium',
+        confidence: body.country ? 'medium' : 'low',
         data: {
           networkName: body.name ?? null,
-          networkRange: body.startAddress && body.endAddress ? `${body.startAddress}–${body.endAddress}` : null,
+          networkRange,
           country: body.country ?? null,
           registrantOrg: registrantOrg ?? null,
+          description,
           ipVersion: body.ipVersion ?? null,
         },
         sourceUrl: `https://bgp.he.net/ip/${ioc.normalised}`,
         sourceReliability: 'authoritative' as const,
         keyFacts: [
           ...(body.name ? [{ label: 'Network', value: body.name }] : []),
-          ...(registrantOrg ? [{ label: 'Registrant org', value: registrantOrg }] : []),
-          ...(body.country ? [{ label: 'Country', value: body.country }] : []),
-          ...(body.startAddress && body.endAddress ? [{ label: 'Range', value: `${body.startAddress}–${body.endAddress}` }] : []),
+          ...(registrantOrg && registrantOrg !== body.name ? [{ label: 'Registrant org', value: registrantOrg }] : []),
+          ...(description ? [{ label: 'Description', value: description }] : []),
+          ...(body.country ? [{ label: 'Country (registration)', value: body.country }] : []),
+          ...(networkRange ? [{ label: 'Range', value: networkRange }] : []),
         ],
       });
     }
@@ -369,6 +387,14 @@ export async function whois(ioc: IocInput, _options: EnrichOptions): Promise<Enr
     });
   }
 
+  // For IPs, always use RDAP — it follows the full RIR referral chain (IANA → ARIN → AfriNIC etc.)
+  // and returns registration data. WhoisXML mixes in GeoIP for IPs which can show the physical
+  // hosting location (e.g. a Sweden DC) rather than the registration country.
+  if (ioc.type === 'ipv4' || ioc.type === 'ipv6') {
+    return queryRdap(ioc);
+  }
+
+  // For domains, WhoisXML is authoritative and richer than RDAP.
   const apiKey = config.whoisxmlapi.apiKey;
   return apiKey ? queryWhoisXml(ioc, apiKey) : queryRdap(ioc);
 }

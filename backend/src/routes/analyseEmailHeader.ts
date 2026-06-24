@@ -22,9 +22,13 @@ export interface ParsedEmailHeaders {
   sendingIp: string | null;
   fromAddress: string | null;
   fromDomain: string | null;
+  toAddress: string | null;
+  toAddresses: string[];
   returnPathDomain: string | null;
   envelopeDomain: string | null;
   replyToDomain: string | null;
+  replyToAddress: string | null;
+  deliveredTo: string | null;
   dkimDomain: string | null;
   subject: string | null;
   messageId: string | null;
@@ -32,6 +36,8 @@ export interface ParsedEmailHeaders {
   spf: string | null;
   dkim: string | null;
   dmarc: string | null;
+  dmarcPolicy: string | null;
+  spamScore: string | null;
   receivedSpf: string | null;
   authResults: string | null;
   hops: string[];
@@ -90,6 +96,22 @@ function domainFromAddress(addr: string | null): string | null {
   return atMatch ? atMatch[1].toLowerCase().trim() : null;
 }
 
+// Extract bare email address (without display name)
+function emailFromAddress(addr: string | null): string | null {
+  if (!addr) return null;
+  const angleMatch = addr.match(/<([^>@]+@[^>]+)>/);
+  if (angleMatch) return angleMatch[1].trim().toLowerCase();
+  const bareMatch = addr.match(/\b([^\s@,;]+@[^\s@,;]+)\b/);
+  return bareMatch ? bareMatch[1].trim().toLowerCase() : null;
+}
+
+// Extract DMARC policy tag from Authentication-Results value
+function extractDmarcPolicy(authResults: string | null): string | null {
+  if (!authResults) return null;
+  const m = authResults.match(/dmarc=\S+\s*\(policy=(\w+)\)/i);
+  return m ? m[1].toLowerCase() : null;
+}
+
 // Normalise an auth result token to pass/fail/softfail/none/neutral/temperror/permerror
 function normaliseAuthResult(raw: string | null, keyword: string): string | null {
   if (!raw) return null;
@@ -108,6 +130,10 @@ function parseEmailHeaders(raw: string): ParsedEmailHeaders {
   const fromAddress = fromRaw;
   const fromDomain = domainFromAddress(fromRaw);
 
+  const toRaw = extractHeader(unfolded, 'To');
+  const toAddress = toRaw;
+  const toAddresses = extractAllHeaders(unfolded, 'To');
+
   const returnPathRaw = extractHeader(unfolded, 'Return-Path');
   const returnPathDomain = domainFromAddress(returnPathRaw);
 
@@ -116,6 +142,20 @@ function parseEmailHeaders(raw: string): ParsedEmailHeaders {
 
   const replyToRaw = extractHeader(unfolded, 'Reply-To');
   const replyToDomain = domainFromAddress(replyToRaw);
+  const replyToAddress = replyToRaw;
+
+  // Actual delivery address — set by the receiving MTA, not the sender
+  const deliveredTo =
+    extractHeader(unfolded, 'Delivered-To') ??
+    extractHeader(unfolded, 'X-Original-To') ??
+    null;
+
+  // Spam score — check Mimecast, SpamAssassin, and generic headers
+  const spamScore =
+    extractHeader(unfolded, 'X-Mimecast-Spam-Score') ??
+    extractHeader(unfolded, 'X-Spam-Score') ??
+    extractHeader(unfolded, 'X-SpamScore') ??
+    null;
 
   // DKIM signing domain
   const dkimSig = extractHeader(unfolded, 'DKIM-Signature');
@@ -139,12 +179,20 @@ function parseEmailHeaders(raw: string): ParsedEmailHeaders {
 
   const dkim = normaliseAuthResult(authResults, 'dkim');
   const dmarc = normaliseAuthResult(authResults, 'dmarc');
+  const dmarcPolicy = extractDmarcPolicy(authResults);
 
   // Collect hop summary
   const hops = receivedHeaders.slice(0, 5);
 
   // Suspicious indicator flags
   const suspiciousIndicators: string[] = [];
+
+  // Self-sent: From == To (common in spam targeting the victim's own address)
+  const fromEmail = emailFromAddress(fromRaw);
+  const toEmail = emailFromAddress(toRaw);
+  if (fromEmail && toEmail && fromEmail === toEmail) {
+    suspiciousIndicators.push(`Self-sent: From and To are the same address (${fromEmail})`);
+  }
 
   if (fromDomain && returnPathDomain && fromDomain !== returnPathDomain) {
     suspiciousIndicators.push(`From domain (${fromDomain}) differs from Return-Path domain (${returnPathDomain})`);
@@ -164,14 +212,27 @@ function parseEmailHeaders(raw: string): ParsedEmailHeaders {
   if (dmarc && ['fail', 'permerror'].includes(dmarc)) {
     suspiciousIndicators.push(`DMARC ${dmarc.toUpperCase()}`);
   }
+  // DMARC passes but policy=none means failures would not be quarantined/rejected
+  if (dmarc === 'pass' && dmarcPolicy === 'none') {
+    suspiciousIndicators.push('DMARC policy=none: domain owner receives reports but failures are not rejected or quarantined');
+  }
+  // High spam score
+  const spamScoreNum = spamScore !== null ? parseFloat(spamScore) : NaN;
+  if (!isNaN(spamScoreNum) && spamScoreNum >= 10) {
+    suspiciousIndicators.push(`High spam score: ${spamScore}`);
+  }
 
   return {
     sendingIp,
     fromAddress,
     fromDomain,
+    toAddress,
+    toAddresses,
     returnPathDomain,
     envelopeDomain,
     replyToDomain,
+    replyToAddress,
+    deliveredTo,
     dkimDomain,
     subject,
     messageId,
@@ -179,6 +240,8 @@ function parseEmailHeaders(raw: string): ParsedEmailHeaders {
     spf,
     dkim,
     dmarc,
+    dmarcPolicy,
+    spamScore,
     receivedSpf,
     authResults,
     hops,
@@ -293,9 +356,9 @@ function buildEmailPrompt(
   overall: OverallAssessment,
 ): string {
   const authStatus = [
-    `SPF:  ${parsed.spf ?? 'not present'}`,
-    `DKIM: ${parsed.dkim ?? 'not present'}`,
-    `DMARC: ${parsed.dmarc ?? 'not present'}`,
+    `SPF:   ${parsed.spf ?? 'not present'}`,
+    `DKIM:  ${parsed.dkim ?? 'not present'}`,
+    `DMARC: ${parsed.dmarc ?? 'not present'}${parsed.dmarcPolicy ? ` (policy=${parsed.dmarcPolicy})` : ''}`,
   ].join('\n');
 
   const suspicious = parsed.suspiciousIndicators.length > 0
@@ -337,12 +400,14 @@ ANALYST NOTES:
 
 EMAIL HEADER SUMMARY:
 From:         ${parsed.fromAddress ?? 'unknown'}
+To:           ${parsed.toAddress ?? 'unknown'}
 Return-Path:  ${parsed.returnPathDomain ? `<...@${parsed.returnPathDomain}>` : 'unknown'}
 Reply-To:     ${parsed.replyToDomain ? `<...@${parsed.replyToDomain}>` : 'not set'}
 DKIM domain:  ${parsed.dkimDomain ?? 'not signed'}
 Sending IP:   ${parsed.sendingIp ?? 'not extracted'}
 Subject:      ${parsed.subject ?? '(not present)'}
 Date:         ${parsed.date ?? '(not present)'}
+Spam Score:   ${parsed.spamScore ?? 'not present'}
 
 EMAIL AUTHENTICATION:
 ${authStatus}
@@ -382,6 +447,7 @@ router.post('/analyse-email-header', async (req: Request, res: Response): Promis
     allowSensitiveUrl: false,
     allowUrlSubmission: false,
     includeRaw: false,
+    includeHunter: false,
   };
 
   // Build IOC inputs for enrichment

@@ -26,9 +26,13 @@ export interface ParsedEmailHeaders {
   sendingIp: string | null;
   fromAddress: string | null;
   fromDomain: string | null;
+  toAddress: string | null;
+  toAddresses: string[];
   returnPathDomain: string | null;
   envelopeDomain: string | null;
   replyToDomain: string | null;
+  replyToAddress: string | null;
+  deliveredTo: string | null;
   dkimDomain: string | null;
   subject: string | null;
   messageId: string | null;
@@ -36,6 +40,8 @@ export interface ParsedEmailHeaders {
   spf: string | null;
   dkim: string | null;
   dmarc: string | null;
+  dmarcPolicy: string | null;
+  spamScore: string | null;
   receivedSpf: string | null;
   authResults: string | null;
   hops: string[];

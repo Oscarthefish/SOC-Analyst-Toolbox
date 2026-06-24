@@ -1,6 +1,14 @@
 import type { DetectedIoc, IocType } from '../types/ioc';
 import type { Workflow } from '../types/workflow';
 
+function IconSpark() {
+  return (
+    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
+    </svg>
+  );
+}
+
 interface WorkflowTilesProps {
   ioc: DetectedIoc | null;
   workflows: Workflow[];
@@ -229,6 +237,119 @@ export function WorkflowTiles({ ioc, workflows, selectedWorkflow, onSelect }: Wo
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ── Slim action bar: Auto Analysis trigger + horizontal workflow chips ────────
+
+interface AnalysisBarProps {
+  ioc: DetectedIoc | null;
+  workflows: Workflow[];
+  selectedWorkflow: Workflow | null;
+  onSelectWorkflow: (workflow: Workflow) => void;
+  onRunAnalysis: () => void;
+  onForceRunAnalysis: () => void;
+  analysisLoading: boolean;
+  hasAnalysisResult: boolean;
+}
+
+export function AnalysisBar({
+  ioc,
+  workflows,
+  selectedWorkflow,
+  onSelectWorkflow,
+  onRunAnalysis,
+  onForceRunAnalysis,
+  analysisLoading,
+  hasAnalysisResult,
+}: AnalysisBarProps) {
+  const disabled = !ioc || !ioc.trimmed || (ioc.type === 'unknown' && !ioc.isEmailHeader);
+  const hasIoc = !disabled;
+
+  // Only show workflows that apply to the current IOC — hides irrelevant options.
+  const applicableWorkflows = hasIoc
+    ? workflows.filter(w => isWorkflowEnabled(w, ioc).enabled)
+    : [];
+
+  return (
+    <div className="wb-card flex items-stretch overflow-hidden">
+      {/* Auto Analysis section */}
+      <div className="flex items-center gap-3 px-4 py-3 shrink-0 border-r border-[#f2f4f7]">
+        <div className={`w-8 h-8 rounded-[9px] flex items-center justify-center shrink-0 transition-colors ${
+          hasAnalysisResult ? 'bg-[#eff8ff] text-[#1570ef]' : 'bg-[#f2f4f7] text-[#475467]'
+        }`}>
+          <IconSpark />
+        </div>
+        <div className="mr-1">
+          <p className="text-[13px] font-semibold text-[#101828] leading-none">Auto Analysis</p>
+          <p className="text-[11px] text-[#98a2b3] leading-none mt-0.5">AI-assisted verdict</p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {hasAnalysisResult && !analysisLoading && (
+            <button
+              onClick={onForceRunAnalysis}
+              className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-[#e4e7ec] bg-white text-[#475467] hover:border-[#d0d5dd] transition-colors"
+            >
+              Re-run
+            </button>
+          )}
+          <button
+            onClick={onRunAnalysis}
+            disabled={disabled || analysisLoading}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#1570ef] text-white hover:bg-[#175cd3] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {analysisLoading ? (
+              <>
+                <div className="w-3 h-3 rounded-full border-[1.5px] border-white/30 border-t-white animate-spin" />
+                Analysing…
+              </>
+            ) : (
+              hasAnalysisResult ? '↺ Refresh' : '▶ Run'
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Workflow chips — wrapping, filtered to applicable only */}
+      <div className="flex-1 min-w-0 px-3 py-3">
+        {!hasIoc ? (
+          <div className="flex items-center h-full">
+            <p className="text-[12px] text-[#98a2b3]">Enter an IOC to see applicable investigation workflows.</p>
+          </div>
+        ) : applicableWorkflows.length === 0 ? (
+          <div className="flex items-center h-full">
+            <p className="text-[12px] text-[#98a2b3]">No investigation workflows apply to this IOC type.</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#d0d5dd] mb-2 select-none">
+              Investigation Workflow
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {applicableWorkflows.map(workflow => {
+                const isSelected = selectedWorkflow?.id === workflow.id;
+                const icon = WORKFLOW_ICONS[workflow.id] ?? DEFAULT_ICON;
+                return (
+                  <button
+                    key={workflow.id}
+                    onClick={() => onSelectWorkflow(workflow)}
+                    title={workflow.description}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-medium whitespace-nowrap transition-all ${
+                      isSelected
+                        ? 'bg-[#eff8ff] border-[#1570ef] text-[#175cd3]'
+                        : 'bg-white border-[#e4e7ec] text-[#344054] hover:border-[#b2ddff] hover:bg-[#f9fafb]'
+                    }`}
+                  >
+                    <span className="w-3.5 h-3.5 shrink-0 block">{icon}</span>
+                    {workflow.name}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

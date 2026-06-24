@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 import type { DetectedIoc } from './types/ioc';
 import type { Workflow } from './types/workflow';
 import type { Tool } from './types/tool';
 import type { AnalysisResponse } from './types/analysis';
 import { IocInput } from './components/IocInput';
-import { WorkflowTiles } from './components/WorkflowTiles';
+import { AnalysisBar } from './components/WorkflowTiles';
 import { ToolPanel } from './components/ToolPanel';
 import { BulkExtractPanel } from './components/BulkExtractPanel';
 import { BatchTriagePanel } from './components/BatchTriagePanel';
@@ -15,13 +15,18 @@ import { AnalysisResultsPanel } from './components/AnalysisResultsPanel';
 import { ApiKeysPanel } from './components/ApiKeysPanel';
 import { ThreatFeedPanel } from './components/ThreatFeedPanel';
 import { AboutPanel } from './components/AboutPanel';
+import { SearchHistoryPanel } from './components/SearchHistoryPanel';
+import { ToolsManagementPanel } from './components/ToolsManagementPanel';
 import { checkBackendHealth } from './lib/apiClient';
+import { fetchCustomTools, saveCustomTools, loadHiddenToolIds, toggleHiddenToolId } from './lib/toolsStorage';
 import { loadFavorites, saveFavorites } from './lib/favorites';
 import { detectIoc } from './lib/detectIoc';
+import { loadHistory, saveSearch, removeEntry, clearHistory } from './lib/searchHistory';
+import type { HistoryEntry } from './lib/searchHistory';
 import toolsData from './data/tools.json';
 import workflowsData from './data/workflows.json';
 
-type Tab = 'single' | 'bulk' | 'batch' | 'defang' | 'config' | 'apikeys' | 'threatfeed' | 'about';
+type Tab = 'single' | 'bulk' | 'batch' | 'defang' | 'config' | 'apikeys' | 'threatfeed' | 'history' | 'tools' | 'about';
 
 const TAB_LABELS: Record<Tab, string> = {
   single:    'Single IOC',
@@ -31,28 +36,29 @@ const TAB_LABELS: Record<Tab, string> = {
   config:    'Config Check',
   apikeys:   'API Keys',
   threatfeed:'Threat Feed',
+  history:   'History',
+  tools:     'Manage Tools',
   about:     'About',
 };
 
 const builtinTools = toolsData as Tool[];
 const workflows = workflowsData as Workflow[];
 
-let customTools: Tool[] = [];
-let customToolCount = 0;
-try {
-  const modPath = './data/customTools' + '.json';
-  const mod = await import(/* @vite-ignore */ modPath).catch(() => null);
-  if (mod && Array.isArray(mod.default)) {
-    customTools = mod.default as Tool[];
-    customToolCount = customTools.length;
-  }
-} catch { /* no custom tools */ }
-
-const allTools: Tool[] = [...builtinTools, ...customTools];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('single');
   const [backendOnline, setBackendOnline] = useState(false);
+  const [customTools, setCustomTools] = useState<Tool[]>([]);
+  const [hiddenToolIds, setHiddenToolIds] = useState<Set<string>>(() => loadHiddenToolIds());
+  const [toolsSaving, setToolsSaving] = useState(false);
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    try { return localStorage.getItem('dark-mode') === 'true'; } catch { return false; }
+  });
+
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+    try { localStorage.setItem('dark-mode', String(isDark)); } catch { /* ignore */ }
+  }, [isDark]);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,12 +71,36 @@ export default function App() {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
+  useEffect(() => {
+    void fetchCustomTools().then(tools => setCustomTools(tools));
+  }, []);
+
+  const allTools = useMemo<Tool[]>(() => {
+    const combined = [...builtinTools, ...customTools];
+    return hiddenToolIds.size === 0 ? combined : combined.filter(t => !hiddenToolIds.has(t.id));
+  }, [customTools, hiddenToolIds]);
+
+  const handleSaveCustomTools = useCallback(async (tools: Tool[]) => {
+    setToolsSaving(true);
+    const ok = await saveCustomTools(tools);
+    if (ok) setCustomTools(tools);
+    setToolsSaving(false);
+  }, []);
+
+  const handleToggleHidden = useCallback((id: string) => {
+    setHiddenToolIds(prev => toggleHiddenToolId(id, prev));
+  }, []);
+
   const [ioc, setIoc] = useState<DetectedIoc | null>(null);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
   const [prefillIoc, setPrefillIoc] = useState<string | undefined>(undefined);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResponse | null>(null);
   const [autoRunAnalysis, setAutoRunAnalysis] = useState(false);
+  const [autoForceRunAnalysis, setAutoForceRunAnalysis] = useState(false);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>(() => loadHistory());
+  const [historyPreload, setHistoryPreload] = useState<AnalysisResponse | null>(null);
 
   // Clear results whenever the IOC changes so stale data never shows under a new IOC
   useEffect(() => {
@@ -102,6 +132,7 @@ export default function App() {
     setPrefillIoc(undefined);
     setAnalysisResults(null);
     setAutoRunAnalysis(false);
+    setAutoForceRunAnalysis(false);
   }, []);
 
   const handleWorkflowSelect = useCallback((workflow: Workflow) => {
@@ -127,6 +158,15 @@ export default function App() {
 
   const handleAutoRunConsumed = useCallback(() => {
     setAutoRunAnalysis(false);
+    setAutoForceRunAnalysis(false);
+  }, []);
+
+  const handleRunAnalysis = useCallback(() => {
+    setAutoRunAnalysis(true);
+  }, []);
+
+  const handleForceRunAnalysis = useCallback(() => {
+    setAutoForceRunAnalysis(true);
   }, []);
 
   const handlePrefillConsumed = useCallback(() => {
@@ -135,6 +175,25 @@ export default function App() {
 
   const handleAnalysisComplete = useCallback((r: AnalysisResponse | null) => {
     setAnalysisResults(r);
+    if (r) setSearchHistory(saveSearch(r.ioc, selectedWorkflow?.id ?? null, r));
+  }, [selectedWorkflow]);
+
+  const handleHistoryLoad = useCallback((entry: HistoryEntry) => {
+    const detected = detectIoc(entry.ioc.original);
+    setIoc(detected);
+    setPrefillIoc(entry.ioc.original);
+    setAnalysisResults(entry.result);
+    setHistoryPreload(entry.result);
+    setAutoRunAnalysis(false);
+    setActiveTab('single');
+  }, []);
+
+  const handleHistoryRemove = useCallback((id: string) => {
+    setSearchHistory(removeEntry(id));
+  }, []);
+
+  const handleHistoryClear = useCallback(() => {
+    setSearchHistory(clearHistory());
   }, []);
 
   const isSensitiveUrl = ioc?.isSensitiveUrl ?? false;
@@ -159,10 +218,30 @@ export default function App() {
             </div>
           </div>
 
-          {/* Local-only pill */}
-          <div className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-[#ecfdf3] border border-[#abefc6]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#079455] animate-pulse" />
-            <span className="text-[11px] font-semibold text-[#067647]">Local only</span>
+          <div className="flex items-center gap-2">
+            {/* Dark mode toggle */}
+            <button
+              onClick={() => setIsDark(v => !v)}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#667085] hover:text-[#344054] hover:bg-[#f2f4f7] transition-colors"
+            >
+              {isDark ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="5" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+              )}
+            </button>
+
+            {/* Local-only pill */}
+            <div className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-[#ecfdf3] border border-[#abefc6]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#079455] animate-pulse" />
+              <span className="text-[11px] font-semibold text-[#067647]">Local only</span>
+            </div>
           </div>
         </div>
 
@@ -212,17 +291,21 @@ export default function App() {
               onPrefillConsumed={handlePrefillConsumed}
             />
 
-            {/* Main grid: left column + sticky right rail */}
-            <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 444px', alignItems: 'start' }}>
-
-              {/* Left column */}
-              <div className="space-y-4 min-w-0">
-                <WorkflowTiles
-                  ioc={ioc}
-                  workflows={workflows}
-                  selectedWorkflow={selectedWorkflow}
-                  onSelect={handleWorkflowSelect}
-                />
+            {/* Main column */}
+            <div className="space-y-4">
+              <AnalysisBar
+                ioc={ioc}
+                workflows={workflows}
+                selectedWorkflow={selectedWorkflow}
+                onSelectWorkflow={handleWorkflowSelect}
+                onRunAnalysis={handleRunAnalysis}
+                onForceRunAnalysis={handleForceRunAnalysis}
+                analysisLoading={analysisLoading}
+                hasAnalysisResult={analysisResults !== null}
+              />
+              {/* Hide tool panel once an analysis has run — it takes up space without adding value
+                  unless the analyst has explicitly selected a workflow to follow */}
+              {(!analysisResults || selectedWorkflow) && (
                 <ToolPanel
                   workflow={selectedWorkflow}
                   ioc={ioc}
@@ -230,25 +313,25 @@ export default function App() {
                   favorites={favorites}
                   onToggleFavorite={handleToggleFavorite}
                 />
-                {analysisResults && (
-                  <AnalysisResultsPanel
-                    response={analysisResults}
-                    onPivot={handleInvestigate}
-                  />
-                )}
-              </div>
-
-              {/* Right rail — sticky */}
-              <div className="sticky" style={{ top: '84px' }}>
-                <AutoAnalysisPanel
-                  ioc={ioc}
-                  workflowId={selectedWorkflow?.id ?? null}
-                  onComplete={handleAnalysisComplete}
+              )}
+              <AutoAnalysisPanel
+                ioc={ioc}
+                workflowId={selectedWorkflow?.id ?? null}
+                onComplete={handleAnalysisComplete}
+                onPivot={handleInvestigate}
+                autoRun={autoRunAnalysis}
+                autoForceRun={autoForceRunAnalysis}
+                onAutoRunConsumed={handleAutoRunConsumed}
+                preloadResult={historyPreload}
+                hideHeader
+                onLoadingChange={setAnalysisLoading}
+              />
+              {analysisResults && (
+                <AnalysisResultsPanel
+                  response={analysisResults}
                   onPivot={handleInvestigate}
-                  autoRun={autoRunAnalysis}
-                  onAutoRunConsumed={handleAutoRunConsumed}
                 />
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -256,9 +339,27 @@ export default function App() {
         {activeTab === 'bulk' && <BulkExtractPanel onInvestigate={handleInvestigate} />}
         {activeTab === 'batch' && <BatchTriagePanel onInvestigate={handleInvestigate} />}
         {activeTab === 'defang' && <DefangPanel />}
-        {activeTab === 'config' && <ConfigCheckPanel tools={allTools} customToolCount={customToolCount} />}
+        {activeTab === 'config' && <ConfigCheckPanel tools={allTools} customToolCount={customTools.length} />}
         {activeTab === 'apikeys' && <ApiKeysPanel backendOnline={backendOnline} />}
         {activeTab === 'threatfeed' && <ThreatFeedPanel />}
+        {activeTab === 'tools' && (
+          <ToolsManagementPanel
+            builtinTools={builtinTools}
+            customTools={customTools}
+            hiddenToolIds={hiddenToolIds}
+            saving={toolsSaving}
+            onSaveCustomTools={handleSaveCustomTools}
+            onToggleHidden={handleToggleHidden}
+          />
+        )}
+        {activeTab === 'history' && (
+          <SearchHistoryPanel
+            entries={searchHistory}
+            onLoad={handleHistoryLoad}
+            onRemove={handleHistoryRemove}
+            onClear={handleHistoryClear}
+          />
+        )}
         {activeTab === 'about' && <AboutPanel />}
       </main>
 

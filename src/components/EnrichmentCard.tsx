@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { EnrichmentResult, EnrichmentStatus, Severity, FreshnessLabel, SourceTier } from '../types/enrichment';
 
 interface EnrichmentCardProps {
@@ -25,6 +25,41 @@ function statusLabel(status: EnrichmentStatus) {
     error: 'Error', skipped_safety: 'Skipped',
   };
   return map[status] ?? status;
+}
+
+function CopyUrlButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = useCallback(() => {
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [url]);
+
+  return (
+    <button
+      onClick={handleCopy}
+      title="Copy link"
+      className="text-[11px] text-[#667085] hover:text-[#344054] font-medium flex items-center gap-1 transition-colors"
+    >
+      {copied ? (
+        <>
+          <svg className="w-3 h-3 text-[#079455]" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="text-[#079455]">Copied</span>
+        </>
+      ) : (
+        <>
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <rect x="9" y="9" width="13" height="13" rx="2" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+          Copy
+        </>
+      )}
+    </button>
+  );
 }
 
 function SeverityChip({ severity }: { severity: Severity }) {
@@ -168,10 +203,13 @@ export function EnrichmentCard({ result }: EnrichmentCardProps) {
               )}
             </div>
             {result.sourceUrl && (
-              <a href={result.sourceUrl} target="_blank" rel="noopener noreferrer"
-                className="text-[11px] text-[#1570ef] hover:text-[#175cd3] font-medium flex items-center gap-1">
-                View ↗
-              </a>
+              <div className="flex items-center gap-2">
+                <CopyUrlButton url={result.sourceUrl} />
+                <a href={result.sourceUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-[11px] text-[#1570ef] hover:text-[#175cd3] font-medium flex items-center gap-1">
+                  View ↗
+                </a>
+              </div>
             )}
           </div>
         </div>
