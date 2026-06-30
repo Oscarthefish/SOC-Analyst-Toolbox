@@ -82,6 +82,7 @@ export function processDefang(input: string): DefangResult {
   }
 
   // CIDR (e.g. 10.0.0.0/8 or 10[.]0[.]0[.]0/8)
+  // eslint-disable-next-line no-useless-escape
   if (/^[\d.\[\]]+\/\d{1,2}$/.test(trimmed)) {
     const slashIdx = trimmed.lastIndexOf('/');
     const ipPart = trimmed.slice(0, slashIdx);

@@ -42,7 +42,7 @@ const WORKFLOW_PROVIDERS: Record<string, string[]> = {
 const IOC_TYPE_PROVIDERS: Record<IocType, string[]> = {
   ipv4: ['greynoise', 'abuseipdb', 'ipapi', 'torproject', 'ipinfo', 'virustotal', 'shodan', 'censys'],
   ipv6: ['greynoise', 'abuseipdb', 'ipapi', 'torproject', 'ipinfo', 'virustotal', 'censys'],
-  domain: ['dns', 'crtsh', 'wayback', 'virustotal', 'urlscan'],
+  domain: ['dns', 'dnsdumpster', 'crtsh', 'wayback', 'virustotal', 'urlscan'],
   url: ['urlscan', 'virustotal'],
   md5: ['virustotal'],
   sha1: ['virustotal'],

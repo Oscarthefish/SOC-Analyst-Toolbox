@@ -3,6 +3,17 @@ import type { IocInput, EnrichmentResult, EnrichOptions } from '../types.js';
 
 const PROVIDER_ID = 'dns';
 const PROVIDER_NAME = 'DNS Resolution';
+const DNS_TIMEOUT_MS = 8_000;
+
+// dns.promises doesn't support AbortSignal — use Promise.race to enforce a deadline.
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('DNS lookup timed out')), ms),
+    ),
+  ]);
+}
 
 function now(): string {
   return new Date().toISOString();
@@ -38,8 +49,8 @@ export async function dns(
   const hostname = ioc.normalised;
 
   const [v4Result, v6Result] = await Promise.allSettled([
-    dnsPromises.resolve4(hostname),
-    dnsPromises.resolve6(hostname),
+    withTimeout(dnsPromises.resolve4(hostname), DNS_TIMEOUT_MS),
+    withTimeout(dnsPromises.resolve6(hostname), DNS_TIMEOUT_MS),
   ]);
 
   const ipv4s: string[] = v4Result.status === 'fulfilled' ? v4Result.value : [];
@@ -47,18 +58,28 @@ export async function dns(
   const allIps = [...ipv4s, ...ipv6s];
 
   if (allIps.length === 0) {
-    const reason = v4Result.status === 'rejected'
-      ? (v4Result.reason as NodeJS.ErrnoException).code ?? 'NXDOMAIN'
-      : 'no records';
+    const v4Err = v4Result.status === 'rejected' ? (v4Result.reason as Error) : null;
+    const timedOut = v4Err?.message === 'DNS lookup timed out';
+    if (timedOut) {
+      return makeResult({
+        status: 'error',
+        summary: `DNS: Lookup timed out for ${hostname} after ${DNS_TIMEOUT_MS / 1000}s.`,
+        errorMessage: 'DNS lookup timed out',
+        data: { ipv4s: [], ipv6s: [] },
+        resolvedIps: [],
+        sourceReliability: 'passive-infra',
+      });
+    }
+    const code = (v4Err as NodeJS.ErrnoException | null)?.code ?? 'NXDOMAIN';
     return makeResult({
       status: 'ok',
-      summary: `DNS: No records found for ${hostname} (${reason}).`,
+      summary: `DNS: No records found for ${hostname} (${code}).`,
       severity: 'unknown',
       confidence: 'low',
       data: { ipv4s: [], ipv6s: [] },
       resolvedIps: [],
       sourceReliability: 'passive-infra',
-      keyFacts: [{ label: 'Resolves', value: `No — ${reason}` }],
+      keyFacts: [{ label: 'Resolves', value: `No — ${code}` }],
     });
   }
 

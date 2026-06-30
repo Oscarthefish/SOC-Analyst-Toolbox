@@ -57,11 +57,20 @@ function extractUrl(raw: string): UrlExtract {
   };
 }
 
+export function normalizeIocInput(raw: string): string {
+  return raw
+    .replace(/(?:\u200B|\u200C|\u200D|\uFEFF|\u00AD)/g, '') // zero-width / soft-hyphen chars
+    .replace(/\[\.\]/g, '.')   // [.] → .
+    .replace(/\(\.\)/g, '.')   // (.) → .
+    .replace(/^hxxps?:\/\//i, m => m.replace(/xx/i, 'tt')) // hxxp → http
+    .trim();
+}
+
 export function detectIoc(input: string): DetectedIoc {
-  const trimmed = input.trim();
+  const trimmed = normalizeIocInput(input.trim());
   let type: IocType = 'unknown';
   let confidence: DetectedIoc['confidence'] = 'low';
-  let normalised = trimmed;
+  let normalised: string;
   let urlExtract: UrlExtract | undefined;
 
   if (!trimmed) {
@@ -135,7 +144,7 @@ export function detectIoc(input: string): DetectedIoc {
   // Domain (try stripping protocol/path first)
   else {
     // Try normalising sloppy domain inputs
-    let candidate = trimmed
+    const candidate = trimmed
       .replace(/^https?:\/\//i, '')
       .replace(/\/.*$/, '')
       .replace(/\?.*$/, '')

@@ -97,7 +97,7 @@ export async function urlhaus(ioc: IocInput, _options: EnrichOptions): Promise<E
       const listedBlacklists = Object.entries(json.blacklists ?? {})
         .filter(([, v]) => v !== 'not listed').map(([k]) => k);
 
-      let severity: Severity = urlStatus === 'online' ? 'high' : 'medium';
+      const severity: Severity = urlStatus === 'online' ? 'high' : 'medium';
       const summary = `URLhaus: ${urlStatus === 'online' ? 'ACTIVE MALICIOUS URL' : 'Known malicious URL (offline)'} — threat: ${threat}.${tags.length ? ` Tags: ${tags.join(', ')}.` : ''}${listedBlacklists.length ? ` Blacklisted: ${listedBlacklists.join(', ')}.` : ''}`;
 
       return makeResult({
@@ -132,7 +132,7 @@ export async function urlhaus(ioc: IocInput, _options: EnrichOptions): Promise<E
       const listedBlacklists = Object.entries(json.blacklists ?? {})
         .filter(([, v]) => v !== 'not listed').map(([k]) => k);
 
-      let severity: Severity = activeUrls > 0 ? 'high' : urlCount > 0 ? 'medium' : 'unknown';
+      const severity: Severity = activeUrls > 0 ? 'high' : urlCount > 0 ? 'medium' : 'unknown';
       const summary = `URLhaus: ${urlCount} malicious URL(s) associated with this host (${activeUrls} active).${threats.length ? ` Threats: ${threats.join(', ')}.` : ''}${listedBlacklists.length ? ` Blacklisted: ${listedBlacklists.join(', ')}.` : ''}`;
 
       return makeResult({

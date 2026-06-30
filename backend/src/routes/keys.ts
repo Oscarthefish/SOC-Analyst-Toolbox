@@ -27,6 +27,7 @@ const ALLOWED_KEYS = [
   'THREATFOX_API_KEY',
   'URLHAUS_API_KEY',
   'HUNTER_API_KEY',
+  'DNSDUMPSTER_API_KEY',
 ] as const;
 
 type AllowedKey = (typeof ALLOWED_KEYS)[number];

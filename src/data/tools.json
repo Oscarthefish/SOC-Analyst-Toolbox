@@ -416,26 +416,29 @@
     "id": "dnsdumpster",
     "name": "DNSDumpster",
     "category": "DNS / OSINT",
-    "description": "Free DNS recon tool. Shows DNS records, subdomains, and related hosts.",
+    "description": "Free DNS recon tool. Enumerates DNS records, subdomains, mail servers, and maps related hosts with geolocation.",
     "inputTypes": [
       "domain"
     ],
     "workflows": [
       "domain-triage",
+      "business-domain-osint",
       "suspicious-connection",
       "external-exposure"
     ],
     "urlTemplate": "https://dnsdumpster.com/",
-    "whyUse": "Quickly enumerate a domain's DNS posture \u2014 useful for understanding attack surface or verifying legitimate infrastructure.",
-    "lookFor": "MX records, A/AAAA records, subdomains, hosting providers, related IPs.",
-    "riskNote": "Enter domain manually on the site. Template links to the tool homepage.",
+    "whyUse": "Quickly enumerate a domain's DNS attack surface \u2014 useful for understanding infrastructure exposure, verifying legitimate domains, or identifying related hosts.",
+    "lookFor": "MX records, A/AAAA records, name servers, subdomains, TXT records (SPF, DKIM, DMARC), hosting providers, related IPs.",
+    "riskNote": "Manual search required \u2014 enter the domain on the site. Template links to the tool homepage.",
     "submissionRisk": "low",
     "requiresAccount": "none",
     "tags": [
       "dns",
       "domain",
+      "subdomains",
       "recon",
-      "osint"
+      "osint",
+      "infrastructure"
     ]
   },
   {
@@ -1473,21 +1476,6 @@
     "submissionRisk": "low",
     "requiresAccount": "none",
     "tags": ["domain", "company", "startup", "osint", "business"]
-  },
-  {
-    "id": "dnsdumpster",
-    "name": "DNSDumpster",
-    "category": "Business OSINT",
-    "description": "Free domain research tool that discovers hosts related to a domain via DNS enumeration.",
-    "inputTypes": ["domain"],
-    "workflows": ["business-domain-osint", "domain-triage"],
-    "urlTemplate": "https://dnsdumpster.com/",
-    "whyUse": "Quickly maps the DNS attack surface of a domain. Reveals mail servers, name servers, and subdomains that may expose sensitive infrastructure.",
-    "lookFor": "Mail servers (MX), name servers, A records for subdomains, TXT records (SPF, DKIM, DMARC), geolocation of hosts.",
-    "riskNote": "Manual search required — no URL template. Enter the domain on the site.",
-    "submissionRisk": "low",
-    "requiresAccount": "none",
-    "tags": ["domain", "dns", "subdomains", "osint", "infrastructure"]
   },
   {
     "id": "icann-whois",

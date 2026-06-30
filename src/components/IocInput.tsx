@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { DetectedIoc } from '../types/ioc';
-import { detectIoc } from '../lib/detectIoc';
+import { detectIoc, normalizeIocInput } from '../lib/detectIoc';
 import { defangUrlSmart, defangIp, defangDomain } from '../lib/defang';
 import { CopyButton } from './CopyButton';
 
@@ -285,7 +285,6 @@ export function IocInput({ onDetect, onReset, prefillValue, onPrefillConsumed }:
       onDetect(detected);
       scheduleHistorySave(detected, v);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onDetect]);
 
   const handleReset = () => {
@@ -298,7 +297,7 @@ export function IocInput({ onDetect, onReset, prefillValue, onPrefillConsumed }:
   };
 
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const pasted = e.clipboardData.getData('text');
+    const pasted = normalizeIocInput(e.clipboardData.getData('text'));
     const el = e.target as HTMLTextAreaElement;
     const start = el.selectionStart ?? el.value.length;
     const end = el.selectionEnd ?? el.value.length;
@@ -315,7 +314,6 @@ export function IocInput({ onDetect, onReset, prefillValue, onPrefillConsumed }:
       setIoc(null);
       onDetect(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onDetect]);
 
   function handleHistorySelect(item: string) {

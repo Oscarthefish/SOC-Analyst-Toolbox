@@ -3,7 +3,7 @@ import type { IocInput, EnrichmentResult, EnrichOptions } from '../types.js';
 
 const PROVIDER_ID = 'crtsh';
 const PROVIDER_NAME = 'crt.sh';
-const TIMEOUT_MS = 12_000;
+const TIMEOUT_MS = 20_000;
 
 function now(): string {
   return new Date().toISOString();

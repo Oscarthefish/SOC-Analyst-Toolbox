@@ -149,6 +149,15 @@ const PROVIDERS: Provider[] = [
     note: 'Generate a token at platform.censys.io → Settings → API Tokens. Token format: censys_xxxx…',
   },
   {
+    id: 'DNSDUMPSTER_API_KEY',
+    name: 'DNSDumpster',
+    description: 'DNS recon API — enumerates A, MX, NS, TXT records, subdomains, and host infrastructure for a domain.',
+    signupUrl: 'https://dnsdumpster.com/developer/',
+    tier: 'Account required — free tier included',
+    supports: ['Domain', 'URL'],
+    note: 'API key is available from your DNSDumpster account dashboard at dnsdumpster.com/developer/',
+  },
+  {
     id: 'HUNTER_API_KEY',
     name: 'Hunter.io',
     description: 'Business domain intelligence — company profile, industry, employee count, email patterns, and indexed contact data.',

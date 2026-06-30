@@ -14,7 +14,8 @@ interface ToolPanelProps {
 }
 
 export function ToolPanel({ workflow, ioc, tools, favorites, onToggleFavorite }: ToolPanelProps) {
-  const isEmpty = !workflow || !ioc || (ioc.type === 'unknown' && !ioc.isEmailHeader);
+  const isEmailHeaderWorkflow = workflow?.id === 'email-header-review';
+  const isEmpty = !workflow || !ioc || (ioc.type === 'unknown' && !ioc.isEmailHeader && !isEmailHeaderWorkflow);
 
   if (isEmpty) {
     return (

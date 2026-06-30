@@ -49,6 +49,7 @@ export function generateAssessmentSummary(
         email: 'email address',
         asn: 'ASN',
         cidr: 'CIDR range',
+        cve: 'CVE',
         unknown: 'indicator',
       }[iocType] ?? 'indicator'
     : 'indicator';

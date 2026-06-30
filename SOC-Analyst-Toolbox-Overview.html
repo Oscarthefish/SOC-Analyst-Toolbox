@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SOC Analyst Toolbox — Technical Overview</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #101828;
+    background: #f4f5f7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: #1570ef; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85em;
+    background: #f2f4f7;
+    border: 1px solid #e4e7ec;
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  /* Layout */
+  .page { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Cards */
+  .card {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.06);
+  }
+  .card-p { padding: 24px; }
+
+  /* Sections */
+  .section { margin-top: 48px; }
+  .section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #101828;
+    letter-spacing: -.01em;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e4e7ec;
+    margin-bottom: 20px;
+  }
+
+  /* Hero */
+  .hero {
+    background: #101828;
+    border-radius: 16px;
+    padding: 40px 36px;
+    color: #fff;
+    margin-bottom: 0;
+  }
+  .hero-logo {
+    width: 48px; height: 48px;
+    background: #1570ef;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 20px;
+  }
+  .hero h1 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+  .hero .subtitle {
+    font-size: 15px;
+    color: #adbac7;
+    margin-top: 8px;
+    max-width: 640px;
+    line-height: 1.65;
+  }
+  .hero .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .badge {
+    display: inline-flex; align-items: center;
+    font-size: 11px; font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid;
+  }
+  .badge-blue   { background: #eff8ff; border-color: #b2ddff; color: #175cd3; }
+  .badge-green  { background: #ecfdf3; border-color: #abefc6; color: #067647; }
+  .badge-orange { background: #fffaeb; border-color: #fedf89; color: #b54708; }
+  .badge-gray   { background: #f2f4f7; border-color: #e4e7ec; color: #475467; }
+  .badge-dark   { background: #21262d; border-color: #30363d; color: #adbac7; }
+  .badge-red    { background: #fef3f2; border-color: #fecdca; color: #b42318; }
+
+  /* Problem / callout */
+  .callout {
+    border-radius: 10px;
+    padding: 16px 20px;
+    border: 1px solid;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .callout-amber { background: #fffaeb; border-color: #fedf89; }
+  .callout-blue  { background: #eff8ff; border-color: #b2ddff; }
+  .callout-green { background: #ecfdf3; border-color: #abefc6; }
+  .callout-icon { font-size: 18px; line-height: 1; margin-top: 2px; flex-shrink: 0; }
+  .callout-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .callout-amber .callout-title { color: #b54708; }
+  .callout-blue  .callout-title { color: #175cd3; }
+  .callout-green .callout-title { color: #067647; }
+  .callout-body  { font-size: 13px; color: #475467; line-height: 1.6; }
+
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+  /* Feature cards */
+  .feature-card { padding: 18px; }
+  .feature-icon {
+    width: 36px; height: 36px;
+    background: #f2f4f7;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+  .feature-title { font-size: 13px; font-weight: 700; color: #101828; margin-bottom: 6px; }
+  .feature-body  { font-size: 12px; color: #667085; line-height: 1.6; }
+
+  /* Pipeline steps */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: flex;
+    gap: 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid #f2f4f7;
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    width: 28px; height: 28px;
+    background: #1570ef;
+    color: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-title { font-size: 13px; font-weight: 700; color: #101828; }
+  .step-body  { font-size: 12px; color: #667085; margin-top: 2px; line-height: 1.55; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead tr { background: #f9fafb; }
+  th {
+    text-align: left;
+    padding: 9px 14px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #667085;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    border-bottom: 1px solid #e4e7ec;
+  }
+  td { padding: 9px 14px; border-bottom: 1px solid #f2f4f7; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(even) { background: #fafbfc; }
+  .td-name { font-weight: 600; color: #101828; white-space: nowrap; }
+  .td-mono { font-family: 'SF Mono', 'Consolas', monospace; color: #1570ef; font-weight: 600; }
+  .td-desc { color: #475467; line-height: 1.55; }
+  .td-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag {
+    display: inline-block;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: #f2f4f7;
+    border: 1px solid #e4e7ec;
+    color: #344054;
+    white-space: nowrap;
+  }
+
+  /* Workflow grid */
+  .workflow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .workflow-card {
+    padding: 14px 16px;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    background: #fff;
+  }
+  .workflow-name { font-size: 13px; font-weight: 700; color: #101828; margin-bottom: 4px; }
+  .workflow-types { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .workflow-desc { font-size: 11px; color: #667085; line-height: 1.5; }
+
+  /* Arch diagram */
+  .arch-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e4e7ec;
+  }
+  .arch-cell {
+    flex: 1;
+    padding: 12px 14px;
+    border-right: 1px solid #e4e7ec;
+    text-align: center;
+    font-size: 11px;
+  }
+  .arch-cell:last-child { border-right: none; }
+  .arch-cell-label { font-weight: 700; color: #101828; font-size: 12px; margin-bottom: 3px; }
+  .arch-cell-sub { color: #98a2b3; font-size: 10px; }
+  .arch-arrow { display: flex; align-items: center; color: #98a2b3; font-size: 18px; padding: 0 2px; }
+
+  /* Sub-section headers */
+  .sub-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #667085;
+    margin-bottom: 8px;
+    margin-top: 20px;
+  }
+  .sub-title:first-child { margin-top: 0; }
+
+  /* Code blocks */
+  pre {
+    background: #101828;
+    color: #e4e7ec;
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 16px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+
+  /* Severity colours */
+  .sev-critical { color: #b42318; font-weight: 700; }
+  .sev-high     { color: #ef6820; font-weight: 700; }
+  .sev-medium   { color: #b54708; font-weight: 700; }
+  .sev-low      { color: #175cd3; font-weight: 700; }
+  .sev-benign   { color: #067647; font-weight: 700; }
+
+  /* Provider tier labels */
+  .tier-free { color: #067647; background: #ecfdf3; border: 1px solid #abefc6; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
+  .tier-key  { color: #b54708; background: #fffaeb; border: 1px solid #fedf89; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
+  .tier-paid { color: #475467; background: #f2f4f7; border: 1px solid #e4e7ec; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
+
+  /* Privacy model */
+  .privacy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .privacy-item { padding: 14px 16px; border-radius: 8px; border: 1px solid #e4e7ec; background: #fafbfc; }
+  .privacy-item-title { font-size: 12px; font-weight: 700; color: #101828; margin-bottom: 4px; }
+  .privacy-item-body  { font-size: 11px; color: #667085; line-height: 1.55; }
+
+  /* Requirement pills */
+  .req-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .req-item { padding: 14px; border: 1px solid #e4e7ec; border-radius: 8px; background: #fff; }
+  .req-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #98a2b3; margin-bottom: 4px; }
+  .req-value { font-size: 12px; font-weight: 600; color: #101828; }
+  .req-note  { font-size: 11px; color: #667085; margin-top: 2px; }
+
+  /* Footer */
+  .footer {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid #e4e7ec;
+    font-size: 11px;
+    color: #98a2b3;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* Print */
+  @media print {
+    body { background: #fff; font-size: 12px; }
+    .page { padding: 20px; max-width: 100%; }
+    .hero { background: #101828 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .card { box-shadow: none; }
+    .section { margin-top: 32px; }
+    pre { border: 1px solid #e4e7ec; }
+    a { color: #1570ef; }
+    @page { margin: 20mm; }
+  }
+
+  @media (max-width: 640px) {
+    .grid-2, .grid-3, .workflow-grid, .privacy-grid, .req-grid { grid-template-columns: 1fr; }
+    .hero { padding: 28px 20px; }
+    .hero h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── HERO ──────────────────────────────────────────────────────────────── -->
+  <div class="hero">
+    <div class="hero-logo">
+      <svg width="24" height="24" fill="none" stroke="#fff" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/>
+      </svg>
+    </div>
+    <h1>SOC Analyst Toolbox</h1>
+    <p class="subtitle">
+      A fully local, privacy-first threat intelligence workbench for SOC analysts. Paste any IOC — IP address, domain, URL, file hash, email address, CVE — and immediately pivot across 30 enrichment providers, 14 structured investigation workflows, and 61 curated OSINT tool links. Nothing is sent to any cloud service except the provider APIs you explicitly configure.
+    </p>
+    <div class="badges">
+      <span class="badge badge-dark">30 enrichment providers</span>
+      <span class="badge badge-dark">14 investigation workflows</span>
+      <span class="badge badge-dark">61 curated OSINT tools</span>
+      <span class="badge badge-dark">11 IOC types supported</span>
+      <span class="badge badge-green" style="background:#0c2117;border-color:#1a4a2a;color:#3fb950;">&#x2713; Local only &middot; No telemetry</span>
+    </div>
+  </div>
+
+  <!-- ── THE PROBLEM ─────────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">The Problem</div>
+    <p style="font-size:13px;color:#475467;margin-bottom:16px;line-height:1.7;">
+      SOC analysts spend a significant portion of their triage time context-switching — opening 8–12 browser tabs, re-entering the same IOC into different tools, waiting for results, and then manually correlating what they find. There is no standardised process, no shared context, and no memory between investigations.
+    </p>
+    <div class="grid-3">
+      <div class="callout callout-amber">
+        <div class="callout-icon">⏱</div>
+        <div>
+          <div class="callout-title">Investigation time</div>
+          <div class="callout-body">Analysts lose 5–15 minutes per IOC navigating between disparate tools and re-entering the same indicator.</div>
+        </div>
+      </div>
+      <div class="callout callout-amber">
+        <div class="callout-icon">🔀</div>
+        <div>
+          <div class="callout-title">No standardisation</div>
+          <div class="callout-body">Different analysts use different tools in different orders, producing inconsistent coverage and missed context.</div>
+        </div>
+      </div>
+      <div class="callout callout-amber">
+        <div class="callout-icon">🔐</div>
+        <div>
+          <div class="callout-title">Data privacy risk</div>
+          <div class="callout-body">Pasting live IOCs into cloud-based tools may expose sensitive indicators to third-party services without analyst awareness.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── WHAT IT IS ─────────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">What It Is</div>
+    <div class="card card-p">
+      <p style="font-size:13px;color:#344054;line-height:1.7;margin-bottom:16px;">
+        The SOC Analyst Toolbox is a single-page application running entirely on the analyst's local machine. The analyst pastes an IOC into the search bar; the tool auto-detects the type, presents the relevant investigation workflows, and with one click fans out to all appropriate enrichment providers simultaneously. Results stream back in real time — severity-rated, key-fact-extracted, contradiction-flagged, and ready to pivot.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#1570ef;flex-shrink:0;margin-top:6px;"></div>
+          <div style="font-size:13px;color:#344054;"><strong>Paste once, query everywhere.</strong> One IOC entry fans out to up to 30 enrichment providers concurrently. No manual re-entry.</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#1570ef;flex-shrink:0;margin-top:6px;"></div>
+          <div style="font-size:13px;color:#344054;"><strong>Structured workflows enforce process.</strong> 14 pre-built investigation workflows map directly to common SOC use cases — IP triage, phishing, malware hash, email header review, ransomware context, and more. Each workflow provides a curated checklist.</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#1570ef;flex-shrink:0;margin-top:6px;"></div>
+          <div style="font-size:13px;color:#344054;"><strong>AI narrative synthesis.</strong> An optional local AI model (Ollama, running on-device) synthesises all enrichment results into a plain-English analyst verdict with cited sources and recommended actions. No data leaves the machine.</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#1570ef;flex-shrink:0;margin-top:6px;"></div>
+          <div style="font-size:13px;color:#344054;"><strong>Pivot without losing context.</strong> Resolved IPs, certificate SANs, and related domains appear as clickable chips that immediately load into the investigation panel for chained analysis.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CAPABILITIES ───────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Key Capabilities</div>
+    <div class="grid-3">
+
+      <div class="card feature-card">
+        <div class="feature-icon">🔍</div>
+        <div class="feature-title">Single IOC Investigation</div>
+        <div class="feature-body">Paste any IOC — auto-detected type, workflow selected, all providers queried in parallel. Results include severity ratings, key facts, pivot links, and AI narrative.</div>
+      </div>
+
+      <div class="card feature-card">
+        <div class="feature-icon">📋</div>
+        <div class="feature-title">Bulk IOC Extraction</div>
+        <div class="feature-body">Paste raw text — emails, logs, threat reports — and the tool extracts, deduplicates, and classifies all recognisable IOCs. Launch investigation on any match with one click.</div>
+      </div>
+
+      <div class="card feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Batch Triage (50 IOCs)</div>
+        <div class="feature-body">Submit up to 50 IOCs at once. Runs 5 concurrent enrichment jobs, updates a live results table, produces a severity breakdown bar. One-click pivot on any result.</div>
+      </div>
+
+      <div class="card feature-card">
+        <div class="feature-icon">🤖</div>
+        <div class="feature-title">Local AI Analysis</div>
+        <div class="feature-body">Powered by Ollama (local LLM — no cloud). After enrichment, the AI synthesises provider results into a verdict with key findings, recommended actions, and cited sources. Citation-enforced retry logic.</div>
+      </div>
+
+      <div class="card feature-card">
+        <div class="feature-icon">🔗</div>
+        <div class="feature-title">DNS &amp; Certificate Pivots</div>
+        <div class="feature-body">Resolved IPs from DNS and SANs from crt.sh certificate transparency logs appear as pivot chips. One click loads any pivot into the investigation panel for immediate chained analysis.</div>
+      </div>
+
+      <div class="card feature-card">
+        <div class="feature-icon">⚠️</div>
+        <div class="feature-title">Contradiction Detection</div>
+        <div class="feature-body">Automatically flags when provider results conflict: benign vs. malicious, low VT detections without corroboration, newly registered domains, WHOIS age vs. Wayback archive mismatches.</div>
+      </div>
+
+      <div class="card feature-card">
+        <div class="feature-icon">📧</div>
+        <div class="feature-title">Email Header Analysis</div>
+        <div class="feature-body">Paste raw email headers. The backend parses SPF, DKIM, DMARC, sending IP, relay hops, and suspicious indicators. The sending IP and From domain are automatically enriched.</div>
+      </div>
+
+      <div class="card feature-card">
+        <div class="feature-icon">🏢</div>
+        <div class="feature-title">Business OSINT</div>
+        <div class="feature-body">The Business Domain Profile workflow aggregates corporate intelligence: Hunter.io company data, Wayback history, WHOIS registration, DNS, and certificate transparency logs in a single run.</div>
+      </div>
+
+      <div class="card feature-card">
+        <div class="feature-icon">📡</div>
+        <div class="feature-title">Live Threat Feed</div>
+        <div class="feature-body">Real-time briefing from CISA KEV (active exploits), Ransomware.live (recent victims), and Pulsedive (high-risk IOC feeds). Updated every 30 minutes. Direct links to source reports.</div>
+      </div>
+
+      <div class="card feature-card">
+        <div class="feature-icon">🔄</div>
+        <div class="feature-title">Defang / Refang</div>
+        <div class="feature-body">Converts IOCs between defanged (safe to share in reports and Slack) and refanged (ready to investigate) formats. Handles IPv4, IPv6, domains, and URLs in both directions.</div>
+      </div>
+
+      <div class="card feature-card">
+        <div class="feature-icon">📚</div>
+        <div class="feature-title">Search History</div>
+        <div class="feature-body">The last 10 investigations — IOC, full enrichment results, AI verdict, and severity — are saved locally. Reload any previous result instantly without re-querying APIs.</div>
+      </div>
+
+      <div class="card feature-card">
+        <div class="feature-icon">🌙</div>
+        <div class="feature-title">Dark Mode</div>
+        <div class="feature-body">Full dark mode with persistent preference. Designed for extended use in SOC environments where screen brightness and eye strain are a consideration.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── HOW IT WORKS ───────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">How It Works — Architecture</div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div>
+            <div class="step-title">IOC Input &amp; Type Detection</div>
+            <div class="step-body">The analyst pastes an IOC. The frontend applies regex-based detection to classify it as IPv4, IPv6, domain, URL, MD5, SHA1, SHA256, email, ASN, CIDR, or CVE. Defanged formats (<code>hxxps://</code>, <code>1[.]2[.]3[.]4</code>, zero-width Unicode characters) are automatically normalised.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div>
+            <div class="step-title">Workflow Selection</div>
+            <div class="step-body">The analyst selects a workflow (e.g. IP Triage, Domain Triage, Malware Hash). Each workflow defines which enrichment providers to query and presents a context-specific investigation checklist and internal search templates.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div>
+            <div class="step-title">Concurrent Enrichment (local backend)</div>
+            <div class="step-body">The React frontend sends a single POST request to the local Node.js/Express backend on <code>localhost</code>. The backend fans out to all configured providers simultaneously using <code>Promise.allSettled</code>. Each provider adapter has independent timeout handling so a slow or unavailable provider never blocks the rest.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div>
+            <div class="step-title">Caching</div>
+            <div class="step-body">Results are cached in-memory with per-provider TTLs (10 minutes for DNS up to 24 hours for WHOIS). Repeated lookups for the same IOC are served instantly without burning API rate limits or quota. Cache can be bypassed with an explicit force-refresh.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div>
+            <div class="step-title">Severity Scoring &amp; Contradiction Detection</div>
+            <div class="step-body">The backend computes overall severity from active (non-passive) sources. Passive/contextual providers (DNS, WHOIS, ip-api, BGPView) are excluded from severity scoring to avoid inflating results. A contradiction engine flags conflicts: benign vs. malicious classifications, low-corroboration VT detections, and domain age mismatches.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">6</div>
+          <div>
+            <div class="step-title">AI Narrative (optional)</div>
+            <div class="step-body">The backend calls a locally running Ollama LLM with a structured prompt containing all enrichment results. The model produces a structured verdict with cited sources, key findings, recommended actions, and analyst notes. If citation density is low, the backend auto-retries with an enforcement prompt.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">7</div>
+          <div>
+            <div class="step-title">Results Rendered</div>
+            <div class="step-body">The frontend displays the auto-analysis panel (verdict, confidence meter, key findings, recommended actions, enrichment source breakdown), the provider-by-provider results panel, and pivot chips for resolved IPs and related domains — all in a single view.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-blue">
+      <div class="callout-icon">🏗</div>
+      <div>
+        <div class="callout-title">Architecture summary</div>
+        <div class="callout-body">
+          <strong>Frontend</strong> (React 18 + TypeScript + Vite, running on localhost:5173) communicates exclusively with <strong>Local Backend</strong> (Node.js + Express + TypeScript, running on localhost:8787). The backend makes outbound API calls to configured threat intel providers. API keys are stored in a local <code>.env</code> file, never exposed to the browser. The AI model (Ollama) runs on the same machine. No data is ever routed through any cloud intermediary.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── WORKFLOWS ──────────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Investigation Workflows (14)</div>
+    <p style="font-size:13px;color:#667085;margin-bottom:16px;line-height:1.6;">
+      Each workflow activates a specific set of enrichment providers, curated OSINT tool links, an investigation checklist, and pre-populated SIEM/log search templates. Workflows are automatically enabled or disabled based on the detected IOC type.
+    </p>
+    <div class="workflow-grid">
+
+      <div class="workflow-card">
+        <div class="workflow-name">IP Triage</div>
+        <div class="workflow-types">
+          <span class="tag">IPv4</span><span class="tag">IPv6</span>
+        </div>
+        <div class="workflow-desc">Full enrichment sweep — reputation, geolocation, ASN, Tor exit detection, open ports (Shodan/Censys), and abuse history. Determines if the IP is a known threat, internet noise, or legitimate service.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">Domain Triage</div>
+        <div class="workflow-types">
+          <span class="tag">Domain</span><span class="tag">URL</span>
+        </div>
+        <div class="workflow-desc">DNS resolution, certificate pivots (crt.sh), WHOIS registration age, threat intelligence, Wayback Machine history. Flags newly registered and re-registered domains.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">URL / Phishing</div>
+        <div class="workflow-types">
+          <span class="tag">URL</span><span class="tag">Domain</span>
+        </div>
+        <div class="workflow-desc">URL reputation across Google Safe Browsing, URLhaus, VirusTotal, and urlscan.io. Targets phishing kits, credential harvesting pages, and redirect chains.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">Malware / Hash</div>
+        <div class="workflow-types">
+          <span class="tag">MD5</span><span class="tag">SHA1</span><span class="tag">SHA256</span>
+        </div>
+        <div class="workflow-desc">Hash lookup across VirusTotal, MalwareBazaar, ThreatFox, OTX, and Hybrid Analysis sandbox reports. Returns malware family, detection ratio, first/last seen, and C2 infrastructure.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">Email Header Review</div>
+        <div class="workflow-types">
+          <span class="tag">Email header</span>
+        </div>
+        <div class="workflow-desc">Paste raw email headers. Backend parses SPF, DKIM, DMARC, sending IP, relay hops, and suspicious indicators. Sending IP and From domain are automatically enriched for reputation.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">Suspicious Connection</div>
+        <div class="workflow-types">
+          <span class="tag">IPv4</span><span class="tag">IPv6</span><span class="tag">Domain</span>
+        </div>
+        <div class="workflow-desc">C2 and beaconing investigation — GreyNoise noise classification, Shodan open ports, ThreatFox, OTX, and URLhaus. Determines if a connection is C2, exfiltration, or background noise.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">Spam Source</div>
+        <div class="workflow-types">
+          <span class="tag">IPv4</span><span class="tag">Email</span><span class="tag">Domain</span>
+        </div>
+        <div class="workflow-desc">Email sender investigation — Talos, AbuseIPDB email reputation, ASN data, and deliverability checks. Includes SIEM search templates for recipient count and gateway logs.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">WAF / Web Attack</div>
+        <div class="workflow-types">
+          <span class="tag">IPv4</span><span class="tag">IPv6</span>
+        </div>
+        <div class="workflow-desc">Source IP enrichment for WAF alerts — scanner classification (GreyNoise), abuse reports, VPN/proxy detection (Spur), and Shodan exposure data. Differentiates targeted attacks from mass scanning.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">Business Domain Profile</div>
+        <div class="workflow-types">
+          <span class="tag">Domain</span>
+        </div>
+        <div class="workflow-desc">Corporate intelligence sweep — Hunter.io company profile, employee count and email pattern, Wayback history, WHOIS registration, DNS infrastructure, and certificate transparency logs.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">Dark Web / Credential Exposure</div>
+        <div class="workflow-types">
+          <span class="tag">Email</span><span class="tag">Domain</span>
+        </div>
+        <div class="workflow-desc">Checks for breach exposure and dark web mentions — HaveIBeenPwned, ransomware.live victim listings. Identifies exposed credentials and affected accounts.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">Ransomware Context</div>
+        <div class="workflow-types">
+          <span class="tag">Domain</span><span class="tag">IPv4</span><span class="tag">Hash</span>
+        </div>
+        <div class="workflow-desc">Ransomware.live victim listing cross-referenced with ThreatFox, OTX, and VirusTotal. Returns known C2 infrastructure, malware family, and associated threat actor TTPs.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">External Exposure</div>
+        <div class="workflow-types">
+          <span class="tag">IPv4</span><span class="tag">Domain</span><span class="tag">CIDR</span>
+        </div>
+        <div class="workflow-desc">Attack surface assessment using Shodan and Censys port/service scanning combined with crt.sh subdomain discovery. Identifies unintended exposure and CVE-affected services.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">CVE Context</div>
+        <div class="workflow-types">
+          <span class="tag">CVE</span>
+        </div>
+        <div class="workflow-desc">CISA KEV lookup — flags whether the CVE is under active exploitation in the wild. Returns CVSS score, affected products, patch status, and CISA remediation due date.</div>
+      </div>
+
+      <div class="workflow-card">
+        <div class="workflow-name">Takedown Reporting</div>
+        <div class="workflow-types">
+          <span class="tag">Domain</span><span class="tag">URL</span>
+        </div>
+        <div class="workflow-desc">Identifies registrar, hosting provider, and abuse contacts needed for takedown submissions. Links to phish.report for automated reporting and Google Safe Browsing submission.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── ENRICHMENT PROVIDERS ───────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Enrichment Providers (30)</div>
+    <p style="font-size:13px;color:#667085;margin-bottom:16px;line-height:1.6;">
+      All enrichment runs through the local backend. API keys are configured once in the API Keys tab and stored in <code>backend/.env</code>. Providers without a key requirement work immediately out of the box. Results are cached per-provider to minimise API usage.
+    </p>
+
+    <div class="sub-title">Free · No API key required</div>
+    <div class="card" style="overflow:hidden;margin-bottom:20px;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:160px;">Provider</th>
+            <th style="width:160px;">Supports</th>
+            <th>What it returns</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-name">DNS Resolution</td>
+            <td><div class="td-tags"><span class="tag">Domain</span></div></td>
+            <td class="td-desc">Node.js built-in resolver. IPv4/IPv6 records with pivot links to each resolved IP for immediate chained investigation.</td>
+          </tr>
+          <tr>
+            <td class="td-name">RIPE Stat</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">IPv6</span><span class="tag">ASN</span><span class="tag">CIDR</span></div></td>
+            <td class="td-desc">BGP routing and prefix data from RIPE NCC. ASN holder, country, and announcement status.</td>
+          </tr>
+          <tr>
+            <td class="td-name">CISA KEV</td>
+            <td><div class="td-tags"><span class="tag">CVE</span></div></td>
+            <td class="td-desc">CISA Known Exploited Vulnerabilities catalogue. Flags CVEs that are actively exploited in the wild with CVSS score, patching deadline, and ransomware association.</td>
+          </tr>
+          <tr>
+            <td class="td-name">Ransomware.live</td>
+            <td><div class="td-tags"><span class="tag">Domain</span></div></td>
+            <td class="td-desc">Public ransomware victim listing. Checks if a domain appears in known ransomware group postings, with group attribution.</td>
+          </tr>
+          <tr>
+            <td class="td-name">crt.sh</td>
+            <td><div class="td-tags"><span class="tag">Domain</span></div></td>
+            <td class="td-desc">Certificate Transparency logs. Extracts SANs from recent TLS certificates to surface related subdomains and pivot targets.</td>
+          </tr>
+          <tr>
+            <td class="td-name">Wayback Machine</td>
+            <td><div class="td-tags"><span class="tag">Domain</span></div></td>
+            <td class="td-desc">Internet Archive CDX API. First and most recent snapshot dates — essential for detecting re-registered or newly repurposed domains.</td>
+          </tr>
+          <tr>
+            <td class="td-name">Tor Project (Onionoo)</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">IPv6</span></div></td>
+            <td class="td-desc">Onionoo relay database. Identifies whether an IP is a Tor exit node, guard, or relay — directly relevant to anonymised attacker infrastructure.</td>
+          </tr>
+          <tr>
+            <td class="td-name">ip-api</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">IPv6</span></div></td>
+            <td class="td-desc">Free IP geolocation. Country, city, ISP, and usage type (datacenter, residential, mobile).</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sub-title">Free · API key required (free registration)</div>
+    <div class="card" style="overflow:hidden;margin-bottom:20px;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:160px;">Provider</th>
+            <th style="width:160px;">Supports</th>
+            <th>What it returns</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-name">GreyNoise</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">IPv6</span></div></td>
+            <td class="td-desc">Internet noise classification. Labels IPs as scanners, crawlers, or known malicious actors vs. targeted traffic. Critical for reducing alert fatigue on mass-scanning IPs.</td>
+          </tr>
+          <tr>
+            <td class="td-name">AbuseIPDB</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">IPv6</span></div></td>
+            <td class="td-desc">Community abuse reporting. Abuse confidence score and report history for IP addresses — aggregated from thousands of community submissions.</td>
+          </tr>
+          <tr>
+            <td class="td-name">VirusTotal</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">Domain</span><span class="tag">Hash</span></div></td>
+            <td class="td-desc">Multi-engine reputation lookup. Detection ratio across 70+ AV engines, threat intelligence feeds, and passive DNS context.</td>
+          </tr>
+          <tr>
+            <td class="td-name">AlienVault OTX</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">Domain</span><span class="tag">Hash</span><span class="tag">URL</span></div></td>
+            <td class="td-desc">Crowd-sourced threat intelligence pulses. IOC associations with malware families, threat actor campaigns, and MITRE ATT&amp;CK tactics.</td>
+          </tr>
+          <tr>
+            <td class="td-name">ThreatFox</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">Domain</span><span class="tag">Hash</span><span class="tag">URL</span></div></td>
+            <td class="td-desc">abuse.ch IOC database. Malware C2 indicators, payload hashes, and threat actor infrastructure — actively maintained and frequently updated.</td>
+          </tr>
+          <tr>
+            <td class="td-name">URLhaus</td>
+            <td><div class="td-tags"><span class="tag">URL</span><span class="tag">Domain</span><span class="tag">IPv4</span></div></td>
+            <td class="td-desc">abuse.ch malicious URL database. Active and historical malware delivery URLs, malware families, and associated payloads.</td>
+          </tr>
+          <tr>
+            <td class="td-name">MalwareBazaar</td>
+            <td><div class="td-tags"><span class="tag">MD5</span><span class="tag">SHA1</span><span class="tag">SHA256</span></div></td>
+            <td class="td-desc">abuse.ch malware sample database. File type, malware family, tags, and AV vendor detections. Uses the same key as URLhaus.</td>
+          </tr>
+          <tr>
+            <td class="td-name">urlscan.io</td>
+            <td><div class="td-tags"><span class="tag">Domain</span><span class="tag">URL</span><span class="tag">IPv4</span></div></td>
+            <td class="td-desc">Historical URL scan search. Screenshots, DOM content, outbound links, and maliciousness verdict from automated web scans.</td>
+          </tr>
+          <tr>
+            <td class="td-name">Pulsedive</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">Domain</span><span class="tag">URL</span></div></td>
+            <td class="td-desc">Risk-scored threat intelligence platform. Linked IOC relationships, threat categories, and active feed memberships.</td>
+          </tr>
+          <tr>
+            <td class="td-name">Hybrid Analysis</td>
+            <td><div class="td-tags"><span class="tag">MD5</span><span class="tag">SHA1</span><span class="tag">SHA256</span></div></td>
+            <td class="td-desc">Sandbox report lookup. Verdict, threat score, AV detections, and malware family classification from dynamic behavioural analysis.</td>
+          </tr>
+          <tr>
+            <td class="td-name">IPinfo</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">IPv6</span></div></td>
+            <td class="td-desc">IP geolocation and ASN data. Privacy plan adds VPN, proxy, Tor, and hosting provider detection flags.</td>
+          </tr>
+          <tr>
+            <td class="td-name">Hunter.io</td>
+            <td><div class="td-tags"><span class="tag">Domain</span><span class="tag">Email</span></div></td>
+            <td class="td-desc">Business domain intelligence. Company profile, industry, headcount, email pattern, and LinkedIn URL. Email verification and person enrichment for email addresses.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sub-title">Paid or limited free tier</div>
+    <div class="card" style="overflow:hidden;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:160px;">Provider</th>
+            <th style="width:160px;">Supports</th>
+            <th>What it returns</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-name">Shodan</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">IPv6</span></div></td>
+            <td class="td-desc">Internet-wide scanner. Open ports, service banners, CVE exposure, hostnames, and organisation data. One of the most valuable providers for infrastructure analysis.</td>
+          </tr>
+          <tr>
+            <td class="td-name">Censys</td>
+            <td><div class="td-tags"><span class="tag">IPv4</span><span class="tag">IPv6</span></div></td>
+            <td class="td-desc">Internet exposure data. Open ports, TLS services, and autonomous system information. Complements Shodan.</td>
+          </tr>
+          <tr>
+            <td class="td-name">HaveIBeenPwned</td>
+            <td><div class="td-tags"><span class="tag">Email</span></div></td>
+            <td class="td-desc">Email breach lookup. Breach count, sensitive flag, exposed data classes (passwords, credit cards, etc.), and source breach names.</td>
+          </tr>
+          <tr>
+            <td class="td-name">WhoisXML API</td>
+            <td><div class="td-tags"><span class="tag">Domain</span><span class="tag">IPv4</span></div></td>
+            <td class="td-desc">Parsed WHOIS registration data. Domain age, registrar, registrant organisation, expiry date, and nameservers. Falls back to free RDAP if no key is configured.</td>
+          </tr>
+          <tr>
+            <td class="td-name">Google Safe Browsing</td>
+            <td><div class="td-tags"><span class="tag">URL</span><span class="tag">Domain</span></div></td>
+            <td class="td-desc">Google threat blocklists. Malware, phishing, unwanted software, and harmful application classifications — the same data used by Chrome and Google Search.</td>
+          </tr>
+          <tr>
+            <td class="td-name">DNSDumpster</td>
+            <td><div class="td-tags"><span class="tag">Domain</span></div></td>
+            <td class="td-desc">Passive DNS data — A records, MX, NS, CNAME, TXT/SPF/DMARC records, and subdomain enumeration. Useful for mapping domain infrastructure.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── PRIVACY ────────────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Privacy &amp; Security Model</div>
+    <div class="callout callout-green" style="margin-bottom:16px;">
+      <div class="callout-icon">🔒</div>
+      <div>
+        <div class="callout-title">Zero cloud infrastructure. All data stays local.</div>
+        <div class="callout-body">The toolbox runs entirely on the analyst's machine. No SaaS, no shared backend, no analytics, no telemetry. The only outbound connections are to the enrichment provider APIs you configure — and only when you explicitly trigger a lookup.</div>
+      </div>
+    </div>
+    <div class="privacy-grid">
+      <div class="privacy-item">
+        <div class="privacy-item-title">🔑 API key isolation</div>
+        <div class="privacy-item-body">API keys are stored in a local <code>.env</code> file on the analyst's machine. The React frontend never receives or handles keys — all provider calls go through the local backend. Keys are never logged or transmitted.</div>
+      </div>
+      <div class="privacy-item">
+        <div class="privacy-item-title">🤖 Local AI processing</div>
+        <div class="privacy-item-body">AI narrative generation uses Ollama, a locally-running LLM. The enrichment data, IOC, and prompt are processed entirely on-device. No data is sent to OpenAI, Anthropic, or any cloud AI service.</div>
+      </div>
+      <div class="privacy-item">
+        <div class="privacy-item-title">🌐 Controlled outbound calls</div>
+        <div class="privacy-item-body">Outbound API calls are made only when the analyst runs enrichment. Passive providers (DNS, WHOIS, RIPE) perform read-only lookups. Submitting IOCs to providers is clearly labelled — tool links marked "Submits IOC" warn before use.</div>
+      </div>
+      <div class="privacy-item">
+        <div class="privacy-item-title">💾 Local storage only</div>
+        <div class="privacy-item-body">Search history, API keys, and configuration are stored in <code>localStorage</code> and a local <code>.env</code> file on the analyst's machine. There is no database, no cloud sync, and no shared session state.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REQUIREMENTS ───────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Technical Requirements</div>
+    <div class="req-grid" style="margin-bottom:16px;">
+      <div class="req-item">
+        <div class="req-label">Runtime</div>
+        <div class="req-value">Node.js 18+</div>
+        <div class="req-note">Required for the local backend. Standard on most analyst workstations.</div>
+      </div>
+      <div class="req-item">
+        <div class="req-label">Browser</div>
+        <div class="req-value">Any modern browser</div>
+        <div class="req-note">Chrome, Firefox, Edge, Safari. No internet connection required to run the tool.</div>
+      </div>
+      <div class="req-item">
+        <div class="req-label">AI (optional)</div>
+        <div class="req-value">Ollama</div>
+        <div class="req-note">Free, open-source, runs locally. <code>qwen2.5</code> recommended (~4GB). Required only for AI narrative feature.</div>
+      </div>
+      <div class="req-item">
+        <div class="req-label">API keys</div>
+        <div class="req-value">8 providers free</div>
+        <div class="req-note">8 providers work with no key at all. 12 more have free registration tiers. Shodan/Censys/HIBP are the only paid providers.</div>
+      </div>
+      <div class="req-item">
+        <div class="req-label">Internet</div>
+        <div class="req-value">Outbound only</div>
+        <div class="req-note">No inbound connectivity required. Outbound calls go only to configured API endpoints when a lookup is triggered.</div>
+      </div>
+      <div class="req-item">
+        <div class="req-label">Installation</div>
+        <div class="req-value"><code>npm install</code></div>
+        <div class="req-note">Standard npm setup. No Docker, no database, no system-level dependencies beyond Node.js.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SETUP ──────────────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Getting Started</div>
+    <div class="card card-p" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#101828;margin-bottom:8px;">1 — Start the backend</div>
+        <pre>cd backend
+npm install
+npm run dev</pre>
+        <div style="font-size:12px;color:#667085;margin-top:8px;">Starts on <code>localhost:8787</code>. The frontend health-checks every 30 seconds and shows online/offline status.</div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#101828;margin-bottom:8px;">2 — Start the frontend</div>
+        <pre>npm install
+npm run dev</pre>
+        <div style="font-size:12px;color:#667085;margin-top:8px;">Opens at <code>localhost:5173</code>. Single-page app — no build step needed during development.</div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#101828;margin-bottom:8px;">3 — Configure API keys</div>
+        <div style="font-size:12px;color:#667085;line-height:1.6;">Open the <strong>API Keys</strong> tab in the UI and paste credentials. Saved immediately to <code>backend/.env</code>. No restart required. Free keys for GreyNoise, VirusTotal, AbuseIPDB, OTX, ThreatFox, URLhaus, urlscan.io, and Pulsedive are sufficient for most investigations.</div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#101828;margin-bottom:8px;">4 — Enable AI analysis (optional)</div>
+        <pre>ollama pull qwen2.5</pre>
+        <div style="font-size:12px;color:#667085;margin-top:8px;">Install <a href="https://ollama.com">Ollama</a> and pull any model. The backend auto-detects running models. <code>qwen2.5</code> (4GB) produces strong structured analysis. Any Ollama-compatible model works.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VALUE SUMMARY ──────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Why This Matters for the Team</div>
+    <div class="grid-3">
+      <div class="callout callout-blue">
+        <div class="callout-icon">⚡</div>
+        <div>
+          <div class="callout-title">Faster triage</div>
+          <div class="callout-body">A typical IP or domain investigation that previously required 8–12 browser tabs and 10–15 minutes of manual context switching completes in under 60 seconds.</div>
+        </div>
+      </div>
+      <div class="callout callout-blue">
+        <div class="callout-icon">📐</div>
+        <div>
+          <div class="callout-title">Standardised process</div>
+          <div class="callout-body">14 structured workflows enforce consistent investigation coverage. Every analyst asks the same questions and checks the same sources, regardless of experience level.</div>
+        </div>
+      </div>
+      <div class="callout callout-blue">
+        <div class="callout-icon">🛡</div>
+        <div>
+          <div class="callout-title">Privacy-safe by design</div>
+          <div class="callout-body">No IOC data is exposed to cloud services outside of the configured provider APIs. Safe for investigating sensitive incidents involving customer data or internal infrastructure.</div>
+        </div>
+      </div>
+      <div class="callout callout-blue">
+        <div class="callout-icon">💰</div>
+        <div>
+          <div class="callout-title">Near-zero cost to start</div>
+          <div class="callout-body">20 of 30 providers have free tiers. The 8 no-key providers work immediately. Meaningful results are achievable before spending a single pound on API access.</div>
+        </div>
+      </div>
+      <div class="callout callout-blue">
+        <div class="callout-icon">🔧</div>
+        <div>
+          <div class="callout-title">No vendor dependency</div>
+          <div class="callout-body">Self-hosted, zero SaaS contracts, no data sharing agreements, no per-seat licensing. Built and maintained in-house, extending existing free-tier API relationships.</div>
+        </div>
+      </div>
+      <div class="callout callout-blue">
+        <div class="callout-icon">📈</div>
+        <div>
+          <div class="callout-title">Scales with investment</div>
+          <div class="callout-body">Adding a Shodan or Censys key immediately unlocks port/service intelligence across all workflows. Additional API keys slot in without any code changes.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FOOTER ─────────────────────────────────────────────────────────── -->
+  <div class="footer">
+    <div>SOC Analyst Toolbox &mdash; Internal Tool Overview</div>
+    <div>Local &middot; Private &middot; No telemetry</div>
+  </div>
+
+</div>
+</body>
+</html>

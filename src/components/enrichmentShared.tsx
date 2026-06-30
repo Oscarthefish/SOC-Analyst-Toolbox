@@ -464,7 +464,6 @@ function buildComparison(results: EnrichmentResult[], iocType: string): CompGrou
 export function ProviderComparisonPanel({ results, iocType }: { results: EnrichmentResult[]; iocType: string }) {
   const [copied, setCopied] = useState(false);
   const groups = buildComparison(results, iocType);
-  if (groups.length === 0) return null;
 
   const handleCopy = useCallback(() => {
     const lines: string[] = [];
@@ -481,6 +480,8 @@ export function ProviderComparisonPanel({ results, iocType }: { results: Enrichm
       setTimeout(() => setCopied(false), 1500);
     });
   }, [groups]);
+
+  if (groups.length === 0) return null;
 
   return (
     <div className="rounded-[10px] border border-[#e4e7ec] overflow-hidden">

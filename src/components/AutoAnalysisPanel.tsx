@@ -1,18 +1,19 @@
-import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import type { DetectedIoc } from '../types/ioc';
 import type { AnalysisResponse, EmailHeaderAnalysisResponse, ParsedEmailHeaders } from '../types/analysis';
 import type { EnrichmentResult } from '../types/enrichment';
 import { runAutoAnalysis, runEmailHeaderAnalysis } from '../lib/apiClient';
 import { ProviderComparisonPanel } from './enrichmentShared';
 
+export interface AutoAnalysisPanelHandle {
+  run: (forceRefresh?: boolean) => void;
+}
+
 interface AutoAnalysisPanelProps {
   ioc: DetectedIoc | null;
   workflowId: string | null;
   onComplete?: (response: AnalysisResponse | null) => void;
   onPivot?: (iocValue: string) => void;
-  autoRun?: boolean;
-  autoForceRun?: boolean;
-  onAutoRunConsumed?: () => void;
   preloadResult?: AnalysisResponse | null;
   hideHeader?: boolean;
   onLoadingChange?: (loading: boolean) => void;
@@ -143,22 +144,6 @@ function SourceRow({ result }: { result: EnrichmentResult }) {
         )}
       </div>
     </div>
-  );
-}
-
-// ── Action item (checkable) — kept for potential future use ──────────────
-// (currently not rendered in the UI)
-function ActionItem({ text }: { text: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button onClick={() => setDone(v => !v)}
-      className={`w-full flex items-start gap-2.5 py-2 px-1 text-left rounded transition-colors ${done ? '' : 'hover:bg-[#f9fafb]'}`}>
-      <div className={`mt-0.5 w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors ${
-        done ? 'bg-[#079455] border-[#079455]' : 'bg-white border-[#d0d5dd]'}`}>
-        {done && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-      </div>
-      <span className={`text-xs text-[#344054] leading-relaxed ${done ? 'line-through text-[#98a2b3]' : ''}`}>{text}</span>
-    </button>
   );
 }
 
@@ -556,13 +541,13 @@ function SparkIcon() {
 
 type AnyResult = AnalysisResponse | EmailHeaderAnalysisResponse;
 
-export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPivot, autoRun, autoForceRun, onAutoRunConsumed, preloadResult, hideHeader = false, onLoadingChange }: AutoAnalysisPanelProps) {
+export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysisPanelProps>(function AutoAnalysisPanel({ ioc, workflowId, onComplete, preloadResult, hideHeader = false, onLoadingChange }, ref) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [includeHunter, setIncludeHunter] = useState(false);
-  // Tracks the current run so stale results from previous in-flight requests are discarded.
-  const runGenRef = useRef(0);
+  // Tracks the active run; a new Symbol per run means only the latest run can commit results.
+  const activeRunIdRef = useRef<symbol | null>(null);
   // Keep onLoadingChange stable in effects without adding it to deps.
   const onLoadingChangeRef = useRef(onLoadingChange);
   useEffect(() => { onLoadingChangeRef.current = onLoadingChange; });
@@ -575,17 +560,22 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
     ? 'email verify + person enrichment (uses 2 credits)'
     : 'company profile & email intel (uses 1 credit)';
 
-  // Reset state whenever the IOC or workflow changes.
-  // useLayoutEffect fires synchronously after commit (before browser paint) so the reset
-  // always completes before the user can interact with the new IOC, avoiding the race where
-  // a quick paste+click would let handleRun capture gen before this effect incremented it.
+  // Reset state when the IOC changes. useLayoutEffect fires synchronously before paint so this
+  // always completes before the user can interact. Setting activeRunIdRef to null cancels any
+  // in-flight run for the previous IOC without touching the gen counter.
   useLayoutEffect(() => {
-    runGenRef.current++;
+    activeRunIdRef.current = null;
     setLoading(false);
     setResult(null);
     setError(null);
     onLoadingChangeRef.current?.(false);
-  }, [ioc?.normalised, workflowId]);
+  }, [ioc?.normalised]);
+
+  // Workflow changes should clear stale results but NOT cancel an active run.
+  useEffect(() => {
+    setResult(null);
+    setError(null);
+  }, [workflowId]);
 
   // Restore a previously-saved result when loaded from history.
   // Declared after the reset effect so it fires second and wins.
@@ -597,17 +587,11 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
     onLoadingChangeRef.current?.(false);
   }, [preloadResult]);
 
-  // Fire the auto-run whenever a pivot or bar button sets autoRun/autoForceRun=true.
-  useEffect(() => {
-    if ((!autoRun && !autoForceRun) || !ioc || disabled) return;
-    onAutoRunConsumed?.();
-    void handleRun(!!autoForceRun);
-  }, [autoRun, autoForceRun, ioc?.normalised, workflowId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleRun = useCallback(async (forceRefresh = false) => {
     if (!ioc || disabled) return;
     const snap = ioc;
-    const gen = ++runGenRef.current;
+    const id = Symbol();
+    activeRunIdRef.current = id;
     setLoading(true); setError(null); setResult(null);
     onLoadingChangeRef.current?.(true);
     try {
@@ -616,7 +600,7 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
           rawHeaders: snap.original,
           options: { forceRefresh },
         });
-        if (runGenRef.current !== gen) return;
+        if (activeRunIdRef.current !== id) return;
         if (!r) setError('Analysis failed — check the backend is running.');
         else setResult(r);
       } else {
@@ -625,20 +609,29 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
           workflowId: workflowId ?? undefined,
           options: { forceRefresh, includeHunter },
         });
-        if (runGenRef.current !== gen) return;
+        if (activeRunIdRef.current !== id) return;
         if (!r) { setError('Analysis failed — check the backend is running.'); }
         else { setResult(r); onComplete?.(r); }
       }
     } catch (err) {
-      if (runGenRef.current !== gen) return;
+      if (activeRunIdRef.current !== id) return;
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
-      if (runGenRef.current === gen) {
+      if (activeRunIdRef.current === id) {
         setLoading(false);
         onLoadingChangeRef.current?.(false);
       }
     }
-  }, [ioc, workflowId, disabled, onComplete, includeHunter]);
+  }, [ioc, workflowId, disabled, onComplete, includeHunter, isEmailHeaderWorkflow]);
+
+  // Keep a stable ref to handleRun so the imperative handle always calls the latest version.
+  const handleRunRef = useRef(handleRun);
+  useLayoutEffect(() => { handleRunRef.current = handleRun; }, [handleRun]);
+
+  // Expose run() so the parent can trigger analysis directly (no effect round-trip).
+  useImperativeHandle(ref, () => ({
+    run: (forceRefresh = false) => { void handleRunRef.current(forceRefresh); },
+  }), []);
 
   // Discriminate the two result shapes
   const emailResult = result && 'parsed' in result ? result as EmailHeaderAnalysisResponse : null;
@@ -787,4 +780,4 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot: _onPiv
       </div>
     </div>
   );
-}
+});

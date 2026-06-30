@@ -45,7 +45,7 @@ interface HunterDomainResponse {
 }
 
 async function hunterDomainSearch(domain: string, apiKey: string): Promise<EnrichmentResult> {
-  const url = `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=0&api_key=${apiKey}`;
+  const url = `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=1&api_key=${apiKey}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 

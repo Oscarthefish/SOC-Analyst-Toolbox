@@ -37,6 +37,7 @@ export interface Config {
   threatfox: { apiKey: string };
   urlhaus: { apiKey: string };
   hunter: { apiKey: string };
+  dnsdumpster: { apiKey: string };
   port: number;
   cacheTtlMinutes: number;
   enableUrlSubmission: boolean;
@@ -61,6 +62,7 @@ const hybridanalysisKey = envStr('HYBRID_ANALYSIS_KEY');
 const threatfoxKey = envStr('THREATFOX_API_KEY');
 const urlhausKey = envStr('URLHAUS_API_KEY');
 const hunterKey = envStr('HUNTER_API_KEY');
+const dnsdumpsterKey = envStr('DNSDUMPSTER_API_KEY');
 
 const configuredProviders: string[] = [];
 if (greynoiseKey) configuredProviders.push('greynoise');
@@ -79,6 +81,7 @@ if (hybridanalysisKey) configuredProviders.push('hybridanalysis');
 if (threatfoxKey) configuredProviders.push('threatfox');
 if (urlhausKey) configuredProviders.push('urlhaus');
 if (hunterKey) configuredProviders.push('hunter');
+if (dnsdumpsterKey) configuredProviders.push('dnsdumpster');
 
 export const config: Config = {
   greynoise: { apiKey: greynoiseKey },
@@ -97,6 +100,7 @@ export const config: Config = {
   threatfox: { apiKey: threatfoxKey },
   urlhaus: { apiKey: urlhausKey },
   hunter: { apiKey: hunterKey },
+  dnsdumpster: { apiKey: dnsdumpsterKey },
   port: envInt('PORT', 8787),
   cacheTtlMinutes: envInt('CACHE_TTL_MINUTES', 60),
   enableUrlSubmission: envBool('ENABLE_URL_SUBMISSION', false),
@@ -146,4 +150,6 @@ export function reloadConfig(): void {
   if (config.urlhaus.apiKey) config.configuredProviders.push('urlhaus');
   config.hunter.apiKey = envStr('HUNTER_API_KEY');
   if (config.hunter.apiKey) config.configuredProviders.push('hunter');
+  config.dnsdumpster.apiKey = envStr('DNSDUMPSTER_API_KEY');
+  if (config.dnsdumpster.apiKey) config.configuredProviders.push('dnsdumpster');
 }

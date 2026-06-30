@@ -93,6 +93,7 @@ export interface EnrichRequest {
     forceRefresh?: boolean;
     allowSensitiveUrl?: boolean;
     allowUrlSubmission?: boolean;
+    includeHunter?: boolean;
   };
 }
 

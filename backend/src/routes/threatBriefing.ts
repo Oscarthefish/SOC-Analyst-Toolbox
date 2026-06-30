@@ -73,7 +73,9 @@ async function fetchKevEvents(): Promise<ThreatEvent[]> {
         summary: v.shortDescription ?? `${v.cveID} is in the CISA Known Exploited Vulnerabilities catalogue.`,
         severity: 'critical' as const,
         source: 'CISA KEV',
-        sourceUrl: 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog',
+        sourceUrl: v.cveID
+          ? `https://nvd.nist.gov/vuln/detail/${v.cveID}`
+          : 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog',
         publishedAt: v.dateAdded ? new Date(v.dateAdded).toISOString() : new Date().toISOString(),
         tags: [
           'actively-exploited',
@@ -130,7 +132,9 @@ async function fetchRansomwareEvents(): Promise<ThreatEvent[]> {
           : `${v.group_name ?? 'A ransomware group'} claimed ${v.post_title ?? v.website ?? 'an organisation'}${v.country ? ` (${v.country})` : ''}${v.activity ? ` in the ${v.activity} sector` : ''}.`,
         severity: 'high' as const,
         source: 'Ransomware.live',
-        sourceUrl: v.post_url ?? 'https://www.ransomware.live',
+        sourceUrl: v.post_url
+          ? (v.post_url.startsWith('http') ? v.post_url : `https://www.ransomware.live${v.post_url}`)
+          : 'https://www.ransomware.live',
         publishedAt: v.published ? new Date(v.published).toISOString() : new Date().toISOString(),
         tags: ['ransomware', ...(v.activity ? [v.activity.toLowerCase().replace(/\s+/g, '-')] : [])],
         ransomwareGroup: v.group_name,

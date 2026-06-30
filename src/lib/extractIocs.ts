@@ -178,7 +178,7 @@ export function extractIocs(text: string): ExtractedIoc[] {
   );
 
   // --- Email addresses (before domain extraction to avoid partial matches) ---
-  const emailRe = /\b([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})\b/g;
+  const emailRe = /\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/g;
   const emailHostnames = new Set<string>();
   for (const m of text.matchAll(emailRe)) {
     const emailLower = m[1].toLowerCase();
@@ -189,6 +189,8 @@ export function extractIocs(text: string): ExtractedIoc[] {
   }
 
   // --- URLs (http/https) ---
+  // Brackets are escaped for readability in this negated URL character class.
+  // eslint-disable-next-line no-useless-escape
   const urlRe = /\bhttps?:\/\/[^\s<>"'`\]\[{}|\\^]+/gi;
   const urlHostnames = new Set<string>();
   for (const m of text.matchAll(urlRe)) {
@@ -203,6 +205,7 @@ export function extractIocs(text: string): ExtractedIoc[] {
   }
 
   // Also handle defanged URLs
+  // eslint-disable-next-line no-useless-escape
   const defangedUrlRe = /\bhxxps?:\/\/[^\s<>"'`\]\[{}|\\^]+/gi;
   for (const m of text.matchAll(defangedUrlRe)) {
     const url = m[0].replace(/[.,;:!?)]+$/, '');
@@ -218,7 +221,7 @@ export function extractIocs(text: string): ExtractedIoc[] {
 
   // --- Domains ---
   // Match potential domain-like tokens (word chars + dots + word chars)
-  const domainRe = /\b([a-zA-Z0-9][a-zA-Z0-9\-]*(?:\.[a-zA-Z0-9\-]+)+)\b/g;
+  const domainRe = /\b([a-zA-Z0-9][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9-]+)+)\b/g;
   for (const m of text.matchAll(domainRe)) {
     const candidate = m[1].toLowerCase();
 

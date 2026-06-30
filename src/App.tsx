@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import type { DetectedIoc } from './types/ioc';
 import type { Workflow } from './types/workflow';
 import type { Tool } from './types/tool';
@@ -11,6 +12,7 @@ import { BatchTriagePanel } from './components/BatchTriagePanel';
 import { DefangPanel } from './components/DefangPanel';
 import { ConfigCheckPanel } from './components/ConfigCheckPanel';
 import { AutoAnalysisPanel } from './components/AutoAnalysisPanel';
+import type { AutoAnalysisPanelHandle } from './components/AutoAnalysisPanel';
 import { AnalysisResultsPanel } from './components/AnalysisResultsPanel';
 import { ApiKeysPanel } from './components/ApiKeysPanel';
 import { ThreatFeedPanel } from './components/ThreatFeedPanel';
@@ -96,9 +98,8 @@ export default function App() {
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
   const [prefillIoc, setPrefillIoc] = useState<string | undefined>(undefined);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResponse | null>(null);
-  const [autoRunAnalysis, setAutoRunAnalysis] = useState(false);
-  const [autoForceRunAnalysis, setAutoForceRunAnalysis] = useState(false);
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  const panelRef = useRef<AutoAnalysisPanelHandle>(null);
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>(() => loadHistory());
   const [historyPreload, setHistoryPreload] = useState<AnalysisResponse | null>(null);
 
@@ -131,8 +132,6 @@ export default function App() {
     setSelectedWorkflow(null);
     setPrefillIoc(undefined);
     setAnalysisResults(null);
-    setAutoRunAnalysis(false);
-    setAutoForceRunAnalysis(false);
   }, []);
 
   const handleWorkflowSelect = useCallback((workflow: Workflow) => {
@@ -141,32 +140,30 @@ export default function App() {
 
   const handleInvestigate = useCallback((iocValue: string) => {
     const detected = detectIoc(iocValue);
-    // Set ioc directly so it changes in the same render as autoRun=true,
-    // guaranteeing the AutoAnalysisPanel useEffect fires with both values ready.
-    setIoc(detected);
-    setSelectedWorkflow(prev => {
-      if (!prev || !detected) return prev;
-      const supported =
-        prev.allowedInputTypes.includes(detected.type) ||
-        (detected.type === 'url' && prev.allowedInputTypes.includes('domain'));
-      return supported ? prev : null;
+    // flushSync forces the new IOC and workflow to commit synchronously so that
+    // by the time panelRef.current.run() is called the panel already has the
+    // correct props (including the layout-effect reset of activeRunIdRef).
+    flushSync(() => {
+      setIoc(detected);
+      setSelectedWorkflow(prev => {
+        if (!prev || !detected) return prev;
+        const supported =
+          prev.allowedInputTypes.includes(detected.type) ||
+          (detected.type === 'url' && prev.allowedInputTypes.includes('domain'));
+        return supported ? prev : null;
+      });
+      setPrefillIoc(iocValue);
+      setActiveTab('single');
     });
-    setAutoRunAnalysis(true);
-    setPrefillIoc(iocValue);   // keeps IocInput display in sync
-    setActiveTab('single');
-  }, []);
-
-  const handleAutoRunConsumed = useCallback(() => {
-    setAutoRunAnalysis(false);
-    setAutoForceRunAnalysis(false);
+    panelRef.current?.run(false);
   }, []);
 
   const handleRunAnalysis = useCallback(() => {
-    setAutoRunAnalysis(true);
+    panelRef.current?.run(false);
   }, []);
 
   const handleForceRunAnalysis = useCallback(() => {
-    setAutoForceRunAnalysis(true);
+    panelRef.current?.run(true);
   }, []);
 
   const handlePrefillConsumed = useCallback(() => {
@@ -184,7 +181,6 @@ export default function App() {
     setPrefillIoc(entry.ioc.original);
     setAnalysisResults(entry.result);
     setHistoryPreload(entry.result);
-    setAutoRunAnalysis(false);
     setActiveTab('single');
   }, []);
 
@@ -195,8 +191,6 @@ export default function App() {
   const handleHistoryClear = useCallback(() => {
     setSearchHistory(clearHistory());
   }, []);
-
-  const isSensitiveUrl = ioc?.isSensitiveUrl ?? false;
 
   return (
     <div className="min-h-screen bg-[#f4f5f7]" style={{ fontFamily: 'IBM Plex Sans, system-ui, sans-serif' }}>
@@ -315,13 +309,11 @@ export default function App() {
                 />
               )}
               <AutoAnalysisPanel
+                ref={panelRef}
                 ioc={ioc}
                 workflowId={selectedWorkflow?.id ?? null}
                 onComplete={handleAnalysisComplete}
                 onPivot={handleInvestigate}
-                autoRun={autoRunAnalysis}
-                autoForceRun={autoForceRunAnalysis}
-                onAutoRunConsumed={handleAutoRunConsumed}
                 preloadResult={historyPreload}
                 hideHeader
                 onLoadingChange={setAnalysisLoading}

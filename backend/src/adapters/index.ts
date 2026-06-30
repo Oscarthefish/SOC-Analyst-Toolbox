@@ -24,6 +24,7 @@ import { torproject } from './torproject.js';
 import { ransomwarelive } from './ransomwarelive.js';
 import { hunter } from './hunter.js';
 import { wayback } from './wayback.js';
+import { dnsdumpster } from './dnsdumpster.js';
 
 export const adapters: Record<string, AdapterFn> = {
   cisakev,
@@ -51,6 +52,7 @@ export const adapters: Record<string, AdapterFn> = {
   ransomwarelive,
   hunter,
   wayback,
+  dnsdumpster,
 };
 
 export const PROVIDER_NAMES: Record<string, string> = {
@@ -79,4 +81,5 @@ export const PROVIDER_NAMES: Record<string, string> = {
   ransomwarelive: 'Ransomware.live',
   hunter: 'Hunter.io',
   wayback: 'Wayback Machine',
+  dnsdumpster: 'DNSDumpster',
 };

@@ -18,5 +18,12 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // This application intentionally synchronizes request/UI state in effects.
+      'react-hooks/set-state-in-effect': 'off',
+      // Shared TSX modules export both display helpers and components.
+      'react-refresh/only-export-components': 'off',
+    },
   },
 ])

@@ -28,7 +28,7 @@ const VALID_IOC_TYPES: IocType[] = [
 const ANALYSE_PROVIDERS: Record<string, string[]> = {
   ipv4:   ['greynoise', 'abuseipdb', 'ipapi', 'torproject', 'ipinfo', 'virustotal', 'shodan', 'censys', 'whois', 'otx', 'pulsedive', 'threatfox', 'bgpview'],
   ipv6:   ['greynoise', 'abuseipdb', 'ipapi', 'torproject', 'ipinfo', 'virustotal', 'censys', 'whois', 'otx', 'pulsedive', 'threatfox', 'bgpview'],
-  domain: ['dns', 'crtsh', 'wayback', 'virustotal', 'urlscan', 'whois', 'otx', 'pulsedive', 'threatfox', 'urlhaus', 'safebrowsing', 'ransomwarelive'],
+  domain: ['dns', 'dnsdumpster', 'crtsh', 'wayback', 'virustotal', 'urlscan', 'whois', 'otx', 'pulsedive', 'threatfox', 'urlhaus', 'safebrowsing', 'ransomwarelive'],
   url:    ['urlscan', 'virustotal', 'otx', 'pulsedive', 'threatfox', 'urlhaus', 'safebrowsing', 'ransomwarelive'],
   md5:    ['virustotal', 'malwarebazaar', 'threatfox', 'otx', 'hybridanalysis'],
   sha1:   ['virustotal', 'malwarebazaar', 'threatfox', 'otx', 'hybridanalysis'],
@@ -40,7 +40,7 @@ const ANALYSE_PROVIDERS: Record<string, string[]> = {
 };
 
 // Passive/contextual sources that should not contribute to severity scoring
-const PASSIVE_PROVIDERS = new Set(['bgpview', 'ipapi', 'ipinfo', 'torproject', 'whois', 'dns', 'crtsh', 'wayback', 'hunter']);
+const PASSIVE_PROVIDERS = new Set(['bgpview', 'ipapi', 'ipinfo', 'torproject', 'whois', 'dns', 'dnsdumpster', 'crtsh', 'wayback', 'hunter']);
 
 function detectContradictions(results: EnrichmentResult[]): ContradictionFlag[] {
   const flags: ContradictionFlag[] = [];
@@ -131,7 +131,71 @@ function detectContradictions(results: EnrichmentResult[]): ContradictionFlag[] 
   return flags;
 }
 
-function computeOverallAssessment(results: EnrichmentResult[]): OverallAssessment {
+const VPN_ORG_KEYWORDS = [
+  'mullvad', 'nordvpn', 'expressvpn', 'protonvpn', 'cyberghost', 'hidemyass',
+  'ipvanish', 'surfshark', 'windscribe', 'privateinternetaccess', 'purevpn',
+  'tunnelbear', 'astrill', 'ivpn', 'azirevpn', 'ovpn.com', 'airvpn',
+  'anonymizer', 'anonymous proxy',
+];
+
+interface VpnTorFlags {
+  isTor: boolean;
+  isVpn: boolean;
+  signals: string[];
+}
+
+function detectVpnOrTor(results: EnrichmentResult[]): VpnTorFlags {
+  const successful = results.filter(r => r.status === 'ok' || r.status === 'cached');
+  const signals: string[] = [];
+  let isTor = false;
+  let isVpn = false;
+
+  for (const r of successful) {
+    // TOR: authoritative signal from the torproject adapter
+    if (r.providerId === 'torproject' && r.data.isTorNode === true) {
+      isTor = true;
+      const role = r.data.isExitNode ? 'exit node' : 'relay';
+      signals.push(`Tor Project: confirmed TOR ${role}`);
+    }
+
+    // VPN: check org/ISP/name fields and usage type across all providers
+    const fields = [
+      typeof r.data.isp === 'string' ? r.data.isp : '',
+      typeof r.data.name === 'string' ? r.data.name : '',
+      typeof r.data.asName === 'string' ? r.data.asName : '',
+      typeof r.data.org === 'string' ? r.data.org : '',
+      typeof r.data.usageType === 'string' ? r.data.usageType : '',
+    ].join(' ').toLowerCase();
+
+    // "vpn" in org/ISP name is nearly always a commercial VPN provider
+    if (fields.includes('vpn')) {
+      isVpn = true;
+      signals.push(`${r.providerName}: org/ISP name contains "vpn"`);
+    }
+    // Check well-known VPN provider names
+    for (const kw of VPN_ORG_KEYWORDS) {
+      if (fields.includes(kw)) {
+        isVpn = true;
+        if (!signals.some(s => s.startsWith(r.providerName))) {
+          signals.push(`${r.providerName}: identified as ${kw}`);
+        }
+        break;
+      }
+    }
+    // AbuseIPDB usageType explicitly set to VPN or anonymizer
+    if (typeof r.data.usageType === 'string') {
+      const ut = r.data.usageType.toLowerCase();
+      if (ut.includes('vpn') || ut.includes('anonymiz') || ut.includes('proxy')) {
+        isVpn = true;
+        signals.push(`${r.providerName}: usage type "${r.data.usageType}"`);
+      }
+    }
+  }
+
+  return { isTor, isVpn, signals };
+}
+
+function computeOverallAssessment(results: EnrichmentResult[], vpnTor?: VpnTorFlags): OverallAssessment {
   const successful = results.filter(r => r.status === 'ok' || r.status === 'cached');
   // Only active (non-passive) sources contribute to severity
   const activeSources = successful.filter(r => !PASSIVE_PROVIDERS.has(r.providerId));
@@ -189,6 +253,15 @@ function computeOverallAssessment(results: EnrichmentResult[]): OverallAssessmen
     confidence = allHistorical ? 'low' : 'medium';
   } else {
     confidence = 'low';
+  }
+
+  // Elevate severity for VPN/TOR: these are active obfuscation tools — never leave as benign/unknown.
+  if (vpnTor?.isTor && (severity === 'benign' || severity === 'unknown' || severity === 'low')) {
+    severity = 'medium';
+    recommendedActions.unshift('Investigate all activity originating from this TOR node — high anonymity risk.');
+  } else if (vpnTor?.isVpn && (severity === 'benign' || severity === 'unknown')) {
+    severity = 'low';
+    recommendedActions.unshift('Note: IP belongs to a commercial VPN provider — identity obfuscation should be considered in context.');
   }
 
   const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1);
@@ -275,6 +348,7 @@ function buildAnalysisPrompt(
   results: EnrichmentResult[],
   overall: OverallAssessment,
   contradictions: ContradictionFlag[],
+  vpnTor?: VpnTorFlags,
 ): string {
   const typeLabel = ioc.type.toUpperCase();
   const workflow = workflowId ? workflowId.replace(/-/g, ' ') : 'general investigation';
@@ -325,6 +399,12 @@ function buildAnalysisPrompt(
       ).join('\n\n')}`
     : 'CONTRADICTIONS: None detected.';
 
+  const vpnTorRules = vpnTor?.isTor
+    ? '8. This IP is a confirmed TOR node. The verdict MUST be at least "Suspicious". State in KEY FINDINGS that TOR is used for anonymity and may indicate deliberate obfuscation of the actor\'s origin. Recommend investigation of all associated traffic.'
+    : vpnTor?.isVpn
+    ? `8. This IP belongs to a commercial VPN provider (${vpnTor.signals.join('; ')}). In a SOC context, VPN usage indicates deliberate identity obfuscation. The verdict MUST be at least "Suspicious" — do not use "Low Risk" or "Benign" regardless of reputation scores. State clearly that the real origin IP is masked.`
+    : '';
+
   return `You are a SOC Tier-2 analyst reviewing structured threat intelligence data.
 RULES — follow these exactly:
 1. Every claim in KEY FINDINGS must name the source in [brackets], e.g. "[VirusTotal]".
@@ -333,7 +413,7 @@ RULES — follow these exactly:
 4. If all source data is historical (freshness = historical or unknown), state this in ANALYST NOTES.
 5. If fewer than 2 active sources returned data, set confidence to Low regardless of severity.
 6. You MUST address every contradiction listed in CONTRADICTIONS DETECTED.
-7. Do not recommend blocking based solely on a single reputation source with no corroboration.
+7. Do not recommend blocking based solely on a single reputation source with no corroboration.${vpnTorRules ? `\n${vpnTorRules}` : ''}
 
 Respond in EXACTLY this format. No markdown, no extra text:
 
@@ -440,7 +520,8 @@ router.post('/analyse', async (req: Request, res: Response): Promise<void> => {
     resolvedModelResult.status === 'fulfilled' ? resolvedModelResult.value : null;
 
   const contradictions = detectContradictions(results);
-  const overall = computeOverallAssessment(results);
+  const vpnTor = detectVpnOrTor(results);
+  const overall = computeOverallAssessment(results, vpnTor);
 
   let narrative: string | null = null;
   let narrativeError: string | undefined;
@@ -454,7 +535,7 @@ router.post('/analyse', async (req: Request, res: Response): Promise<void> => {
   }
 
   if (resolvedModel) {
-    const prompt = buildAnalysisPrompt(ioc, workflowId, results, overall, contradictions);
+    const prompt = buildAnalysisPrompt(ioc, workflowId, results, overall, contradictions, vpnTor);
     try {
       narrative = await ollamaGenerate(resolvedModel, prompt);
       // Retry once if fewer than 2 sources are cited and we have enough data

@@ -8,6 +8,7 @@ import analyseRouter from './routes/analyse.js';
 import analyseEmailHeaderRouter from './routes/analyseEmailHeader.js';
 import threatFeedRouter from './routes/threatFeed.js';
 import threatBriefingRouter from './routes/threatBriefing.js';
+import toolsConfigRouter from './routes/toolsConfig.js';
 
 const app = express();
 
@@ -15,7 +16,7 @@ const app = express();
 app.use(
   cors({
     origin: ['http://localhost:5173', 'http://localhost:5174'],
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   }),
 );
@@ -31,6 +32,7 @@ app.use('/api', analyseEmailHeaderRouter);
 app.use('/api', threatFeedRouter);
 app.use('/api', threatBriefingRouter);
 app.use('/api/config', keysRouter);
+app.use('/api', toolsConfigRouter);
 
 // 404 handler
 app.use((_req, res) => {
@@ -44,11 +46,12 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 });
 
 const port = config.port;
-app.listen(port, () => {
+const host = '127.0.0.1';
+app.listen(port, host, () => {
   const providerList = config.configuredProviders.length > 0
     ? config.configuredProviders.join(', ')
     : 'none';
-  console.log(`[server] SOC Analyst Toolbox API running on http://localhost:${port}`);
+  console.log(`[server] SOC Analyst Toolbox API running on http://${host}:${port}`);
   console.log(`[server] Configured providers: ${providerList}`);
   console.log(`[server] URL submission: ${config.enableUrlSubmission ? 'ENABLED' : 'disabled'}`);
   console.log(`[server] Cache TTL: ${config.cacheTtlMinutes} minutes`);

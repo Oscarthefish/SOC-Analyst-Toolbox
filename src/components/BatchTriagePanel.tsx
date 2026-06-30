@@ -136,7 +136,6 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
   }, []);
 
   const done = rows.filter(r => r.status === 'done' || r.status === 'error').length;
-  const runnable = rows.filter(r => r.status === 'pending' || r.status === 'running').length;
   const total = rows.filter(r => r.status !== 'skipped').length;
 
   return (
