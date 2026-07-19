@@ -25,6 +25,9 @@ import { ransomwarelive } from './ransomwarelive.js';
 import { hunter } from './hunter.js';
 import { wayback } from './wayback.js';
 import { dnsdumpster } from './dnsdumpster.js';
+import { hudsonrock } from './hudsonrock.js';
+import { emailsecurity } from './emailsecurity.js';
+import { identityfabric } from './identityfabric.js';
 
 export const adapters: Record<string, AdapterFn> = {
   cisakev,
@@ -53,6 +56,9 @@ export const adapters: Record<string, AdapterFn> = {
   hunter,
   wayback,
   dnsdumpster,
+  hudsonrock,
+  emailsecurity,
+  identityfabric,
 };
 
 export const PROVIDER_NAMES: Record<string, string> = {
@@ -82,4 +88,7 @@ export const PROVIDER_NAMES: Record<string, string> = {
   hunter: 'Hunter.io',
   wayback: 'Wayback Machine',
   dnsdumpster: 'DNSDumpster',
+  hudsonrock: 'HudsonRock Cavalier',
+  emailsecurity: 'Email Security (DNS)',
+  identityfabric: 'Identity Fabric',
 };

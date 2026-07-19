@@ -27,8 +27,8 @@ const WORKFLOW_PROVIDERS: Record<string, string[]> = {
   'ip-triage': ['greynoise', 'abuseipdb', 'ipapi', 'torproject', 'ipinfo', 'virustotal', 'shodan', 'censys'],
   'waf-web-attack': ['greynoise', 'abuseipdb', 'ipapi', 'torproject', 'ipinfo', 'virustotal', 'shodan'],
   'suspicious-connection': ['virustotal', 'greynoise', 'abuseipdb', 'ipapi', 'torproject', 'ipinfo', 'shodan', 'censys'],
-  'domain-triage': ['dns', 'crtsh', 'wayback', 'virustotal', 'urlscan', 'censys'],
-  'business-domain-osint': ['dns', 'crtsh', 'wayback', 'whois'],
+  'domain-triage': ['dns', 'crtsh', 'wayback', 'virustotal', 'urlscan', 'censys', 'hudsonrock', 'emailsecurity', 'identityfabric'],
+  'business-domain-osint': ['dns', 'crtsh', 'wayback', 'whois', 'hudsonrock', 'emailsecurity', 'identityfabric'],
   'url-phishing': ['urlscan', 'virustotal'],
   'malware-hash': ['virustotal'],
   'spam-source': ['greynoise', 'abuseipdb', 'ipapi', 'torproject', 'ipinfo'],
@@ -42,7 +42,7 @@ const WORKFLOW_PROVIDERS: Record<string, string[]> = {
 const IOC_TYPE_PROVIDERS: Record<IocType, string[]> = {
   ipv4: ['greynoise', 'abuseipdb', 'ipapi', 'torproject', 'ipinfo', 'virustotal', 'shodan', 'censys'],
   ipv6: ['greynoise', 'abuseipdb', 'ipapi', 'torproject', 'ipinfo', 'virustotal', 'censys'],
-  domain: ['dns', 'dnsdumpster', 'crtsh', 'wayback', 'virustotal', 'urlscan'],
+  domain: ['dns', 'dnsdumpster', 'crtsh', 'wayback', 'virustotal', 'urlscan', 'hudsonrock', 'emailsecurity', 'identityfabric'],
   url: ['urlscan', 'virustotal'],
   md5: ['virustotal'],
   sha1: ['virustotal'],
@@ -65,6 +65,35 @@ function chooseProviders(
     return WORKFLOW_PROVIDERS[workflowId] ?? [];
   }
   return IOC_TYPE_PROVIDERS[ioc.type] ?? [];
+}
+
+const SEVERITY_RANK: Record<Severity, number> = {
+  critical: 5,
+  high: 4,
+  medium: 3,
+  low: 2,
+  benign: 1,
+  unknown: 0,
+};
+
+function detectContradictions(results: EnrichmentResult[]): string[] {
+  const meaningful = results.filter(
+    r => (r.status === 'ok' || r.status === 'cached') && r.severity !== 'unknown',
+  );
+  if (meaningful.length < 2) return [];
+
+  const malicious = meaningful.filter(r => SEVERITY_RANK[r.severity] >= 4);
+  const benign = meaningful.filter(r => r.severity === 'benign');
+
+  if (malicious.length > 0 && benign.length > 0) {
+    const maliciousNames = malicious.map(r => r.providerName).join(', ');
+    const benignNames = benign.map(r => r.providerName).join(', ');
+    return [
+      `Provider disagreement: ${maliciousNames} rates this IOC as high/critical, while ${benignNames} considers it benign. Treat with caution — cross-reference raw data from each provider and consider manual investigation before taking action.`,
+    ];
+  }
+
+  return [];
 }
 
 function computeOverallAssessment(results: EnrichmentResult[]): OverallAssessment {
@@ -131,10 +160,16 @@ function computeOverallAssessment(results: EnrichmentResult[]): OverallAssessmen
   }
 
   const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1);
-  const summary =
+  let summary =
     successful.length === 0
       ? 'No enrichment providers returned data. Check API key configuration.'
       : `Aggregated assessment from ${successful.length} provider(s): ${severityLabel} severity, ${confidence} confidence.`;
+
+  const contradictions = detectContradictions(results);
+  if (contradictions.length > 0) {
+    summary += ' ⚠ Provider disagreement detected — see recommended actions.';
+    recommendedActions.push(...contradictions);
+  }
 
   return { severity, confidence, summary, recommendedActions };
 }

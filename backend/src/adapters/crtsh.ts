@@ -142,8 +142,14 @@ export async function crtsh(
     // Remove the queried domain itself — pivot is for *related* domains
     allNames.delete(hostname);
 
+    // Subdomains: names that are directly beneath the queried hostname
+    const subdomains = Array.from(allNames)
+      .filter(n => n.endsWith(`.${hostname}`))
+      .sort();
+
+    // Related domains: everything else (SAN names from other orgs on a shared cert, etc.)
     const relatedDomains = Array.from(allNames)
-      .filter(n => n.endsWith(`.${hostname}`) || !n.includes(hostname))
+      .filter(n => !n.endsWith(`.${hostname}`))
       .slice(0, 25);
 
     const topIssuer = [...issuers.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Unknown';
@@ -152,12 +158,14 @@ export async function crtsh(
 
     return makeResult({
       status: 'ok',
-      summary: `crt.sh: ${certCount} cert(s) found for ${hostname}. ${relatedDomains.length} unique SAN domain(s) identified.`,
+      summary: `crt.sh: ${certCount} cert(s) found for ${hostname}. ${subdomains.length} subdomain(s) identified via certificate SANs.`,
       severity: 'unknown',
-      confidence: relatedDomains.length > 0 ? 'medium' : 'low',
+      confidence: subdomains.length > 0 ? 'medium' : 'low',
       data: {
         certCount,
-        relatedDomainCount: allNames.size,
+        subdomainCount: subdomains.length,
+        subdomains: subdomains.slice(0, 100),
+        relatedDomainCount: relatedDomains.length,
         wildcardCount: wildcardNames.size,
         topIssuer,
       },
@@ -166,7 +174,8 @@ export async function crtsh(
       sourceUrl: `https://crt.sh/?q=%25.${hostname}`,
       keyFacts: [
         { label: 'Certificates', value: String(certCount) },
-        { label: 'Unique SANs', value: String(allNames.size + wildcardNames.size) },
+        { label: 'Subdomains (SANs)', value: String(subdomains.length) },
+        { label: 'Wildcard certs', value: String(wildcardNames.size) },
         { label: 'Top issuer', value: topIssuer },
         ...(latestDate ? [{ label: 'Latest cert', value: latestDate }] : []),
       ],
