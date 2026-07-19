@@ -9,7 +9,8 @@ export type IocType =
   | 'email'
   | 'asn'
   | 'cidr'
-  | 'cve';
+  | 'cve'
+  | 'secret';
 
 export type FreshnessLabel = 'last24h' | 'last7d' | 'last30d' | 'historical' | 'unknown';
 

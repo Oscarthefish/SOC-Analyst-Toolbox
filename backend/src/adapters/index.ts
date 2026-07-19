@@ -28,6 +28,7 @@ import { dnsdumpster } from './dnsdumpster.js';
 import { hudsonrock } from './hudsonrock.js';
 import { emailsecurity } from './emailsecurity.js';
 import { identityfabric } from './identityfabric.js';
+import { credvalidate } from './credvalidate.js';
 
 export const adapters: Record<string, AdapterFn> = {
   cisakev,
@@ -59,6 +60,7 @@ export const adapters: Record<string, AdapterFn> = {
   hudsonrock,
   emailsecurity,
   identityfabric,
+  credvalidate,
 };
 
 export const PROVIDER_NAMES: Record<string, string> = {
@@ -91,4 +93,5 @@ export const PROVIDER_NAMES: Record<string, string> = {
   hudsonrock: 'HudsonRock Cavalier',
   emailsecurity: 'Email Security (DNS)',
   identityfabric: 'Identity Fabric',
+  credvalidate: 'Credential Validator',
 };

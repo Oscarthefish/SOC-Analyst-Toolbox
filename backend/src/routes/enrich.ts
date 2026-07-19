@@ -19,7 +19,7 @@ import { isRateLimited, recordRequest } from '../rateLimit.js';
 const router = Router();
 
 const VALID_IOC_TYPES: IocType[] = [
-  'ipv4', 'ipv6', 'domain', 'url', 'md5', 'sha1', 'sha256', 'email', 'asn', 'cidr', 'cve',
+  'ipv4', 'ipv6', 'domain', 'url', 'md5', 'sha1', 'sha256', 'email', 'asn', 'cidr', 'cve', 'secret',
 ];
 
 // Default provider selection per workflow ID
@@ -51,6 +51,7 @@ const IOC_TYPE_PROVIDERS: Record<IocType, string[]> = {
   asn: [],
   cidr: [],
   cve: ['cisakev'],
+  secret: ['credvalidate'],
 };
 
 function chooseProviders(

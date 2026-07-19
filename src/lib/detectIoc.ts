@@ -11,6 +11,32 @@ function looksLikeEmailHeader(text: string): boolean {
 }
 
 const CVE_RE = /^CVE-\d{4}-\d{4,}$/i;
+
+// Known credential patterns — ordered from most specific to least
+const CREDENTIAL_PATTERNS: Array<{ name: string; re: RegExp }> = [
+  { name: 'AWS Access Key',      re: /^AKIA[0-9A-Z]{16}$/ },
+  { name: 'AWS Session Key',     re: /^ASIA[0-9A-Z]{16}$/ },
+  { name: 'Anthropic API Key',   re: /^sk-ant-(?:api03|admin01)-/ },
+  { name: 'OpenAI API Key',      re: /^sk-proj-|^sk-[A-Za-z0-9]{20}T3BlbkFJ/ },
+  { name: 'GitHub PAT (classic)',re: /^ghp_[A-Za-z0-9]{36}$/ },
+  { name: 'GitHub PAT (fine-grained)', re: /^github_pat_[A-Za-z0-9_]{82}$/ },
+  { name: 'GitHub App Token',    re: /^ghs_[A-Za-z0-9]{36}$/ },
+  { name: 'GitLab PAT',         re: /^glpat-[A-Za-z0-9\-_]{20}$/ },
+  { name: 'Slack Bot Token',     re: /^xoxb-\d{11,12}-\d{11,12}-[A-Za-z0-9]{24}$/ },
+  { name: 'Slack User Token',    re: /^xoxp-\d{11,12}-\d{11,12}-\d{11,12}-[a-f0-9]{32}$/ },
+  { name: 'npm Access Token',    re: /^npm_[A-Za-z0-9]{36}$/ },
+  { name: 'HuggingFace Token',   re: /^hf_[A-Za-z0-9]{37}$/ },
+  { name: 'Stripe Secret Key',   re: /^sk_live_[A-Za-z0-9]{24,}$/ },
+  { name: 'Postman API Key',     re: /^PMAK-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{24}$/ },
+  { name: 'DigitalOcean Token',  re: /^dop_v1_[A-Za-z0-9]{64}$/ },
+];
+
+function detectCredential(value: string): string | null {
+  for (const { name, re } of CREDENTIAL_PATTERNS) {
+    if (re.test(value)) return name;
+  }
+  return null;
+}
 const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
 const IPV4_CIDR_RE = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
 const IPV6_RE = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
@@ -141,6 +167,12 @@ export function detectIoc(input: string): DetectedIoc {
     confidence = 'high';
     normalised = trimmed.toLowerCase();
   }
+  // Credential / secret token
+  else if (detectCredential(trimmed)) {
+    type = 'secret';
+    confidence = 'high';
+    normalised = trimmed;
+  }
   // Domain (try stripping protocol/path first)
   else {
     // Try normalising sloppy domain inputs
@@ -174,6 +206,12 @@ export function detectIoc(input: string): DetectedIoc {
 
   const isEmailHeader = type === 'unknown' && looksLikeEmailHeader(trimmed);
 
+  const credentialType = type === 'secret' ? (detectCredential(trimmed) ?? undefined) : undefined;
+  const isCredential = type === 'secret';
+  const credentialWarning = isCredential
+    ? `This looks like a ${credentialType ?? 'credential'}. Do NOT submit to external enrichment providers — it may still be active. Use the built-in Credential Validator (providers: credvalidate) for read-only validation only.`
+    : undefined;
+
   return {
     original: input,
     trimmed,
@@ -184,5 +222,8 @@ export function detectIoc(input: string): DetectedIoc {
     isSensitiveUrl,
     sensitiveUrlWarning,
     isEmailHeader,
+    isCredential,
+    credentialType,
+    credentialWarning,
   };
 }

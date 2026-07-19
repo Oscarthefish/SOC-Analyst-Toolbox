@@ -10,6 +10,7 @@ export type IocType =
   | 'asn'
   | 'cidr'
   | 'cve'
+  | 'secret'
   | 'unknown';
 
 export interface UrlExtract {
@@ -36,4 +37,7 @@ export interface DetectedIoc {
   isSensitiveUrl?: boolean;
   sensitiveUrlWarning?: string;
   isEmailHeader?: boolean;
+  isCredential?: boolean;
+  credentialType?: string;
+  credentialWarning?: string;
 }
