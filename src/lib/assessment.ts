@@ -50,6 +50,7 @@ export function generateAssessmentSummary(
         asn: 'ASN',
         cidr: 'CIDR range',
         cve: 'CVE',
+        secret: 'credential or secret',
         unknown: 'indicator',
       }[iocType] ?? 'indicator'
     : 'indicator';

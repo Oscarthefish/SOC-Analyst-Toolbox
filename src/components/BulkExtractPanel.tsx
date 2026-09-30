@@ -10,7 +10,7 @@ interface BulkExtractPanelProps {
 const TYPE_LABELS: Record<IocType, string> = {
   ipv4: 'IPv4', ipv6: 'IPv6', domain: 'Domain', url: 'URL',
   md5: 'MD5', sha1: 'SHA-1', sha256: 'SHA-256', email: 'Email',
-  asn: 'ASN', cidr: 'CIDR', cve: 'CVE', unknown: 'Unknown',
+  asn: 'ASN', cidr: 'CIDR', cve: 'CVE', secret: 'Secret / Credential', unknown: 'Unknown',
 };
 
 const SAMPLE_TEXT = `Firewall alert - blocked connection attempt
