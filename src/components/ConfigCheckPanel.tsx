@@ -1,5 +1,5 @@
 import type { Tool } from '../types/tool';
-import { buildTemplateVars, applyTemplate } from '../lib/template';
+import { buildTemplateVars, applyTemplate, safeHref } from '../lib/template';
 import { detectIoc } from '../lib/detectIoc';
 
 interface ConfigCheckPanelProps {
@@ -56,22 +56,9 @@ export function ConfigCheckPanel({ tools, customToolCount }: ConfigCheckPanelPro
         </div>
 
         {customToolCount === 0 && (
-          <div className="bg-warn-bg border border-warn-line rounded-lg px-3 py-2.5 text-xs text-warn-fg flex items-start gap-2">
-            <svg className="w-3.5 h-3.5 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>
-              No custom tools loaded. To add custom tools, copy{' '}
-              <code className="bg-warn-bg border border-warn-line text-warn-fg px-1 py-0.5 rounded font-mono text-[11px]">
-                src/data/customTools.example.json
-              </code>
-              {' '}to{' '}
-              <code className="bg-warn-bg border border-warn-line text-warn-fg px-1 py-0.5 rounded font-mono text-[11px]">
-                src/data/customTools.json
-              </code>
-              {' '}and edit with your internal tool URLs.
-            </span>
-          </div>
+          <p className="text-xs text-fg-3">
+            No custom tools yet. Add internal tools (SIEM, EDR, ticketing) from the <strong className="font-medium text-fg-2">Tool library</strong> page; they are saved to <code className="font-mono text-[11px]">backend/data/customTools.json</code>.
+          </p>
         )}
       </div>
 
@@ -149,7 +136,7 @@ export function ConfigCheckPanel({ tools, customToolCount }: ConfigCheckPanelPro
                       <td key={s.label} className="py-2.5 px-2 text-center">
                         {status === 'ok' && (
                           <a
-                            href={rendered}
+                            href={safeHref(rendered)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-ok-fg hover:text-ok-fg font-bold transition-colors"
@@ -160,7 +147,7 @@ export function ConfigCheckPanel({ tools, customToolCount }: ConfigCheckPanelPro
                         )}
                         {status === 'home' && (
                           <a
-                            href={tool.urlTemplate}
+                            href={safeHref(tool.urlTemplate)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-warn-fg hover:text-warn-fg font-bold transition-colors"

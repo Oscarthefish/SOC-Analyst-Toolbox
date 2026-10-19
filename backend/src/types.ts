@@ -95,6 +95,8 @@ export interface EnrichRequest {
     allowSensitiveUrl?: boolean;
     allowUrlSubmission?: boolean;
     includeHunter?: boolean;
+    /** Explicit opt-in for the credential validator; also requires ENABLE_HIGH_RISK_ENRICHMENT */
+    allowCredentialValidation?: boolean;
   };
 }
 

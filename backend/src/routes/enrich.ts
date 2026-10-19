@@ -51,8 +51,12 @@ const IOC_TYPE_PROVIDERS: Record<IocType, string[]> = {
   asn: [],
   cidr: [],
   cve: ['cisakev'],
-  secret: ['credvalidate'],
+  // credvalidate sends the credential to its issuer, so it is never a default
+  secret: [],
 };
+
+/** Providers that transmit the IOC itself as a credential and need explicit opt-in. */
+const HIGH_RISK_PROVIDERS = new Set(['credvalidate']);
 
 function chooseProviders(
   ioc: IocInput,
@@ -210,6 +214,20 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
   };
 
   let providerList = chooseProviders(ioc, workflowId, requestedProviders);
+
+  const wantsHighRisk = providerList.filter(p => HIGH_RISK_PROVIDERS.has(p));
+  if (wantsHighRisk.length > 0) {
+    if (!config.enableHighRiskEnrichment || options.allowCredentialValidation !== true) {
+      res.status(403).json({
+        error: `${wantsHighRisk.join(', ')} requires ENABLE_HIGH_RISK_ENRICHMENT=true in backend/.env and options.allowCredentialValidation=true on the request.`,
+      });
+      return;
+    }
+    if (ioc.type !== 'secret') {
+      res.status(400).json({ error: 'credvalidate only accepts IOCs of type "secret".' });
+      return;
+    }
+  }
   if (includeHunter && (ioc.type === 'domain' || ioc.type === 'url' || ioc.type === 'email') && !providerList.includes('hunter')) {
     providerList = [...providerList, 'hunter'];
   }
@@ -251,7 +269,7 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
     const isSensitiveUrl = ioc.type === 'url';
     const cacheKey = cache.buildCacheKey(providerId, ioc.type, ioc.normalised, isSensitiveUrl);
 
-    if (!enrichOptions.forceRefresh) {
+    if (!enrichOptions.forceRefresh && !HIGH_RISK_PROVIDERS.has(providerId)) {
       const cached = cache.get(cacheKey);
       if (cached) {
         return cached;
@@ -278,7 +296,7 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
       recordRequest(providerId);
       const result = await adapter(ioc, enrichOptions);
       // Cache successful results and missing_key (don't hammer missing keys)
-      if (result.status === 'ok' || result.status === 'missing_key') {
+      if ((result.status === 'ok' || result.status === 'missing_key') && !HIGH_RISK_PROVIDERS.has(providerId)) {
         cache.set(cacheKey, result, config.cacheTtlMinutes);
       }
       return result;

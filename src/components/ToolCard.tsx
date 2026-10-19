@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Tool } from '../types/tool';
 import type { DetectedIoc } from '../types/ioc';
-import { applyTemplate, buildTemplateVars } from '../lib/template';
+import { applyTemplate, buildTemplateVars, safeHref } from '../lib/template';
 import { CopyButton } from './CopyButton';
 
 interface ToolCardProps {
@@ -48,7 +48,7 @@ export function ToolCard({ tool, ioc, isSensitiveUrl, isFavorite = false, onTogg
   const vars = buildTemplateVars(ioc);
   const generatedUrl = applyTemplate(tool.urlTemplate, vars);
   const canGenerate = !/\{\{[^}]+\}\}/.test(generatedUrl);
-  const href = canGenerate ? generatedUrl : tool.urlTemplate;
+  const href = safeHref(canGenerate ? generatedUrl : tool.urlTemplate);
   const [expanded, setExpanded] = useState(false);
   const blockedBySensitivity = isSensitiveUrl && tool.submissionRisk !== 'low';
 
@@ -92,9 +92,12 @@ export function ToolCard({ tool, ioc, isSensitiveUrl, isFavorite = false, onTogg
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            title={blockedBySensitivity ? 'Sensitive URL — this tool shares indicators externally' : `Open in ${tool.name}`}
+            aria-disabled={href === undefined}
+            title={href === undefined ? 'Invalid tool URL — only http(s) links are allowed' : blockedBySensitivity ? 'Sensitive URL — this tool shares indicators externally' : `Open in ${tool.name}`}
             className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-md border text-xs font-medium transition-colors ${
-              blockedBySensitivity
+              href === undefined
+                ? 'border-line text-fg-4 cursor-not-allowed'
+                : blockedBySensitivity
                 ? 'border-warn-line text-warn-fg bg-warn-bg'
                 : 'border-line bg-surface text-fg-2 hover:border-accent hover:text-accent-fg'
             }`}

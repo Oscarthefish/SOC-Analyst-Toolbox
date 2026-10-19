@@ -12,12 +12,42 @@ import toolsConfigRouter from './routes/toolsConfig.js';
 
 const app = express();
 
-// CORS — allow frontend dev servers
+const port = config.port;
+const host = '127.0.0.1';
+
+// Frontend origins allowed to call the API (Vite dev + preview by default)
+const allowedOrigins = new Set(
+  (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://localhost:5174,http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:4173')
+    .split(',').map(o => o.trim()).filter(Boolean),
+);
+const allowedHosts = new Set([`localhost:${port}`, `127.0.0.1:${port}`]);
+
+// Reject requests not addressed to this machine by name. Blocks DNS rebinding,
+// where an attacker's domain resolves to 127.0.0.1 and the browser sends Host: evil.example.
+app.use((req, res, next) => {
+  if (!allowedHosts.has(req.headers.host ?? '')) {
+    res.status(403).json({ error: 'Forbidden host.' });
+    return;
+  }
+  next();
+});
+
+// Browsers always send Origin on cross-origin and on mutating requests. Reject any
+// origin that isn't the local frontend; requests without Origin (curl, server-side) pass.
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin !== undefined && !allowedOrigins.has(origin)) {
+    res.status(403).json({ error: 'Forbidden origin.' });
+    return;
+  }
+  next();
+});
+
 app.use(
   cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: [...allowedOrigins],
     methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type'],
   }),
 );
 
@@ -45,8 +75,6 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(500).json({ error: 'Internal server error.' });
 });
 
-const port = config.port;
-const host = '127.0.0.1';
 app.listen(port, host, () => {
   const providerList = config.configuredProviders.length > 0
     ? config.configuredProviders.join(', ')
