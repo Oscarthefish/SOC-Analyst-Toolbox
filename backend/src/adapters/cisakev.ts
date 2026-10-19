@@ -1,21 +1,12 @@
 import type { IocInput, EnrichmentResult, EnrichOptions } from '../types.js';
 import { computeFreshness } from '../lib/freshness.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'cisakev';
 const PROVIDER_NAME = 'CISA KEV';
 const TIMEOUT_MS = 15_000;
 const KEV_URL = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
-
-function now(): string { return new Date().toISOString(); }
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID, providerName: PROVIDER_NAME,
-    status: 'ok', summary: '', severity: 'unknown', confidence: 'unknown',
-    data: {}, rawAvailable: false, checkedAt: now(), fromCache: false,
-    ...overrides,
-  };
-}
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 interface KevVulnerability {
   cveID?: string;

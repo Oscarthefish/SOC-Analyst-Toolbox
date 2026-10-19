@@ -2,31 +2,13 @@ import type { IocInput, EnrichmentResult, EnrichOptions, Severity } from '../typ
 import { config } from '../config.js';
 import { markRateLimited } from '../rateLimit.js';
 import { computeFreshness } from '../lib/freshness.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'virustotal';
 const PROVIDER_NAME = 'VirusTotal';
 const TIMEOUT_MS = 10_000;
 const BASE_URL = 'https://www.virustotal.com/api/v3';
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID,
-    providerName: PROVIDER_NAME,
-    status: 'ok',
-    summary: '',
-    severity: 'unknown',
-    confidence: 'unknown',
-    data: {},
-    rawAvailable: false,
-    checkedAt: now(),
-    fromCache: false,
-    ...overrides,
-  };
-}
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 interface VtAnalysisStats {
   malicious?: number;

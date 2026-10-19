@@ -1,28 +1,10 @@
 import type { IocInput, EnrichmentResult, EnrichOptions } from '../types.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'crtsh';
 const PROVIDER_NAME = 'crt.sh';
 const TIMEOUT_MS = 20_000;
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID,
-    providerName: PROVIDER_NAME,
-    status: 'ok',
-    summary: '',
-    severity: 'unknown',
-    confidence: 'unknown',
-    data: {},
-    rawAvailable: false,
-    checkedAt: now(),
-    fromCache: false,
-    ...overrides,
-  };
-}
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 interface CrtRecord {
   id?: number;

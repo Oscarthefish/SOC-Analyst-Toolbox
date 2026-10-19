@@ -2,34 +2,16 @@ import type { IocInput, EnrichmentResult, EnrichOptions, Severity } from '../typ
 import { config } from '../config.js';
 import { markRateLimited } from '../rateLimit.js';
 import { computeFreshness } from '../lib/freshness.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'shodan';
 const PROVIDER_NAME = 'Shodan';
 const TIMEOUT_MS = 10_000;
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 // Ports commonly associated with high-risk exposure
 const HIGH_RISK_PORTS = new Set([3389, 445, 23, 22, 5900, 1433, 3306, 5432]);
 const MEDIUM_RISK_PORTS = new Set([80, 443, 8080, 8443, 8888, 9200, 6379, 27017]);
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID,
-    providerName: PROVIDER_NAME,
-    status: 'ok',
-    summary: '',
-    severity: 'unknown',
-    confidence: 'unknown',
-    data: {},
-    rawAvailable: false,
-    checkedAt: now(),
-    fromCache: false,
-    ...overrides,
-  };
-}
 
 interface ShodanResponse {
   ip_str?: string;

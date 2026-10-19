@@ -1,35 +1,17 @@
 import type { IocInput, EnrichmentResult, EnrichOptions, Severity } from '../types.js';
 import { markRateLimited } from '../rateLimit.js';
 import { config } from '../config.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'ipapi';
 const PROVIDER_NAME = 'ip-api.com';
 const TIMEOUT_MS = 8_000;
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 // Free tier: 45 req/min and plain HTTP only, so the IP crosses the network unencrypted.
 // With IPAPI_KEY the paid HTTPS endpoint is used; the free endpoint needs an explicit
 // IPAPI_ALLOW_HTTP=true. Returns proxy/hosting booleans.
 const FIELDS = 'status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,query';
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID,
-    providerName: PROVIDER_NAME,
-    status: 'ok',
-    summary: '',
-    severity: 'unknown',
-    confidence: 'unknown',
-    data: {},
-    rawAvailable: false,
-    checkedAt: now(),
-    fromCache: false,
-    ...overrides,
-  };
-}
 
 interface IpApiResponse {
   status?: string;

@@ -1,32 +1,14 @@
 import type { IocInput, EnrichmentResult, EnrichOptions, Severity } from '../types.js';
 import { config } from '../config.js';
 import { markRateLimited } from '../rateLimit.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'censys';
 const PROVIDER_NAME = 'Censys';
 const TIMEOUT_MS = 10_000;
 const BASE_URL = 'https://api.platform.censys.io/v3/global/asset/host';
 const ACCEPT = 'application/vnd.censys.api.v3.host.v1+json';
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID,
-    providerName: PROVIDER_NAME,
-    status: 'ok',
-    summary: '',
-    severity: 'unknown',
-    confidence: 'unknown',
-    data: {},
-    rawAvailable: false,
-    checkedAt: now(),
-    fromCache: false,
-    ...overrides,
-  };
-}
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 interface CensysV3Service {
   port?: number;

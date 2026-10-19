@@ -1,20 +1,11 @@
 import type { IocInput, EnrichmentResult, EnrichOptions } from '../types.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'ransomwarelive';
 const PROVIDER_NAME = 'Ransomware.live';
 const TIMEOUT_MS = 12_000;
 const API_URL = 'https://api.ransomware.live/recentvictims';
-
-function now(): string { return new Date().toISOString(); }
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID, providerName: PROVIDER_NAME,
-    status: 'ok', summary: '', severity: 'unknown', confidence: 'unknown',
-    data: {}, rawAvailable: false, checkedAt: now(), fromCache: false,
-    ...overrides,
-  };
-}
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 interface RansomwareVictim {
   post_title?: string;

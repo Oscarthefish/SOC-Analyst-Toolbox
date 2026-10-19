@@ -1,30 +1,12 @@
 import type { IocInput, EnrichmentResult, EnrichOptions } from '../types.js';
 import { config } from '../config.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'dnsdumpster';
 const PROVIDER_NAME = 'DNSDumpster';
 const BASE_URL = 'https://api.dnsdumpster.com';
 const TIMEOUT_MS = 15_000;
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID,
-    providerName: PROVIDER_NAME,
-    status: 'ok',
-    summary: '',
-    severity: 'unknown',
-    confidence: 'unknown',
-    data: {},
-    rawAvailable: false,
-    checkedAt: now(),
-    fromCache: false,
-    ...overrides,
-  };
-}
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 interface DnsDumpsterRecord {
   host?: string;

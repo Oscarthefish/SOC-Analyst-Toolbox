@@ -1,8 +1,10 @@
 import type { IocInput, EnrichmentResult, EnrichOptions } from '../types.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'identityfabric';
 const PROVIDER_NAME = 'Identity Fabric';
 const TIMEOUT_MS = 10_000;
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 // SAML metadata paths to probe
 const SAML_PATHS = [
@@ -12,26 +14,6 @@ const SAML_PATHS = [
   '/federationmetadata/2007-06/federationmetadata.xml',
   '/auth/realms/master/protocol/saml/descriptor',
 ];
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID,
-    providerName: PROVIDER_NAME,
-    status: 'ok',
-    summary: '',
-    severity: 'unknown',
-    confidence: 'unknown',
-    data: {},
-    rawAvailable: false,
-    checkedAt: now(),
-    fromCache: false,
-    ...overrides,
-  };
-}
 
 async function fetchJson(url: string, signal: AbortSignal): Promise<Record<string, unknown> | null> {
   try {
