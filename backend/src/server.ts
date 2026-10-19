@@ -1,6 +1,8 @@
 import express from 'express';
+import { installFetchDefaults } from './lib/http.js';
 import cors from 'cors';
 import { config } from './config.js';
+import { flushSync as flushCache } from './cache.js';
 import healthRouter from './routes/health.js';
 import enrichRouter from './routes/enrich.js';
 import keysRouter from './routes/keys.js';
@@ -9,6 +11,8 @@ import analyseEmailHeaderRouter from './routes/analyseEmailHeader.js';
 import threatFeedRouter from './routes/threatFeed.js';
 import threatBriefingRouter from './routes/threatBriefing.js';
 import toolsConfigRouter from './routes/toolsConfig.js';
+
+installFetchDefaults();
 
 const app = express();
 
@@ -84,3 +88,11 @@ app.listen(port, host, () => {
   console.log(`[server] URL submission: ${config.enableUrlSubmission ? 'ENABLED' : 'disabled'}`);
   console.log(`[server] Cache TTL: ${config.cacheTtlMinutes} minutes`);
 });
+
+// Persist any pending cache writes before exiting (Ctrl+C, tsx watch restarts)
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, () => {
+    flushCache();
+    process.exit(0);
+  });
+}

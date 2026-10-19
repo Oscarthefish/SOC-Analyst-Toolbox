@@ -9,7 +9,7 @@ import type {
 import { adapters } from '../adapters/index.js';
 import { config } from '../config.js';
 import * as cache from '../cache.js';
-import { isRateLimited, recordRequest } from '../rateLimit.js';
+import { acquire } from '../rateLimit.js';
 import { resolveOllamaModel, ollamaGenerate } from '../lib/ollama.js';
 import { parseEmailHeaders } from '../lib/emailHeaders.js';
 import { computeOverallAssessment, detectVpnOrTor, EMAIL_ACTIONS } from '../lib/scoring.js';
@@ -46,10 +46,12 @@ async function runAdapter(
     if (cached) return cached;
   }
 
-  if (isRateLimited(providerId)) {
+  // Waits briefly for a free slot; gives up if the provider is paused or saturated
+  const retryInMs = await acquire(providerId);
+  if (retryInMs > 0) {
     return {
       providerId, providerName: providerId, status: 'rate_limited',
-      summary: `${providerId} is currently rate-limited.`,
+      summary: `${providerId} is rate-limited. Try again in ${Math.ceil(retryInMs / 1000)} s.`,
       severity: 'unknown', confidence: 'unknown',
       data: {}, rawAvailable: false,
       checkedAt: new Date().toISOString(), fromCache: false,
@@ -57,7 +59,6 @@ async function runAdapter(
   }
 
   try {
-    recordRequest(providerId);
     const result = await adapter(ioc, options);
     if (result.status === 'ok' || result.status === 'missing_key') {
       cache.set(cacheKey, result, config.cacheTtlMinutes);

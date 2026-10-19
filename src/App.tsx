@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { flushSync } from 'react-dom';
 import type { DetectedIoc } from './types/ioc';
 import type { Workflow } from './types/workflow';
@@ -7,18 +7,9 @@ import type { AnalysisResponse } from './types/analysis';
 import { IocInput } from './components/IocInput';
 import { AnalysisBar } from './components/WorkflowTiles';
 import { ToolPanel } from './components/ToolPanel';
-import { BulkExtractPanel } from './components/BulkExtractPanel';
-import { BatchTriagePanel } from './components/BatchTriagePanel';
-import { DefangPanel } from './components/DefangPanel';
-import { ConfigCheckPanel } from './components/ConfigCheckPanel';
 import { AutoAnalysisPanel } from './components/AutoAnalysisPanel';
 import type { AutoAnalysisPanelHandle } from './components/AutoAnalysisPanel';
 import { AnalysisResultsPanel } from './components/AnalysisResultsPanel';
-import { ApiKeysPanel } from './components/ApiKeysPanel';
-import { ThreatFeedPanel } from './components/ThreatFeedPanel';
-import { AboutPanel } from './components/AboutPanel';
-import { SearchHistoryPanel } from './components/SearchHistoryPanel';
-import { ToolsManagementPanel } from './components/ToolsManagementPanel';
 import { AppShell } from './components/AppShell';
 import type { Tab } from './components/AppShell';
 import { checkBackendHealth } from './lib/apiClient';
@@ -29,6 +20,17 @@ import { loadHistory, saveSearch, removeEntry, clearHistory } from './lib/search
 import type { HistoryEntry } from './lib/searchHistory';
 import toolsData from './data/tools.json';
 import workflowsData from './data/workflows.json';
+
+// Pages other than Investigate load on first visit to keep the initial bundle small
+const BulkExtractPanel = lazy(() => import('./components/BulkExtractPanel').then(m => ({ default: m.BulkExtractPanel })));
+const BatchTriagePanel = lazy(() => import('./components/BatchTriagePanel').then(m => ({ default: m.BatchTriagePanel })));
+const DefangPanel = lazy(() => import('./components/DefangPanel').then(m => ({ default: m.DefangPanel })));
+const ConfigCheckPanel = lazy(() => import('./components/ConfigCheckPanel').then(m => ({ default: m.ConfigCheckPanel })));
+const ApiKeysPanel = lazy(() => import('./components/ApiKeysPanel').then(m => ({ default: m.ApiKeysPanel })));
+const ThreatFeedPanel = lazy(() => import('./components/ThreatFeedPanel').then(m => ({ default: m.ThreatFeedPanel })));
+const AboutPanel = lazy(() => import('./components/AboutPanel').then(m => ({ default: m.AboutPanel })));
+const SearchHistoryPanel = lazy(() => import('./components/SearchHistoryPanel').then(m => ({ default: m.SearchHistoryPanel })));
+const ToolsManagementPanel = lazy(() => import('./components/ToolsManagementPanel').then(m => ({ default: m.ToolsManagementPanel })));
 
 const builtinTools = toolsData as Tool[];
 const workflows = workflowsData as Workflow[];
@@ -256,6 +258,7 @@ export default function App() {
         </div>
       )}
 
+      <Suspense fallback={<p className="text-xs text-fg-4 py-6">Loading…</p>}>
       {activeTab === 'bulk' && <BulkExtractPanel onInvestigate={handleInvestigate} />}
       {activeTab === 'batch' && <BatchTriagePanel onInvestigate={handleInvestigate} />}
       {activeTab === 'defang' && <DefangPanel />}
@@ -281,6 +284,7 @@ export default function App() {
         />
       )}
       {activeTab === 'about' && <AboutPanel />}
+      </Suspense>
     </AppShell>
   );
 }

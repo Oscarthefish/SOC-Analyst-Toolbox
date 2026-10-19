@@ -11,7 +11,7 @@ import type {
 import { adapters } from '../adapters/index.js';
 import { config } from '../config.js';
 import * as cache from '../cache.js';
-import { isRateLimited, recordRequest } from '../rateLimit.js';
+import { acquire } from '../rateLimit.js';
 import { computeOverallAssessment, detectContradictions, detectVpnOrTor } from '../lib/scoring.js';
 
 const router = Router();
@@ -168,12 +168,14 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
     }
 
     // Check rate limit
-    if (isRateLimited(providerId)) {
+    // Waits briefly for a free slot; gives up if the provider is paused or saturated
+    const retryInMs = await acquire(providerId);
+    if (retryInMs > 0) {
       return {
         providerId,
         providerName: providerId,
         status: 'rate_limited',
-        summary: `${providerId} is currently rate-limited. Try again in 60 seconds.`,
+        summary: `${providerId} is rate-limited. Try again in ${Math.ceil(retryInMs / 1000)} s.`,
         severity: 'unknown',
         confidence: 'unknown',
         data: {},
@@ -184,7 +186,6 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
     }
 
     try {
-      recordRequest(providerId);
       const result = await adapter(ioc, enrichOptions);
       // Cache successful results and missing_key (don't hammer missing keys)
       if ((result.status === 'ok' || result.status === 'missing_key') && !HIGH_RISK_PROVIDERS.has(providerId)) {

@@ -91,6 +91,8 @@ Other settings in `backend/.env`:
 | `ENABLE_URL_SUBMISSION` | `false` | Allow submitting new urlscan.io scans (they're public by default) |
 | `ENABLE_HIGH_RISK_ENRICHMENT` | `false` | Allow the credential validator (see below) |
 | `ALLOWED_ORIGINS` | Vite dev and preview on localhost | Comma-separated frontend origins allowed to call the API |
+| `RATE_LIMIT_<PROVIDER>` | Free-tier limits for VirusTotal (4), ip-api (45), Shodan (60), HIBP (10) | Requests per minute for a provider, e.g. `RATE_LIMIT_VIRUSTOTAL=500` for a premium key. `0` disables the limit |
+| `CACHE_DIR` | `.cache/` at the repo root | Where the enrichment cache is stored |
 
 ---
 
@@ -164,7 +166,7 @@ If a template still contains an unfilled variable for the current indicator type
 | `403 Forbidden origin` | You're calling the backend directly from a page on a port that isn't allowed. Use the Vite dev or preview server, which proxies `/api`, or add the origin to `ALLOWED_ORIGINS` in `backend/.env` |
 | Backend not on port 8787 | Start Vite with `BACKEND_PORT=<port>` so the `/api` proxy points at it |
 | Provider shows **No key** | Add the key in Integrations, or in `.env` and restart the backend |
-| Provider shows **Rate limited** | Wait 60 seconds. The backend backs off after a 429 |
+| Provider shows **Rate limited** | The provider hit its per-minute limit or returned a 429; the result says when to retry. Raise the limit with `RATE_LIMIT_<PROVIDER>` if your plan allows more |
 | No written summary | Start Ollama and pull a model (`ollama pull qwen2.5`) |
 
 ## Known limitations

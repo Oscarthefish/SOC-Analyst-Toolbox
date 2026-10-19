@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect, useLayoutEffect, useRef, forwardRef, 
 import type { DetectedIoc } from '../types/ioc';
 import type { AnalysisResponse, EmailHeaderAnalysisResponse, ParsedEmailHeaders } from '../types/analysis';
 import type { EnrichmentResult } from '../types/enrichment';
-import { runAutoAnalysis, runEmailHeaderAnalysis } from '../lib/apiClient';
+import { streamAutoAnalysis, runEmailHeaderAnalysis } from '../lib/apiClient';
+import type { AnalysisProgress } from '../lib/apiClient';
 import { ProviderComparisonPanel } from './enrichmentShared';
 
 export interface AutoAnalysisPanelHandle {
@@ -117,6 +118,73 @@ function ElapsedTimer({ running, isEmail }: { running: boolean; isEmail?: boolea
       <div className="w-full bg-raised rounded-full h-1.5 max-w-[200px] mx-auto">
         <div className="bg-accent h-1.5 rounded-full transition-all duration-1000" style={{ width: `${pct}%` }} />
       </div>
+    </div>
+  );
+}
+
+// ── Live progress (streamed analysis) ──────────────────────────────────────
+
+const SEV_DOT: Record<string, string> = {
+  critical: 'bg-danger', high: 'bg-danger', medium: 'bg-warn', low: 'bg-accent', benign: 'bg-ok', unknown: 'bg-fg-4',
+};
+const SEV_TEXT: Record<string, string> = {
+  critical: 'text-danger-fg', high: 'text-danger-fg', medium: 'text-warn-fg', low: 'text-accent-fg', benign: 'text-ok-fg', unknown: 'text-fg-2',
+};
+
+function LiveProgress({ progress }: { progress: AnalysisProgress }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setElapsed(x => x + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const byId = new Map(progress.results.map(r => [r.providerId, r]));
+  const total = progress.providers.length;
+  const doneCount = progress.results.length;
+  const overall = progress.overall;
+
+  return (
+    <div className="space-y-4" aria-live="polite">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="w-4 h-4 rounded-full border-2 border-line border-t-accent animate-spin" />
+          <p className="text-[13px] font-medium text-fg-1">
+            {total === 0 ? 'Starting analysis…'
+              : !overall ? `Querying providers · ${doneCount}/${total}`
+              : 'Writing summary with local LLM…'}
+          </p>
+        </div>
+        <span className="text-xs font-mono text-fg-4 tabular-nums">{elapsed}s</span>
+      </div>
+
+      {overall && (
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2.5 rounded-md border border-line bg-inset">
+          <span className="text-[11px] text-fg-4">Verdict</span>
+          <span className={`text-[13px] font-semibold capitalize ${SEV_TEXT[overall.severity] ?? 'text-fg-1'}`}>{overall.severity}</span>
+          <span className="text-xs text-fg-3">{overall.confidence} confidence</span>
+          <span className="text-xs text-fg-4">· the written summary will follow</span>
+        </div>
+      )}
+
+      {total > 0 && (
+        <div className="grid gap-x-4 gap-y-1 grid-cols-[repeat(auto-fill,minmax(180px,1fr))]">
+          {progress.providers.map(id => {
+            const r = byId.get(id);
+            const ok = r && (r.status === 'ok' || r.status === 'cached');
+            return (
+              <div key={id} className="flex items-center gap-2 text-xs min-w-0" title={r?.summary}>
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  !r ? 'bg-line-strong animate-pulse' : ok ? SEV_DOT[r.severity] ?? 'bg-fg-4' : 'bg-transparent border border-fg-4'
+                }`} />
+                <span className={`truncate ${r ? 'text-fg-2' : 'text-fg-4'}`}>{r?.providerName ?? id}</span>
+                <span className="ml-auto text-[11px] text-fg-4 shrink-0">
+                  {!r ? '' : ok ? (r.status === 'cached' ? 'cached' : r.severity) : r.status.replace('_', ' ')}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -545,6 +613,7 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<AnalysisProgress>({ providers: [], results: [] });
   const [includeHunter, setIncludeHunter] = useState(false);
   // Tracks the active run; a new Symbol per run means only the latest run can commit results.
   const activeRunIdRef = useRef<symbol | null>(null);
@@ -604,11 +673,12 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
         if (!r) setError('Analysis failed — check the backend is running.');
         else setResult(r);
       } else {
-        const r = await runAutoAnalysis({
+        setProgress({ providers: [], results: [] });
+        const r = await streamAutoAnalysis({
           ioc: { original: snap.original, normalised: snap.normalised, type: snap.type },
           workflowId: workflowId ?? undefined,
           options: { forceRefresh, includeHunter },
-        });
+        }, p => { if (activeRunIdRef.current === id) setProgress(p); });
         if (activeRunIdRef.current !== id) return;
         if (!r) { setError('Analysis failed — check the backend is running.'); }
         else { setResult(r); onComplete?.(r); }
@@ -718,7 +788,9 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
           </div>
         )}
 
-        {loading && <ElapsedTimer running isEmail={isEmailHeader || isEmailHeaderWorkflow} />}
+        {loading && ((isEmailHeader || isEmailHeaderWorkflow)
+          ? <ElapsedTimer running isEmail />
+          : <LiveProgress progress={progress} />)}
 
         {error && !loading && (
           <div className="flex gap-2.5 p-3 rounded-lg bg-danger-bg border border-danger-line text-xs text-danger-fg">

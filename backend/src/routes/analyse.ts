@@ -12,7 +12,7 @@ import type {
 import { adapters } from '../adapters/index.js';
 import { config } from '../config.js';
 import * as cache from '../cache.js';
-import { isRateLimited, recordRequest } from '../rateLimit.js';
+import { acquire } from '../rateLimit.js';
 import { resolveOllamaModel, ollamaGenerate } from '../lib/ollama.js';
 import { computeOverallAssessment, detectContradictions, detectVpnOrTor } from '../lib/scoring.js';
 import type { VpnTorFlags } from '../lib/scoring.js';
@@ -69,12 +69,14 @@ async function runAdapter(
     if (cached) return cached;
   }
 
-  if (isRateLimited(providerId)) {
+  // Waits briefly for a free slot; gives up if the provider is paused or saturated
+  const retryInMs = await acquire(providerId);
+  if (retryInMs > 0) {
     return {
       providerId,
       providerName: providerId,
       status: 'rate_limited',
-      summary: `${providerId} is currently rate-limited. Try again later.`,
+      summary: `${providerId} is rate-limited. Try again in ${Math.ceil(retryInMs / 1000)} s.`,
       severity: 'unknown',
       confidence: 'unknown',
       data: {},
@@ -85,7 +87,6 @@ async function runAdapter(
   }
 
   try {
-    recordRequest(providerId);
     const result = await adapter(ioc, options);
     if (result.status === 'ok' || result.status === 'missing_key') {
       const ttl = getProviderTtl(providerId, config.cacheTtlMinutes);
@@ -220,50 +221,78 @@ ${whoisSection}
 ${contradictionSection}`;
 }
 
-router.post('/analyse', async (req: Request, res: Response): Promise<void> => {
-  const body = req.body as {
+type AnalyseResponse = EnrichmentResponse & {
+  narrative: string | null;
+  narrativeError?: string;
+  ollamaModel: string;
+  ollamaAvailable: boolean;
+  analysedAt: string;
+  contradictions: ContradictionFlag[];
+  citationRetried: boolean;
+};
+
+interface AnalyseParams {
+  ioc: IocInput;
+  workflowId?: string;
+  ollamaModel: string;
+  enrichOptions: EnrichOptions;
+  providerList: string[];
+}
+
+/** Events emitted while an analysis runs (sent as SSE by /analyse/stream). */
+export type AnalyseEvent =
+  | { event: 'start'; data: { ioc: IocInput; providers: string[] } }
+  | { event: 'provider'; data: EnrichmentResult }
+  | { event: 'assessment'; data: { results: EnrichmentResult[]; overall: OverallAssessment; contradictions: ContradictionFlag[] } }
+  | { event: 'done'; data: AnalyseResponse };
+
+function parseAnalyseRequest(raw: unknown): AnalyseParams | { error: string } {
+  const body = raw as {
     ioc?: Partial<IocInput>;
     workflowId?: string;
     options?: { ollamaModel?: string; forceRefresh?: boolean; includeHunter?: boolean };
   };
 
-  if (!body.ioc?.normalised || !body.ioc.type) {
-    res.status(400).json({ error: 'ioc.normalised and ioc.type are required.' });
-    return;
-  }
-
-  if (!VALID_IOC_TYPES.includes(body.ioc.type as IocType)) {
-    res.status(400).json({ error: `Invalid IOC type: ${body.ioc.type}` });
-    return;
-  }
+  if (!body?.ioc?.normalised || !body.ioc.type) return { error: 'ioc.normalised and ioc.type are required.' };
+  if (!VALID_IOC_TYPES.includes(body.ioc.type as IocType)) return { error: `Invalid IOC type: ${body.ioc.type}` };
 
   const ioc: IocInput = {
     original: body.ioc.original ?? body.ioc.normalised,
     normalised: body.ioc.normalised,
     type: body.ioc.type as IocType,
   };
-
-  const workflowId = body.workflowId;
-  const ollamaModel = body.options?.ollamaModel ?? DEFAULT_OLLAMA_MODEL;
-  const forceRefresh = body.options?.forceRefresh ?? false;
   const includeHunter = body.options?.includeHunter ?? false;
-
-  const enrichOptions: EnrichOptions = {
-    forceRefresh,
-    allowSensitiveUrl: false,
-    allowUrlSubmission: false,
-    includeRaw: false,
-    includeHunter,
-  };
 
   let providerList = ANALYSE_PROVIDERS[ioc.type] ?? [];
   if (includeHunter && (ioc.type === 'domain' || ioc.type === 'url' || ioc.type === 'email') && !providerList.includes('hunter')) {
     providerList = [...providerList, 'hunter'];
   }
 
+  return {
+    ioc,
+    workflowId: body.workflowId,
+    ollamaModel: body.options?.ollamaModel ?? DEFAULT_OLLAMA_MODEL,
+    providerList,
+    enrichOptions: {
+      forceRefresh: body.options?.forceRefresh ?? false,
+      allowSensitiveUrl: false,
+      allowUrlSubmission: false,
+      includeRaw: false,
+      includeHunter,
+    },
+  };
+}
+
+async function runAnalysis(params: AnalyseParams, emit: (e: AnalyseEvent) => void = () => {}): Promise<AnalyseResponse> {
+  const { ioc, workflowId, ollamaModel, enrichOptions, providerList } = params;
+  emit({ event: 'start', data: { ioc, providers: providerList } });
+
   const [resolvedModelResult, ...enrichSettled] = await Promise.allSettled([
     resolveOllamaModel(ollamaModel),
-    ...providerList.map(p => runAdapter(p, ioc, enrichOptions)),
+    ...providerList.map(p => runAdapter(p, ioc, enrichOptions).then(r => {
+      emit({ event: 'provider', data: r });
+      return r;
+    })),
   ]);
 
   const results: EnrichmentResult[] = enrichSettled.map((s, i) => {
@@ -289,6 +318,7 @@ router.post('/analyse', async (req: Request, res: Response): Promise<void> => {
   const contradictions = detectContradictions(results);
   const vpnTor = detectVpnOrTor(results);
   const overall = computeOverallAssessment(results, vpnTor);
+  emit({ event: 'assessment', data: { results, overall, contradictions } });
 
   let narrative: string | null = null;
   let narrativeError: string | undefined;
@@ -324,30 +354,61 @@ router.post('/analyse', async (req: Request, res: Response): Promise<void> => {
     narrativeError = 'Ollama is not running or the model is not available. Start Ollama and ensure qwen2.5 is pulled.';
   }
 
-  const effectiveModel = resolvedModel ?? ollamaModel;
-
-  const response: EnrichmentResponse & {
-    narrative: string | null;
-    narrativeError?: string;
-    ollamaModel: string;
-    ollamaAvailable: boolean;
-    analysedAt: string;
-    contradictions: ContradictionFlag[];
-    citationRetried: boolean;
-  } = {
+  const response: AnalyseResponse = {
     ioc,
     results,
     overall,
     narrative,
     narrativeError,
-    ollamaModel: effectiveModel,
+    ollamaModel: resolvedModel ?? ollamaModel,
     ollamaAvailable: resolvedModel !== null,
     analysedAt: new Date().toISOString(),
     contradictions,
     citationRetried,
   };
+  emit({ event: 'done', data: response });
+  return response;
+}
 
-  res.json(response);
+router.post('/analyse', async (req: Request, res: Response): Promise<void> => {
+  const params = parseAnalyseRequest(req.body);
+  if ('error' in params) {
+    res.status(400).json({ error: params.error });
+    return;
+  }
+  res.json(await runAnalysis(params));
+});
+
+/**
+ * Same analysis as POST /analyse, streamed as server-sent events so the UI can show
+ * provider results and the verdict before the LLM narrative is ready.
+ */
+router.post('/analyse/stream', async (req: Request, res: Response): Promise<void> => {
+  const params = parseAnalyseRequest(req.body);
+  if ('error' in params) {
+    res.status(400).json({ error: params.error });
+    return;
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+
+  let open = true;
+  res.on('close', () => { open = false; });
+  const send = (e: AnalyseEvent | { event: 'error'; data: { error: string } }) => {
+    if (open) res.write(`event: ${e.event}\ndata: ${JSON.stringify(e.data)}\n\n`);
+  };
+
+  try {
+    await runAnalysis(params, send);
+  } catch (err) {
+    send({ event: 'error', data: { error: err instanceof Error ? err.message : 'Analysis failed.' } });
+  }
+  if (open) res.end();
 });
 
 export default router;
