@@ -115,6 +115,7 @@ export default function App() {
     const ok = await saveCustomTools(tools);
     if (ok) setCustomTools(tools);
     setToolsSaving(false);
+    return ok;
   }, []);
 
   const handleToggleHidden = useCallback((id: string) => {

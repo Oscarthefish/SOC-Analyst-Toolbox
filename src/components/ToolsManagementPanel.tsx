@@ -1,13 +1,18 @@
 import { useState, useMemo } from 'react';
 import type { Tool, SubmissionRisk, RequiresAccount } from '../types/tool';
 import type { IocType } from '../types/ioc';
+import type { Workflow } from '../types/workflow';
+import workflowsData from '../data/workflows.json';
+import { DEFAULT_TOOL_FORM, validateToolForm, formToTool } from '../lib/customTools';
+import type { ToolFormState } from '../lib/customTools';
 
 interface Props {
   builtinTools: Tool[];
   customTools: Tool[];
   hiddenToolIds: Set<string>;
   saving: boolean;
-  onSaveCustomTools: (tools: Tool[]) => Promise<void>;
+  /** Resolves false if the backend rejected or couldn't store the change */
+  onSaveCustomTools: (tools: Tool[]) => Promise<boolean>;
   onToggleHidden: (id: string) => void;
 }
 
@@ -27,22 +32,8 @@ const ALL_IOC_TYPES: { value: IocType; label: string }[] = [
   { value: 'cve',    label: 'CVE' },
 ];
 
-const ALL_WORKFLOWS: { id: string; name: string }[] = [
-  { id: 'ip-triage',            name: 'IP Triage' },
-  { id: 'domain-triage',        name: 'Domain Triage' },
-  { id: 'url-phishing',         name: 'URL / Phishing' },
-  { id: 'spam-source',          name: 'Spam Source' },
-  { id: 'malware-hash',         name: 'Malware / Hash' },
-  { id: 'suspicious-connection',name: 'Suspicious Connection' },
-  { id: 'waf-web-attack',       name: 'WAF / Web Attack' },
-  { id: 'dark-web-exposure',    name: 'Dark Web / Credential' },
-  { id: 'takedown-reporting',   name: 'Takedown Reporting' },
-  { id: 'ransomware-context',   name: 'Ransomware Context' },
-  { id: 'external-exposure',    name: 'External Exposure' },
-  { id: 'cve-context',          name: 'CVE Context' },
-  { id: 'email-header-review',  name: 'Email Header Review' },
-  { id: 'business-domain-osint',name: 'Business Domain Profile' },
-];
+// Derived from the workflow definitions so names never drift
+const ALL_WORKFLOWS = (workflowsData as Workflow[]).map(w => ({ id: w.id, name: w.name }));
 
 const CATEGORIES = [
   'Custom',
@@ -83,50 +74,6 @@ const TEMPLATE_VARS = [
   { v: '{{asn}}',          desc: 'ASN (e.g. AS12345)' },
   { v: '{{cidr}}',         desc: 'CIDR range' },
 ];
-
-// ── Form state ────────────────────────────────────────────────────────────────
-
-interface FormState {
-  name: string;
-  category: string;
-  description: string;
-  urlTemplate: string;
-  inputTypes: IocType[];
-  workflows: string[];
-  whyUse: string;
-  lookFor: string;
-  riskNote: string;
-  submissionRisk: SubmissionRisk;
-  requiresAccount: RequiresAccount;
-  tags: string;
-}
-
-const DEFAULT_FORM: FormState = {
-  name: '',
-  category: 'Custom',
-  description: '',
-  urlTemplate: '',
-  inputTypes: [],
-  workflows: [],
-  whyUse: '',
-  lookFor: '',
-  riskNote: '',
-  submissionRisk: 'low',
-  requiresAccount: 'none',
-  tags: '',
-};
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
-function generateId(name: string, taken: Set<string>): string {
-  const base = 'custom-' + slugify(name);
-  let id = base;
-  let n = 2;
-  while (taken.has(id)) id = `${base}-${n++}`;
-  return id;
-}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -243,12 +190,13 @@ function BuiltinToolRow({ tool, hidden, onToggle }: { tool: Tool; hidden: boolea
 
 export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds, saving, onSaveCustomTools, onToggleHidden }: Props) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const [form, setForm] = useState<ToolFormState>(DEFAULT_TOOL_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showOptional, setShowOptional] = useState(false);
   const [search, setSearch] = useState('');
   const [showHiddenOnly, setShowHiddenOnly] = useState(false);
   const [showVarRef, setShowVarRef] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const hiddenCount = useMemo(() => {
     return builtinTools.filter(t => hiddenToolIds.has(t.id)).length;
@@ -263,7 +211,7 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
     });
   }, [builtinTools, search, showHiddenOnly, hiddenToolIds]);
 
-  function patchForm(patch: Partial<FormState>) {
+  function patchForm(patch: Partial<ToolFormState>) {
     setForm(prev => ({ ...prev, ...patch }));
   }
 
@@ -284,49 +232,39 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
   }
 
   function validate(): boolean {
-    const e: Record<string, string> = {};
-    if (!form.name.trim()) e.name = 'Name is required.';
-    if (!form.urlTemplate.trim()) e.urlTemplate = 'URL template is required.';
-    else if (!/^https?:\/\//i.test(form.urlTemplate.trim())) e.urlTemplate = 'Must start with https:// or http://';
-    if (form.inputTypes.length === 0) e.inputTypes = 'Select at least one IOC type.';
+    const e = validateToolForm(form);
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
   async function handleSave() {
     if (!validate()) return;
+    setSaveError(null);
     const allIds = new Set([...builtinTools.map(t => t.id), ...customTools.map(t => t.id)]);
-    const newTool: Tool = {
-      id: generateId(form.name.trim(), allIds),
-      name: form.name.trim(),
-      category: form.category,
-      description: form.description.trim(),
-      urlTemplate: form.urlTemplate.trim(),
-      inputTypes: form.inputTypes,
-      workflows: form.workflows,
-      whyUse: form.whyUse.trim(),
-      lookFor: form.lookFor.trim(),
-      riskNote: form.riskNote.trim() || 'This is a custom tool.',
-      submissionRisk: form.submissionRisk,
-      requiresAccount: form.requiresAccount,
-      tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
-    };
-    await onSaveCustomTools([...customTools, newTool]);
-    setForm(DEFAULT_FORM);
+    const ok = await onSaveCustomTools([...customTools, formToTool(form, allIds)]);
+    if (!ok) {
+      // Keep the form so nothing typed is lost
+      setSaveError('The tool could not be saved. Check that the backend is running, then try again.');
+      return;
+    }
+    setForm(DEFAULT_TOOL_FORM);
     setErrors({});
     setShowForm(false);
     setShowOptional(false);
   }
 
   function handleCancel() {
-    setForm(DEFAULT_FORM);
+    setSaveError(null);
+    setForm(DEFAULT_TOOL_FORM);
     setErrors({});
     setShowForm(false);
     setShowOptional(false);
   }
 
   async function handleDelete(id: string) {
-    await onSaveCustomTools(customTools.filter(t => t.id !== id));
+    setSaveError(null);
+    const ok = await onSaveCustomTools(customTools.filter(t => t.id !== id));
+    if (!ok) setSaveError('The tool could not be deleted. Check that the backend is running, then try again.');
   }
 
   return (
@@ -513,6 +451,7 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
 
             {/* Actions */}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-line-soft">
+              {saveError && <p role="alert" className="mr-auto text-xs text-danger-fg">{saveError}</p>}
               <button
                 onClick={handleCancel}
                 className="text-[13px] font-medium px-4 py-2 rounded-lg border border-line bg-surface text-fg-2 hover:border-line-strong transition-colors"
@@ -529,6 +468,8 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
             </div>
           </div>
         )}
+
+        {saveError && !showForm && <p role="alert" className="text-xs text-danger-fg">{saveError}</p>}
 
         {/* Custom tool list */}
         {customTools.length === 0 ? (
