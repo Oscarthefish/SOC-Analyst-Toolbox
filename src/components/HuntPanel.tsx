@@ -170,8 +170,19 @@ interface Props {
   currentIndicator?: string;
 }
 
+const KIND_SINGULAR: Record<IocKind, string> = { ip: 'IP address', domain: 'domain', url: 'URL', hash: 'file hash', email: 'email address' };
+
 function groupLabel(g: IndicatorGroup) {
   return g.kind === 'hash' ? `${g.hashType?.toUpperCase()} hashes` : KIND_LABEL[g.kind];
+}
+
+/** "1 IP address", "3 domains", "2 SHA256 hashes" */
+function countLabel(g: IndicatorGroup) {
+  const n = g.values.length;
+  if (g.kind === 'hash') return `${n} ${g.hashType?.toUpperCase()} ${n === 1 ? 'hash' : 'hashes'}`;
+  if (n === 1) return `1 ${KIND_SINGULAR[g.kind]}`;
+  const plural = KIND_LABEL[g.kind];
+  return `${n} ${g.kind === 'ip' || g.kind === 'url' ? plural : plural.toLowerCase()}`;
 }
 
 export function HuntPanel({ indicators, onIndicatorsChange, techniques, onTechniquesChange, suggested, currentIndicator }: Props) {
@@ -217,7 +228,7 @@ export function HuntPanel({ indicators, onIndicatorsChange, techniques, onTechni
             {groups.map(g => (
               <span key={g.kind + (g.hashType ?? '')} className="inline-flex items-center gap-1.5 h-6 px-2 rounded-md border border-line bg-inset">
                 <IocTypeChip type={g.hashType ?? KIND_CHIP[g.kind]} size="sm" />
-                {g.values.length} {groupLabel(g).toLowerCase()}
+                {countLabel(g)}
               </span>
             ))}
             {unsupported.length > 0 && <span className="text-fg-4">{unsupported.length} not searchable here (CVE, ASN, CIDR)</span>}

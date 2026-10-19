@@ -5,8 +5,28 @@ A local workbench for SOC analysts. Paste an indicator (IP, domain, URL, hash, e
 - classify and normalise it, including refanging defanged input such as `hxxps://evil[.]com`
 - enrich it across threat-intel providers through a local backend, then get a severity verdict, flags where providers contradict each other, and an optional summary from a local LLM
 - pivot to 60 external investigation tools, each pre-filled with the indicator and labelled with how much it exposes it
+- see the MITRE ATT&CK techniques linked to it, and build hunting queries for Microsoft Sentinel, Defender XDR (KQL) or Splunk (SPL)
 
 The browser talks only to a backend on your own machine. API keys stay in `backend/.env` and never reach the browser. There is no telemetry.
+
+![Investigating an IP: severity verdict with a ring gauge showing how many sources flag it, the split of provider verdicts, recommended next steps and the local LLM summary](docs/screenshots/01-investigate.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/02-relationships-attack.png" alt="Relationship graph merging ASN, operator, country, ports and threat labels across providers, the ATT&amp;CK techniques linked to the indicator grouped by tactic, and provider verdict tiles"><br><sub><b>Relationships and ATT&amp;CK.</b> Facts merged across providers (badges count the sources that agree), techniques grouped by tactic with their evidence, and every provider's verdict.</sub></td>
+    <td width="50%"><img src="docs/screenshots/03-hunt-builder.png" alt="Hunt page with indicators, platform and look-back choices, the techniques linked to the investigation and an ATT&amp;CK matrix of techniques that have hunts"><br><sub><b>Hunt.</b> Indicators and ATT&amp;CK techniques in; pick Sentinel, Defender XDR or Splunk and a look-back.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/04-hunt-queries.png" alt="Generated KQL queries for device connections and Entra ID sign-ins involving the IP, with copy buttons and guidance on what to look for"><br><sub><b>Generated queries</b> with the indicator filled in, the techniques they cover and what to look for.</sub></td>
+    <td width="50%"><img src="docs/screenshots/05-overview.png" alt="Investigate page before an indicator is entered: open cases, saved analyses, high or critical count, a 7-day activity chart, severity donut and recent indicators"><br><sub><b>Overview.</b> Open cases, recent activity by severity and recent indicators.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/06-threat-feed-dark.png" alt="Threat feed in dark mode: 30-day timeline of CISA KEV additions and ransomware posts, most active groups, exploited vendors and victim sectors"><br><sub><b>Threat feed</b> (dark theme). CISA KEV and Ransomware.live over 30 days.</sub></td>
+    <td width="50%"><img src="docs/screenshots/07-cases.png" alt="Cases page with open and closed counts, a verdict breakdown bar, checklist progress and the case table"><br><sub><b>Cases.</b> Verdicts, checklist progress and exports.</sub></td>
+  </tr>
+</table>
+
+<sub>Screenshots use sample investigation data. The threat feed shows live public data.</sub>
 
 ---
 
