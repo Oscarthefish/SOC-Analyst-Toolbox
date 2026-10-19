@@ -3,24 +3,15 @@ import type { DetectedIoc } from '../types/ioc';
 import { detectIoc, normalizeIocInput } from '../lib/detectIoc';
 import { defangUrlSmart, defangIp, defangDomain } from '../lib/defang';
 import { CopyButton } from './CopyButton';
+import { loadRecentIndicators as loadHistory, addRecentIndicator as addToHistory, clearRecentIndicators } from '../lib/recentIndicators';
 
-const HISTORY_KEY = 'soc-toolbox-ioc-history';
-const MAX_HISTORY = 10;
-
-function loadHistory(): string[] {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch { return []; }
-}
-
-function addToHistory(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return;
-  const prev = loadHistory();
-  const next = [trimmed, ...prev.filter(h => h !== trimmed)].slice(0, MAX_HISTORY);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-}
+/** Safe, well-known examples for first-time users. */
+const SAMPLES = [
+  { value: '185.220.101.4', note: 'Tor exit node' },
+  { value: 'example.com', note: 'Reserved documentation domain' },
+  { value: 'CVE-2024-3400', note: 'PAN-OS vulnerability in CISA KEV' },
+  { value: '44d88612fea8a8f36de82e1278abb02f', note: 'EICAR test file (MD5)' },
+];
 
 // ── SVG icons ──────────────────────────────────────────────────────────────
 
@@ -199,11 +190,13 @@ interface IocInputProps {
   onSubmit?: () => void;
   prefillValue?: string;
   onPrefillConsumed?: () => void;
+  /** Value to show on mount, so returning to the page keeps the current indicator */
+  initialValue?: string;
 }
 
-export function IocInput({ onDetect, onReset, onSubmit, prefillValue, onPrefillConsumed }: IocInputProps) {
-  const [value, setValue] = useState('');
-  const [ioc, setIoc] = useState<DetectedIoc | null>(null);
+export function IocInput({ onDetect, onReset, onSubmit, prefillValue, onPrefillConsumed, initialValue = '' }: IocInputProps) {
+  const [value, setValue] = useState(initialValue);
+  const [ioc, setIoc] = useState<DetectedIoc | null>(() => (initialValue.trim() ? detectIoc(initialValue) : null));
   const [history, setHistory] = useState<string[]>(() => loadHistory());
   const [showHistory, setShowHistory] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -302,7 +295,7 @@ export function IocInput({ onDetect, onReset, onSubmit, prefillValue, onPrefillC
   }
 
   function handleClearHistory() {
-    localStorage.removeItem(HISTORY_KEY);
+    clearRecentIndicators();
     setHistory([]);
     setShowHistory(false);
   }
@@ -393,6 +386,22 @@ export function IocInput({ onDetect, onReset, onSubmit, prefillValue, onPrefillC
           autoCapitalize="off"
           autoCorrect="off"
         />
+
+        {!value && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-fg-4">
+            <span>Try a sample:</span>
+            {SAMPLES.map(sample => (
+              <button
+                key={sample.value}
+                onClick={() => handleHistorySelect(sample.value)}
+                title={sample.note}
+                className="h-6 px-2 rounded border border-line bg-surface font-mono text-[11px] text-fg-2 hover:border-accent hover:text-accent-fg"
+              >
+                {sample.value}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-fg-4">
           <span className="inline-flex items-center gap-1.5"><span className="kbd">⌘</span><span className="kbd">↵</span> run analysis</span>

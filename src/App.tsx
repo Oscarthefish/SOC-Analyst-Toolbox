@@ -9,8 +9,11 @@ import { AnalysisBar } from './components/WorkflowTiles';
 import { ToolPanel } from './components/ToolPanel';
 import { AutoAnalysisPanel } from './components/AutoAnalysisPanel';
 import type { AutoAnalysisPanelHandle } from './components/AutoAnalysisPanel';
-import { AnalysisResultsPanel } from './components/AnalysisResultsPanel';
 import { AppShell } from './components/AppShell';
+import { CaseWorkspace } from './components/CaseWorkspace';
+import { CommandPalette } from './components/CommandPalette';
+import { loadCases } from './lib/cases';
+import type { CaseRecord } from './types/case';
 import type { Tab } from './components/AppShell';
 import { checkBackendHealth } from './lib/apiClient';
 import { fetchCustomTools, saveCustomTools, loadHiddenToolIds, toggleHiddenToolId } from './lib/toolsStorage';
@@ -22,6 +25,7 @@ import toolsData from './data/tools.json';
 import workflowsData from './data/workflows.json';
 
 // Pages other than Investigate load on first visit to keep the initial bundle small
+const CasesPanel = lazy(() => import('./components/CasesPanel').then(m => ({ default: m.CasesPanel })));
 const BulkExtractPanel = lazy(() => import('./components/BulkExtractPanel').then(m => ({ default: m.BulkExtractPanel })));
 const BatchTriagePanel = lazy(() => import('./components/BatchTriagePanel').then(m => ({ default: m.BatchTriagePanel })));
 const DefangPanel = lazy(() => import('./components/DefangPanel').then(m => ({ default: m.DefangPanel })));
@@ -55,6 +59,20 @@ export default function App() {
       try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch { /* ignore */ }
       return next;
     });
+  }, []);
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // ⌘K / Ctrl+K opens the command palette from anywhere, including inside inputs
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen(v => !v);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   // "/" jumps to the indicator input from anywhere on the Investigate page
@@ -112,10 +130,10 @@ export default function App() {
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>(() => loadHistory());
   const [historyPreload, setHistoryPreload] = useState<AnalysisResponse | null>(null);
 
-  // Clear results whenever the IOC changes so stale data never shows under a new IOC
-  useEffect(() => {
-    setAnalysisResults(null);
-  }, [ioc?.normalised]);
+  // Results only count for the indicator they were produced for, so stale data never
+  // shows under a new IOC. (Derived rather than cleared in an effect, which raced
+  // with loading a saved analysis from History or a case.)
+  const currentResults = analysisResults && analysisResults.ioc.normalised === ioc?.normalised ? analysisResults : null;
 
   const handleToggleFavorite = useCallback((toolId: string) => {
     setFavorites(prev => {
@@ -193,6 +211,38 @@ export default function App() {
     setActiveTab('single');
   }, []);
 
+  // ── Cases ───────────────────────────────────────────────────────────
+  const [cases, setCases] = useState<CaseRecord[]>(() => loadCases());
+  const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
+  const activeCase = cases.find(c => c.id === activeCaseId) ?? null;
+
+  // Investigating a different indicator detaches the open case
+  useEffect(() => {
+    if (activeCase && activeCase.ioc.normalised !== ioc?.normalised) setActiveCaseId(null);
+  }, [ioc?.normalised]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCaseSaved = useCallback((saved: CaseRecord, all: CaseRecord[]) => {
+    setCases(all);
+    setActiveCaseId(saved.id);
+  }, []);
+
+  const handleOpenCase = useCallback((c: CaseRecord) => {
+    setIoc(detectIoc(c.ioc.original));
+    setPrefillIoc(c.ioc.original);
+    setSelectedWorkflow(workflows.find(w => w.id === c.workflowId) ?? null);
+    setAnalysisResults(c.analysis);
+    setHistoryPreload(c.analysis);
+    setActiveCaseId(c.id);
+    setActiveTab('single');
+  }, []);
+
+  // Load an indicator into Investigate without running analysis
+  const handleLoadIndicator = useCallback((value: string) => {
+    setIoc(detectIoc(value));
+    setPrefillIoc(value);
+    setActiveTab('single');
+  }, []);
+
   const handleHistoryRemove = useCallback((id: string) => {
     setSearchHistory(removeEntry(id));
   }, []);
@@ -208,13 +258,23 @@ export default function App() {
       backendOnline={backendOnline}
       isDark={isDark}
       onToggleTheme={handleToggleTheme}
+      onOpenPalette={() => setPaletteOpen(true)}
     >
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        cases={cases}
+        onNavigate={setActiveTab}
+        onInvestigate={handleLoadIndicator}
+        onOpenCase={handleOpenCase}
+      />
       {activeTab === 'single' && (
         <div className="space-y-4">
           <IocInput
             onDetect={handleDetect}
             onReset={handleReset}
             onSubmit={handleRunAnalysis}
+            initialValue={ioc?.original}
             prefillValue={prefillIoc}
             onPrefillConsumed={handlePrefillConsumed}
           />
@@ -226,7 +286,7 @@ export default function App() {
             onRunAnalysis={handleRunAnalysis}
             onForceRunAnalysis={handleForceRunAnalysis}
             analysisLoading={analysisLoading}
-            hasAnalysisResult={analysisResults !== null}
+            hasAnalysisResult={currentResults !== null}
             backendOnline={backendOnline}
           />
           <AutoAnalysisPanel
@@ -239,14 +299,8 @@ export default function App() {
             hideHeader
             onLoadingChange={setAnalysisLoading}
           />
-          {analysisResults && (
-            <AnalysisResultsPanel
-              response={analysisResults}
-              onPivot={handleInvestigate}
-            />
-          )}
           {/* Pivot tools stay available below the verdict once a workflow is chosen */}
-          {(!analysisResults || selectedWorkflow) && (
+          {(!currentResults || selectedWorkflow) && (
             <ToolPanel
               workflow={selectedWorkflow}
               ioc={ioc}
@@ -255,10 +309,20 @@ export default function App() {
               onToggleFavorite={handleToggleFavorite}
             />
           )}
+          {ioc && (ioc.type !== 'unknown' || ioc.isEmailHeader) && (
+            <CaseWorkspace
+              ioc={ioc}
+              workflow={selectedWorkflow}
+              analysis={currentResults ?? activeCase?.analysis ?? null}
+              activeCase={activeCase}
+              onSaved={handleCaseSaved}
+            />
+          )}
         </div>
       )}
 
       <Suspense fallback={<p className="text-xs text-fg-4 py-6">Loading…</p>}>
+      {activeTab === 'cases' && <CasesPanel cases={cases} workflows={workflows} onOpen={handleOpenCase} onChange={setCases} />}
       {activeTab === 'bulk' && <BulkExtractPanel onInvestigate={handleInvestigate} />}
       {activeTab === 'batch' && <BatchTriagePanel onInvestigate={handleInvestigate} />}
       {activeTab === 'defang' && <DefangPanel />}

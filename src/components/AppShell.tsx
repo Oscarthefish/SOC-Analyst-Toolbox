@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 export type Tab =
-  | 'single' | 'bulk' | 'batch' | 'defang' | 'config'
+  | 'single' | 'cases' | 'bulk' | 'batch' | 'defang' | 'config'
   | 'apikeys' | 'threatfeed' | 'history' | 'tools' | 'about';
 
 interface NavItem {
@@ -32,6 +32,7 @@ const icons = {
   extract:  <Svg><path d="M4 6h16M4 12h10M4 18h7" /><path d="M17 15l3 3-3 3" /></Svg>,
   batch:    <Svg><rect x="3" y="4" width="18" height="4" rx="1" /><rect x="3" y="10" width="18" height="4" rx="1" /><rect x="3" y="16" width="18" height="4" rx="1" /></Svg>,
   feed:     <Svg><path d="M4 11a9 9 0 019 9M4 4a16 16 0 0116 16" /><circle cx="5" cy="19" r="1" /></Svg>,
+  cases:    <Svg><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></Svg>,
   history:  <Svg><path d="M3 12a9 9 0 103-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></Svg>,
   defang:   <Svg><path d="M8 4H5v16h3M16 4h3v16h-3" /><path d="M12 15h.01" /></Svg>,
   key:      <Svg><circle cx="8" cy="15" r="4" /><path d="M10.8 12.2L20 3M16 7l3 3M14 9l2 2" /></Svg>,
@@ -47,6 +48,7 @@ export const NAV: NavGroup[] = [
     label: 'Investigate',
     items: [
       { id: 'single', label: 'Investigate', title: 'Investigate indicator', description: 'Classify an indicator, enrich it across providers and pivot to external tools.', icon: icons.search },
+      { id: 'cases', label: 'Cases', title: 'Cases', description: 'Saved investigations with verdicts, notes and checklists. Stored in this browser.', icon: icons.cases },
       { id: 'bulk', label: 'Bulk extract', title: 'Bulk extract', description: 'Pull every indicator out of logs, alerts or email bodies.', icon: icons.extract },
       { id: 'batch', label: 'Batch triage', title: 'Batch triage', description: 'Enrich a list of indicators and rank them by severity.', icon: icons.batch },
     ],
@@ -99,6 +101,7 @@ interface AppShellProps {
   isDark: boolean;
   onToggleTheme: () => void;
   headerActions?: ReactNode;
+  onOpenPalette?: () => void;
   children: ReactNode;
 }
 
@@ -131,7 +134,7 @@ function BackendStatus({ online }: { online: boolean | null }) {
   );
 }
 
-export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onToggleTheme, headerActions, children }: AppShellProps) {
+export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onToggleTheme, headerActions, onOpenPalette, children }: AppShellProps) {
   const current = ALL_NAV_ITEMS.find(i => i.id === activeTab) ?? ALL_NAV_ITEMS[0]!;
 
   return (
@@ -145,6 +148,19 @@ export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onTogg
             <p className="text-[11px] text-fg-4">Local workbench</p>
           </div>
         </div>
+
+        {onOpenPalette && (
+          <div className="px-2.5 pt-3">
+            <button
+              onClick={onOpenPalette}
+              className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md border border-line bg-inset text-[13px] text-fg-4 hover:text-fg-2 hover:border-line-strong transition-colors"
+            >
+              {icons.search}
+              <span className="flex-1 text-left">Jump to…</span>
+              <span className="kbd">⌘K</span>
+            </button>
+          </div>
+        )}
 
         <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-5">
           {NAV.map(group => (

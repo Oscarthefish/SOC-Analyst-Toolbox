@@ -147,7 +147,7 @@ export function EnrichmentCard({ result }: EnrichmentCardProps) {
   const hasData = result.status === 'ok' || result.status === 'cached';
 
   return (
-    <div className={`border rounded-lg overflow-hidden ${hasData ? 'border-line bg-surface' : 'border-line-soft bg-inset opacity-60'}`}>
+    <div className={`border rounded-lg overflow-hidden ${hasData ? 'border-line bg-surface' : 'border-line-soft bg-inset'}`}>
       <button
         onClick={() => hasData && setExpanded(v => !v)}
         className={`w-full flex items-center gap-3 px-3 py-2.5 text-left ${hasData ? 'hover:bg-inset' : 'cursor-default'} transition-colors`}

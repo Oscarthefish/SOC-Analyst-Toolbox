@@ -336,7 +336,7 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
               {/* Card header */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="text-[13px] font-semibold text-fg-1">{provider.name}</h3>
+                  <h2 className="text-[13px] font-semibold text-fg-1">{provider.name}</h2>
                   <p className="text-xs text-fg-3 mt-0.5 leading-relaxed">{provider.description}</p>
                 </div>
                 {keyStatus !== null && <StatusBadge configured={isConfigured} />}

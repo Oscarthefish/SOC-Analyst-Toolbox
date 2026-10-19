@@ -44,9 +44,10 @@ Open <http://localhost:5173>.
 
 | Page | What it's for |
 |---|---|
-| **Investigate** | Enter one indicator, optionally pick a workflow, run analysis, and open pivot tools. Shortcuts: `/` focuses the input, ⌘/Ctrl+Enter runs analysis, Esc clears it. |
+| **Investigate** | Enter one indicator, optionally pick a workflow, run analysis, and open pivot tools. Results lead with the computed severity and next steps; the local LLM summary follows, labelled as such. The **Case** panel records your verdict, confidence, actions taken and notes, and shows the workflow's checklist and pre-filled internal SIEM/EDR queries. Shortcuts: `/` focuses the input, ⌘/Ctrl+Enter runs analysis, Esc clears it, ⌘/Ctrl+S saves the case. |
+| **Cases** | Saved investigations, stored in this browser. Filter open/closed, search, reopen a case with its indicator, workflow and analysis restored, or export it as Markdown or JSON. |
 | **Bulk extract** | Paste logs, alerts or email bodies and extract every indicator. Send any of them to Investigate. |
-| **Batch triage** | Enrich a list of indicators and rank them by severity. |
+| **Batch triage** | Enrich up to 50 indicators (5 at a time), then sort and filter by severity and export as CSV. |
 | **Threat feed** | Recently exploited CVEs (CISA KEV), ransomware activity and Pulsedive high-risk infrastructure. |
 | **History** | Your last analyses, stored in this browser. Reload one without calling the providers again. |
 | **Defang / refang** | Convert indicators between live and safe-to-share forms. |
@@ -54,7 +55,9 @@ Open <http://localhost:5173>.
 | **Tool library** | Hide built-in pivot tools, or add your own internal ones (SIEM, EDR, ticketing). |
 | **Template check** | Validate every tool's URL template against sample indicators. No network requests are made. |
 
-Light and dark themes follow your OS setting. You can override that in the sidebar.
+Press **⌘K / Ctrl+K** anywhere to jump to a page, an open case or a recent indicator, or type an indicator to investigate it.
+
+Light and dark themes follow your OS setting. You can override that in the sidebar. Both themes meet WCAG AA contrast and pass an axe-core audit.
 
 ---
 
@@ -105,7 +108,7 @@ Other settings in `backend/.env`:
 - **Credential validator is off by default.** The `credvalidate` provider checks whether a leaked token is live by calling the issuing service. It only runs when `ENABLE_HIGH_RISK_ENRICHMENT=true` **and** the request sets `options.allowCredentialValidation: true`. Its results are never cached.
 - **What gets cached.** Results are stored in `.cache/enrichment-cache.json` at the repo root, which is gitignored. URL and secret indicators are hashed in cache keys, so raw values are never written to disk.
 - **Custom tools are validated.** Their URLs must be `http(s)`. Anything else is rejected when saving and never rendered as a link.
-- **Browser storage isn't encrypted.** History and preferences live in `localStorage`, so don't use this on a shared machine for sensitive cases.
+- **Browser storage isn't encrypted.** Cases, history and preferences live in `localStorage`, so don't use this on a shared machine for sensitive cases.
 
 Always follow your organisation's policy on sharing indicators with external services.
 

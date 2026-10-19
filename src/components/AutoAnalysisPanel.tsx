@@ -5,6 +5,8 @@ import type { EnrichmentResult } from '../types/enrichment';
 import { streamAutoAnalysis, runEmailHeaderAnalysis } from '../lib/apiClient';
 import type { AnalysisProgress } from '../lib/apiClient';
 import { ProviderComparisonPanel } from './enrichmentShared';
+import { AnalysisResultView } from './AnalysisResultView';
+import { parseNarrative, buildSourceMap, findSourceUrl } from '../lib/narrative';
 
 export interface AutoAnalysisPanelHandle {
   run: (forceRefresh?: boolean) => void;
@@ -29,39 +31,6 @@ function sortBySeverity(results: EnrichmentResult[]): EnrichmentResult[] {
 }
 
 // ── Narrative parser ──────────────────────────────────────────────────────
-
-interface ParsedNarrative {
-  verdict: string | null;
-  findings: string[];
-  actions: string[];
-  notes: string | null;
-}
-
-function parseBullets(block: string): string[] {
-  return block
-    .split('\n')
-    .map(l => l.replace(/^[\s]*[-•*]\s+/, '').replace(/^\d+\.\s+/, '').trim())
-    .filter(Boolean);
-}
-
-function parseNarrative(text: string): ParsedNarrative {
-  const t = text.trim();
-  const verdictMatch = t.match(/VERDICT:\s*(.+)/i);
-  const verdict = verdictMatch ? verdictMatch[1].replace(/\*+/g, '').trim() : null;
-
-  function extractSection(name: string): string {
-    const re = new RegExp(`${name}:\\s*\\n([\\s\\S]*?)(?=\\n[A-Z ]{3,}:|$)`, 'i');
-    const m = t.match(re);
-    return m ? m[1].trim() : '';
-  }
-
-  const findings = parseBullets(extractSection('KEY FINDINGS'));
-  const actions  = parseBullets(extractSection('RECOMMENDED ACTIONS'));
-  const notesRaw = extractSection('ANALYST NOTES');
-  const notes    = notesRaw.replace(/^[-•*]\s+/gm, '').trim() || null;
-
-  return { verdict, findings, actions, notes };
-}
 
 // ── Verdict styling ───────────────────────────────────────────────────────
 
@@ -198,7 +167,7 @@ function SourceRow({ result }: { result: EnrichmentResult }) {
   }[result.status] ?? 'bg-fg-4';
   const hasData = result.status === 'ok' || result.status === 'cached';
   return (
-    <div className={`flex items-start gap-2.5 px-3 py-2 border-b border-line-soft last:border-0 ${!hasData ? 'opacity-40' : ''}`}>
+    <div className={`flex items-start gap-2.5 px-3 py-2 border-b border-line-soft last:border-0 ${!hasData ? 'bg-inset' : ''}`}>
       <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${dotCls}`} />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold text-fg-2">{result.providerName}</p>
@@ -421,24 +390,6 @@ function EmailAuthCard({ parsed }: { parsed: ParsedEmailHeaders }) {
 // ── Narrative view ────────────────────────────────────────────────────────
 
 // Build a map of lowercase provider name/id keywords → sourceUrl
-function buildSourceMap(results: EnrichmentResult[]): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const r of results) {
-    if (!r.sourceUrl) continue;
-    map.set(r.providerName.toLowerCase(), r.sourceUrl);
-    map.set(r.providerId.toLowerCase(), r.sourceUrl);
-  }
-  return map;
-}
-
-function findSourceUrl(finding: string, sourceMap: Map<string, string>): string | null {
-  const lower = finding.toLowerCase();
-  for (const [key, url] of sourceMap) {
-    if (lower.includes(key)) return url;
-  }
-  return null;
-}
-
 function CopySummaryButton({ verdict, findings }: { verdict: string | null; findings: string[] }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = useCallback(() => {
@@ -517,17 +468,17 @@ function NarrativeView({
       {/* Verdict */}
       {parsed.verdict && (
         <div className={`rounded-lg border p-4 ${s.bar}`}>
-          <p className="text-[11px] font-semibold uppercase tracking-wider opacity-60 mb-1">Analyst Verdict</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-3 mb-1">Analyst Verdict</p>
           <p className={`text-xl font-bold tracking-wide ${s.text}`}>{parsed.verdict}</p>
           <div className="mt-3 space-y-1">
             <div className="flex items-center justify-between">
-              <span className={`text-[11px] font-medium opacity-60 ${s.text}`}>Confidence</span>
+              <span className="text-[11px] font-medium text-fg-3">Confidence</span>
               <span className={`text-lg font-bold font-mono ${s.text}`}>{pct}%</span>
             </div>
             <div className="w-full bg-surface/50 rounded-full h-1.5">
               <div className={`h-1.5 rounded-full transition-all duration-700 ${s.meter}`} style={{ width: `${pct}%` }} />
             </div>
-            <p className={`text-[10px] opacity-50 ${s.text}`}>{dataCount}/{results.length} sources returned data</p>
+            <p className="text-[11px] text-fg-3">{dataCount}/{results.length} sources returned data</p>
           </div>
         </div>
       )}
@@ -609,7 +560,7 @@ function SparkIcon() {
 
 type AnyResult = AnalysisResponse | EmailHeaderAnalysisResponse;
 
-export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysisPanelProps>(function AutoAnalysisPanel({ ioc, workflowId, onComplete, preloadResult, hideHeader = false, onLoadingChange }, ref) {
+export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysisPanelProps>(function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot, preloadResult, hideHeader = false, onLoadingChange }, ref) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -640,11 +591,8 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
     onLoadingChangeRef.current?.(false);
   }, [ioc?.normalised]);
 
-  // Workflow changes should clear stale results but NOT cancel an active run.
-  useEffect(() => {
-    setResult(null);
-    setError(null);
-  }, [workflowId]);
+  // Workflow changes don't clear results: /api/analyse selects providers by IOC type and
+  // only uses the workflow as prompt context, so existing results remain valid.
 
   // Restore a previously-saved result when loaded from history.
   // Declared after the reset effect so it fires second and wins.
@@ -830,25 +778,7 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
         )}
 
         {/* Standard IOC result */}
-        {iocResult && !loading && (
-          iocResult.narrative
-            ? <NarrativeView
-                narrative={iocResult.narrative}
-                results={iocResult.results}
-                overall={iocResult.overall}
-                ollamaModel={iocResult.ollamaModel}
-                analysedAt={iocResult.analysedAt}
-                iocType={ioc?.type}
-              />
-            : (
-              <div className="flex gap-2.5 p-3 rounded-lg bg-warn-bg border border-warn-line text-xs text-warn-fg">
-                <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4m0 4h.01" />
-                </svg>
-                <span><strong>Narrative unavailable</strong> — {iocResult.narrativeError ?? 'Ollama did not respond.'} Provider results are shown below.</span>
-              </div>
-            )
-        )}
+        {iocResult && !loading && <AnalysisResultView response={iocResult} onPivot={onPivot} />}
       </div>
     </div>
   );

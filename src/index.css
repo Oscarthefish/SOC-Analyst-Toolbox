@@ -38,8 +38,8 @@
   --color-line-strong: #c9ced6;
   --color-fg-1:        #0e1116;
   --color-fg-2:        #3a414c;
-  --color-fg-3:        #5c6470;
-  --color-fg-4:        #8b929c;
+  --color-fg-3:        #4c5461;
+  --color-fg-4:        #666d79;  /* ≥ 4.5:1 on every light background */
 
   /* Accent (interactive) */
   --color-accent:        #2557d6;
@@ -87,8 +87,8 @@
   --color-line-strong: #353c47;
   --color-fg-1:        #e7eaee;
   --color-fg-2:        #b8bec8;
-  --color-fg-3:        #8b939e;
-  --color-fg-4:        #626a75;
+  --color-fg-3:        #a3abb6;
+  --color-fg-4:        #848c98;  /* ≥ 4.5:1 on every dark background */
 
   --color-accent:        #3b6fe8;
   --color-accent-strong: #5482f0;

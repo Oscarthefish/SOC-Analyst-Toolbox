@@ -155,7 +155,7 @@ export function PivotSection({ items, label, color, onPivot }: {
         {!showAll && hidden > 0 && (
           <button
             onClick={() => setShowAll(true)}
-            className={`px-2.5 py-1 rounded-md bg-surface border ${border} ${text} text-xs font-medium opacity-60 hover:opacity-100 transition-opacity`}
+            className={`px-2.5 py-1 rounded-md bg-surface border ${border} ${text} text-xs font-medium hover:bg-inset transition-colors`}
           >
             +{hidden} more
           </button>

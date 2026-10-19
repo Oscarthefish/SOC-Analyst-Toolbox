@@ -47,7 +47,7 @@ export function CopyButton({ text, label = 'Copy', className = '', iconOnly = fa
   return (
     <button
       onClick={handleCopy}
-      title={`Copy ${label}`}
+      title={label === 'Copy' ? 'Copy' : `Copy ${label}`}
       className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
         copied
           ? 'border-ok-line bg-ok-bg text-ok-fg'
@@ -67,7 +67,7 @@ export function CopyButton({ text, label = 'Copy', className = '', iconOnly = fa
             <rect x="9" y="9" width="13" height="13" rx="2" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
           </svg>
-          {label}
+          {label === 'Copy' ? 'Copy' : `Copy ${label}`}
         </>
       )}
     </button>
