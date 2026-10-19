@@ -2,17 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { saveCase, loadCases, setCaseStatus, deleteCase, caseToMarkdown, caseFilename, internalSearches, emptyDraft } from './cases';
 import { detectIoc } from './detectIoc';
 import type { Workflow } from '../types/workflow';
+import { installMemoryStorage } from '../test/memoryStorage';
 
-// Minimal in-memory localStorage for the node test environment
-const store = new Map<string, string>();
-globalThis.localStorage = {
-  getItem: k => store.get(k) ?? null,
-  setItem: (k, v) => { store.set(k, String(v)); },
-  removeItem: k => { store.delete(k); },
-  clear: () => store.clear(),
-  key: i => [...store.keys()][i] ?? null,
-  get length() { return store.size; },
-} as Storage;
+const store = installMemoryStorage();
 
 const ioc = { original: '185.220.101.4', normalised: '185.220.101.4', type: 'ipv4' as const };
 const workflow: Workflow = {

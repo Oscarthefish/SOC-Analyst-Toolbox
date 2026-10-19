@@ -23,7 +23,7 @@ npm run dev                            # frontend on :5173, backend on :8787
 
 Open <http://localhost:5173>.
 
-- **Without any API keys**, enrichment still works from keyless sources: DNS, crt.sh, the Wayback Machine, the Tor exit list, CISA KEV, Ransomware.live and others. Pivot links always work.
+- **Without any API keys**, enrichment still works from keyless sources: DNS, crt.sh, the Wayback Machine, the Tor exit list, WHOIS/RDAP, BGPView, CISA KEV, Ransomware.live and others. Pivot links always work.
 - **Without the backend running**, classification, pivot tools, bulk extraction and defang/refang still work. Analysis is disabled and the sidebar shows **Backend offline**.
 - **Optional LLM summary:** install [Ollama](https://ollama.com) and run `ollama pull qwen2.5`. If Ollama isn't running, analysis still returns provider results and a computed verdict, just without the written narrative.
 
@@ -84,6 +84,7 @@ Add keys in **Integrations** or directly in `backend/.env`:
 | `URLHAUS_API_KEY` | URLhaus | Domains, URLs |
 | `HUNTER_API_KEY` | Hunter.io | Domains, emails (opt-in per run; uses credits) |
 | `DNSDUMPSTER_API_KEY` | DNSDumpster | Domains |
+| `IPAPI_KEY` | ip-api.com Pro | IPs (HTTPS). The free tier is plain HTTP, so ip-api is off unless you set this or `IPAPI_ALLOW_HTTP=true` |
 
 Other settings in `backend/.env`:
 
@@ -108,7 +109,8 @@ Other settings in `backend/.env`:
 - **Credential validator is off by default.** The `credvalidate` provider checks whether a leaked token is live by calling the issuing service. It only runs when `ENABLE_HIGH_RISK_ENRICHMENT=true` **and** the request sets `options.allowCredentialValidation: true`. Its results are never cached.
 - **What gets cached.** Results are stored in `.cache/enrichment-cache.json` at the repo root, which is gitignored. URL and secret indicators are hashed in cache keys, so raw values are never written to disk.
 - **Custom tools are validated.** Their URLs must be `http(s)`. Anything else is rejected when saving and never rendered as a link.
-- **Browser storage isn't encrypted.** Cases, history and preferences live in `localStorage`, so don't use this on a shared machine for sensitive cases.
+- **Browser storage isn't encrypted.** Cases, history and preferences live in `localStorage`, so don't use this on a shared machine for sensitive cases. The About page lists what's stored and can clear it.
+- **Outbound requests have a hard deadline.** Every provider request is capped at 30 s including the response body, so a stalled provider can't hang an analysis.
 
 Always follow your organisation's policy on sharing indicators with external services.
 

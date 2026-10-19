@@ -1,8 +1,8 @@
 import type { Tool } from '../types/tool';
+import { STORAGE_KEYS, readList, writeJson, isString } from './storage';
 
 // Relative: the Vite dev/preview server proxies /api to the local backend
 const BACKEND_URL = '';
-const HIDDEN_KEY = 'soc-toolbox-hidden-tools';
 
 export async function fetchCustomTools(): Promise<Tool[]> {
   try {
@@ -28,19 +28,12 @@ export async function saveCustomTools(tools: Tool[]): Promise<boolean> {
 }
 
 export function loadHiddenToolIds(): Set<string> {
-  try {
-    const raw = localStorage.getItem(HIDDEN_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
-  } catch {
-    return new Set();
-  }
+  return new Set(readList(STORAGE_KEYS.hiddenTools, isString));
 }
 
 export function toggleHiddenToolId(id: string, currentIds: Set<string>): Set<string> {
   const next = new Set(currentIds);
   if (next.has(id)) next.delete(id); else next.add(id);
-  try {
-    localStorage.setItem(HIDDEN_KEY, JSON.stringify([...next]));
-  } catch { /* ignore */ }
+  writeJson(STORAGE_KEYS.hiddenTools, [...next]);
   return next;
 }

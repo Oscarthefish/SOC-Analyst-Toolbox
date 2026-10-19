@@ -88,7 +88,9 @@ async function runAdapter(
 
   try {
     const result = await adapter(ioc, options);
-    if (result.status === 'ok' || result.status === 'missing_key') {
+    // Only real data is cached; a missing key costs nothing to re-check and must
+    // stop applying as soon as the key is added
+    if (result.status === 'ok') {
       const ttl = getProviderTtl(providerId, config.cacheTtlMinutes);
       cache.set(cacheKey, result, ttl);
     }

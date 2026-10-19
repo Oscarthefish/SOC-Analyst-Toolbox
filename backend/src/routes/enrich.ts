@@ -187,8 +187,9 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
 
     try {
       const result = await adapter(ioc, enrichOptions);
-      // Cache successful results and missing_key (don't hammer missing keys)
-      if ((result.status === 'ok' || result.status === 'missing_key') && !HIGH_RISK_PROVIDERS.has(providerId)) {
+      // Only real data is cached; a missing key costs nothing to re-check and must
+      // stop applying as soon as the key is added
+      if (result.status === 'ok' && !HIGH_RISK_PROVIDERS.has(providerId)) {
         cache.set(cacheKey, result, config.cacheTtlMinutes);
       }
       return result;

@@ -95,9 +95,9 @@ export function CasesPanel({ cases, workflows, onOpen, onChange }: Props) {
                       {c.ticketRef || 'No ticket'}{c.status === 'closed' && ' · closed'}
                     </p>
                   </td>
-                  <td className="px-4 py-2.5">
-                    <code className="text-xs font-mono text-fg-2">{c.ioc.normalised}</code>
-                    <p className="text-[11px] text-fg-4 uppercase">{c.ioc.type}</p>
+                  <td className="px-4 py-2.5 max-w-[280px]">
+                    <code className="block text-xs font-mono text-fg-2 truncate" title={c.ioc.normalised}>{c.ioc.normalised.split('\n')[0]}</code>
+                    <p className="text-[11px] text-fg-4 uppercase">{c.ioc.type === 'unknown' && c.ioc.normalised.includes('\n') ? 'Email headers' : c.ioc.type}</p>
                   </td>
                   <td className={`px-4 py-2.5 whitespace-nowrap ${VERDICT_TONE[c.verdict] ?? 'text-fg-4'}`}>
                     {verdictLabel(c.verdict)}

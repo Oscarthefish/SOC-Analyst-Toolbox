@@ -42,6 +42,7 @@ export const PROVIDER_KEYS = [
   { provider: 'urlhaus',        env: 'URLHAUS_API_KEY',          field: 'apiKey' },
   { provider: 'hunter',         env: 'HUNTER_API_KEY',           field: 'apiKey' },
   { provider: 'dnsdumpster',    env: 'DNSDUMPSTER_API_KEY',      field: 'apiKey' },
+  { provider: 'ipapi',          env: 'IPAPI_KEY',                field: 'apiKey' },
 ] as const;
 
 type ProviderKey = (typeof PROVIDER_KEYS)[number];

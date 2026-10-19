@@ -1,11 +1,14 @@
 import type { IocInput, EnrichmentResult, EnrichOptions, Severity } from '../types.js';
 import { markRateLimited } from '../rateLimit.js';
+import { config } from '../config.js';
 
 const PROVIDER_ID = 'ipapi';
 const PROVIDER_NAME = 'ip-api.com';
 const TIMEOUT_MS = 8_000;
 
-// Free tier: 45 req/min, no API key required. Returns proxy/hosting booleans.
+// Free tier: 45 req/min and plain HTTP only, so the IP crosses the network unencrypted.
+// With IPAPI_KEY the paid HTTPS endpoint is used; the free endpoint needs an explicit
+// IPAPI_ALLOW_HTTP=true. Returns proxy/hosting booleans.
 const FIELDS = 'status,message,country,countryCode,regionName,city,isp,org,as,proxy,hosting,query';
 
 function now(): string {
@@ -54,7 +57,18 @@ export async function ipapi(
     });
   }
 
-  const url = `http://ip-api.com/json/${encodeURIComponent(ioc.normalised)}?fields=${FIELDS}`;
+  const apiKey = config.ipapi.apiKey;
+  const allowHttp = process.env.IPAPI_ALLOW_HTTP === 'true';
+  if (!apiKey && !allowHttp) {
+    return makeResult({
+      status: 'missing_key',
+      summary: 'ip-api.com is off: its free tier is plain HTTP. Set IPAPI_KEY (HTTPS) or IPAPI_ALLOW_HTTP=true.',
+    });
+  }
+  const query = `${encodeURIComponent(ioc.normalised)}?fields=${FIELDS}`;
+  const url = apiKey
+    ? `https://pro.ip-api.com/json/${query}&key=${encodeURIComponent(apiKey)}`
+    : `http://ip-api.com/json/${query}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 

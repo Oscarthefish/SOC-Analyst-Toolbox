@@ -13,6 +13,7 @@ import { AppShell } from './components/AppShell';
 import { CaseWorkspace } from './components/CaseWorkspace';
 import { CommandPalette } from './components/CommandPalette';
 import { loadCases } from './lib/cases';
+import { STORAGE_KEYS, writeRaw } from './lib/storage';
 import type { CaseRecord } from './types/case';
 import type { Tab } from './components/AppShell';
 import { checkBackendHealth } from './lib/apiClient';
@@ -56,7 +57,7 @@ export default function App() {
   const handleToggleTheme = useCallback(() => {
     setIsDark(prev => {
       const next = !prev;
-      try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch { /* ignore */ }
+      writeRaw(STORAGE_KEYS.theme, next ? 'dark' : 'light');
       return next;
     });
   }, []);
@@ -296,7 +297,6 @@ export default function App() {
             onComplete={handleAnalysisComplete}
             onPivot={handleInvestigate}
             preloadResult={historyPreload}
-            hideHeader
             onLoadingChange={setAnalysisLoading}
           />
           {/* Pivot tools stay available below the verdict once a workflow is chosen */}

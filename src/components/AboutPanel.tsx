@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { storageUsage, clearAllLocalData } from '../lib/storage';
 const INTEGRATIONS = [
   // No key required
   { name: 'DNS Resolution',      id: 'dns',            tier: 'free',  keyRequired: false, supports: ['Domain'],                            desc: 'Node.js built-in resolver. Returns IPv4/IPv6 records and pivot links to each resolved IP.' },
@@ -7,7 +9,7 @@ const INTEGRATIONS = [
   { name: 'crt.sh',              id: 'crtsh',          tier: 'free',  keyRequired: false, supports: ['Domain'],                            desc: 'Certificate transparency logs. Extracts SANs from recent TLS certificates to pivot to related subdomains.' },
   { name: 'Wayback Machine',     id: 'wayback',        tier: 'free',  keyRequired: false, supports: ['Domain'],                            desc: 'Internet Archive CDX API. Returns first and most recent snapshot dates — useful for detecting re-registered domains.' },
   { name: 'Tor Project (Onionoo)',id: 'torproject',    tier: 'free',  keyRequired: false, supports: ['IPv4', 'IPv6'],                      desc: 'Onionoo relay database. Identifies whether an IP is a Tor exit node, guard, or relay.' },
-  { name: 'ip-api',              id: 'ipapi',          tier: 'free',  keyRequired: false, supports: ['IPv4', 'IPv6'],                      desc: 'Free IP geolocation. Country, city, ISP, usage type (datacenter, residential, etc.).' },
+  { name: 'ip-api',              id: 'ipapi',          tier: 'paid',  keyRequired: true,  supports: ['IPv4', 'IPv6'],                      desc: 'IP geolocation, ISP and proxy/hosting flags. Off by default: the free tier is plain HTTP. Use a Pro key (HTTPS) or set IPAPI_ALLOW_HTTP=true.' },
   // Free key required
   { name: 'GreyNoise',           id: 'greynoise',      tier: 'free',  keyRequired: true,  supports: ['IPv4', 'IPv6'],                      desc: 'Internet noise classification. Labels IPs as scanners, crawlers, or known malicious actors vs. targeted traffic.' },
   { name: 'AbuseIPDB',           id: 'abuseipdb',      tier: 'free',  keyRequired: true,  supports: ['IPv4', 'IPv6'],                      desc: 'Community abuse reporting. Abuse confidence score and report history for IP addresses.' },
@@ -169,6 +171,62 @@ function Badge({ label, color }: { label: string; color: 'green' | 'blue' | 'ora
     <span className={`inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded border ${cls}`}>
       {label}
     </span>
+  );
+}
+
+function formatBytes(n: number): string {
+  return n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** What this app keeps in the browser, with a two-step "clear everything". */
+function LocalData() {
+  const [usage, setUsage] = useState(() => storageUsage());
+  const [confirming, setConfirming] = useState(false);
+  const total = usage.reduce((n, u) => n + u.bytes, 0);
+
+  return (
+    <div className="wb-card overflow-hidden">
+      {usage.length === 0 ? (
+        <p className="px-4 py-4 text-xs text-fg-3">Nothing is stored in this browser.</p>
+      ) : (
+        <table className="w-full text-left text-[13px]">
+          <tbody className="divide-y divide-line-soft">
+            {usage.map(u => (
+              <tr key={u.key}>
+                <td className="px-4 py-2 text-fg-2">{u.description}</td>
+                <td className="px-4 py-2 font-mono text-[11px] text-fg-4">{u.key}</td>
+                <td className="px-4 py-2 text-right text-xs text-fg-3 tabular-nums">{formatBytes(u.bytes)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-t border-line bg-inset">
+        <p className="text-xs text-fg-3 mr-auto">
+          Stored unencrypted in this browser only{total > 0 && ` · ${formatBytes(total)}`}. API keys are never stored here.
+        </p>
+        {confirming ? (
+          <>
+            <span className="text-xs text-danger-fg">Delete all cases, history and preferences?</span>
+            <button
+              onClick={() => { clearAllLocalData(); setUsage(storageUsage()); setConfirming(false); window.location.reload(); }}
+              className="h-7 px-2.5 text-xs font-medium rounded-md bg-danger text-white"
+            >
+              Delete everything
+            </button>
+            <button onClick={() => setConfirming(false)} className="h-7 px-2.5 text-xs rounded-md border border-line bg-surface text-fg-2">Cancel</button>
+          </>
+        ) : (
+          <button
+            onClick={() => setConfirming(true)}
+            disabled={usage.length === 0}
+            className="h-7 px-2.5 text-xs font-medium rounded-md border border-line bg-surface text-fg-2 hover:border-danger-line hover:text-danger-fg disabled:opacity-40"
+          >
+            Clear local data…
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -442,17 +500,21 @@ export function AboutPanel() {
         </div>
       </Section>
 
+      <Section title="Data in This Browser">
+        <LocalData />
+      </Section>
+
       {/* Tech stack */}
       <Section title="Technical Stack">
         <div className="wb-card p-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
-              { label: 'Frontend', value: 'React 18 + TypeScript + Vite' },
-              { label: 'Styling', value: 'Tailwind CSS' },
-              { label: 'Backend', value: 'Node.js + Express + TypeScript' },
-              { label: 'AI', value: 'Ollama (local LLM)' },
-              { label: 'Storage', value: 'In-memory cache + .env file' },
-              { label: 'Package manager', value: 'npm' },
+              { label: 'Frontend', value: 'React 19 + TypeScript + Vite' },
+              { label: 'Styling', value: 'Tailwind CSS 4' },
+              { label: 'Backend', value: 'Node.js 20+ + Express 5 + TypeScript' },
+              { label: 'AI', value: 'Ollama (local LLM, optional)' },
+              { label: 'Storage', value: 'Browser localStorage; backend file cache + .env' },
+              { label: 'Tests', value: 'Vitest' },
             ].map(r => (
               <div key={r.label}>
                 <p className="text-[11px] font-semibold text-fg-4 uppercase tracking-wider mb-0.5">{r.label}</p>

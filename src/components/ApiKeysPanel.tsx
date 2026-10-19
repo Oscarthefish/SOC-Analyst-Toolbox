@@ -19,6 +19,15 @@ interface Provider {
 
 const PROVIDERS: Provider[] = [
   {
+    id: 'IPAPI_KEY',
+    name: 'ip-api.com',
+    description: 'IP geolocation, ISP and proxy/hosting flags.',
+    signupUrl: 'https://members.ip-api.com/',
+    tier: 'Paid — HTTPS endpoint',
+    supports: ['IPv4', 'IPv6'],
+    note: 'The free tier is plain HTTP only, so it is off by default. Add a Pro key for HTTPS, or set IPAPI_ALLOW_HTTP=true in backend/.env to accept unencrypted lookups.',
+  },
+  {
     id: 'GREYNOISE_API_KEY',
     name: 'GreyNoise',
     description: 'IP noise classification — identifies internet scanners, crawlers and known benign/malicious sources.',

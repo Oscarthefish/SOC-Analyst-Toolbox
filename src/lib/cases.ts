@@ -4,8 +4,8 @@ import type { IocInput } from '../types/enrichment';
 import type { Workflow } from '../types/workflow';
 import type { DetectedIoc } from '../types/ioc';
 import { applyTemplate, buildTemplateVars } from './template';
+import { STORAGE_KEYS, readList, writeJson, hasStringFields, isRecord } from './storage';
 
-const STORAGE_KEY = 'soc-toolbox-cases-v2';
 
 export const VERDICT_OPTIONS: { value: CaseVerdict; label: string }[] = [
   { value: 'malicious', label: 'Malicious' },
@@ -40,22 +40,18 @@ export function emptyDraft(): CaseDraft {
 
 // ── Storage ────────────────────────────────────────────────────────────────
 
+function isCaseRecord(x: unknown): x is CaseRecord {
+  return hasStringFields(x, ['id', 'title', 'ticketRef', 'status', 'createdAt', 'updatedAt', 'notes'])
+    && hasStringFields(x.ioc, ['original', 'normalised', 'type'])
+    && Array.isArray(x.actionsTaken) && isRecord(x.checklist);
+}
+
 export function loadCases(): CaseRecord[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const cases = raw ? (JSON.parse(raw) as CaseRecord[]) : [];
-    return cases.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  } catch {
-    return [];
-  }
+  return readList(STORAGE_KEYS.cases, isCaseRecord).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 function persist(cases: CaseRecord[]): CaseRecord[] {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cases));
-  } catch (err) {
-    console.error('[cases] Failed to save cases:', err);
-  }
+  if (!writeJson(STORAGE_KEYS.cases, cases)) console.error('[cases] Failed to save cases: storage unavailable or full.');
   return cases.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 

@@ -84,15 +84,23 @@ export function CaseWorkspace({ ioc, workflow, analysis, activeCase, onSaved }: 
 
   const update = (patch: Partial<CaseDraft>) => setDraft(d => ({ ...d, ...patch }));
 
+  // Email headers: name the case after the subject rather than the first header line
+  const defaultTitle = useMemo(() => {
+    if (!ioc.isEmailHeader) return ioc.normalised;
+    const subject = /^Subject:\s*(.+)$/im.exec(ioc.trimmed)?.[1]?.trim();
+    return subject ? `Email: ${subject}` : 'Email header analysis';
+  }, [ioc]);
+
   function handleSave() {
     const { saved, cases } = saveCase({
       id: activeCase?.id,
       ioc: { original: ioc.original, normalised: ioc.normalised, type: ioc.type },
       workflowId: workflow?.id ?? activeCase?.workflowId ?? null,
       analysis: analysis ?? activeCase?.analysis ?? null,
-      draft,
+      draft: { ...draft, title: draft.title.trim() || defaultTitle },
     });
     onSaved(saved, cases);
+    setDraft(draftFrom(saved)); // reflect defaults applied on save (e.g. the title)
     setJustSaved(true);
     setTimeout(() => setJustSaved(false), 1500);
   }
@@ -148,7 +156,7 @@ export function CaseWorkspace({ ioc, workflow, analysis, activeCase, onSaved }: 
         <div className="p-4 space-y-4">
           <div className="grid sm:grid-cols-2 gap-3">
             <Field label="Title">
-              <input className={inputCls} value={draft.title} placeholder={ioc.normalised} onChange={e => update({ title: e.target.value })} />
+              <input className={inputCls} value={draft.title} placeholder={defaultTitle} onChange={e => update({ title: e.target.value })} />
             </Field>
             <Field label="Ticket reference">
               <input className={inputCls} value={draft.ticketRef} placeholder="INC-1234" onChange={e => update({ ticketRef: e.target.value })} />
