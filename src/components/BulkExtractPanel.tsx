@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { extractIocs, type ExtractedIoc } from '../lib/extractIocs';
 import { CopyButton } from './CopyButton';
+import { IocTypeChip, iocTypeDot } from './IocTypeChip';
 import type { IocType } from '../types/ioc';
 
 interface BulkExtractPanelProps {
@@ -99,15 +100,29 @@ export function BulkExtractPanel({ onInvestigate }: BulkExtractPanelProps) {
 
       {results.length > 0 && (
         <div className="wb-card p-5">
+          <div className="mb-4">
+            <div className="flex items-baseline justify-between mb-2">
+              <h2 className="wb-label">What was found</h2>
+              <span className="text-[11px] text-fg-4">{results.length} unique</span>
+            </div>
+            <div className="flex h-2.5 gap-[2px] rounded-full overflow-hidden bg-raised" role="img"
+              aria-label={uniqueTypes.map(t => `${typeCounts[t] ?? 0} ${TYPE_LABELS[t]}`).join(', ')}>
+              {uniqueTypes.map(t => (
+                <span key={t} className={iocTypeDot(t)} style={{ flexGrow: typeCounts[t] ?? 0, flexBasis: 0 }} title={`${TYPE_LABELS[t]}: ${typeCounts[t] ?? 0}`} />
+              ))}
+            </div>
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="flex flex-wrap gap-1.5">
               {(['all', ...uniqueTypes] as (IocType | 'all')[]).map(t => (
                 <button key={t} onClick={() => setFilter(t)}
-                  className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-colors ${
+                  aria-pressed={filter === t}
+                  className={`flex items-center gap-1.5 h-7 text-xs px-2.5 rounded-md border font-medium transition-colors ${
                     filter === t
-                      ? 'bg-accent-bg border-accent-line text-accent-fg'
-                      : 'bg-surface border-line text-fg-3 hover:border-line-strong'
+                      ? 'bg-selected border-selected text-selected-fg'
+                      : 'bg-surface border-line text-fg-2 hover:border-line-strong'
                   }`}>
+                  {t !== 'all' && <span className={`w-2 h-2 rounded-full ${iocTypeDot(t)}`} aria-hidden />}
                   {t === 'all' ? `All (${results.length})` : `${TYPE_LABELS[t]} (${typeCounts[t] ?? 0})`}
                 </button>
               ))}
@@ -132,9 +147,7 @@ export function BulkExtractPanel({ onInvestigate }: BulkExtractPanelProps) {
                 {filteredResults.map((ioc, i) => (
                   <tr key={i} className="hover:bg-inset transition-colors">
                     <td className="py-2 px-2">
-                      <span className="inline-flex items-center h-5 px-2 rounded-md bg-accent-bg border border-accent-line text-accent-fg text-[11px] font-semibold font-mono">
-                        {TYPE_LABELS[ioc.type]}
-                      </span>
+                      <IocTypeChip type={ioc.type} size="sm" />
                     </td>
                     <td className="py-2 px-2">
                       <code className="text-[13px] font-mono text-fg-2 break-all">{ioc.raw}</code>
@@ -148,7 +161,7 @@ export function BulkExtractPanel({ onInvestigate }: BulkExtractPanelProps) {
                       <div className="flex gap-1.5 justify-end">
                         <CopyButton text={ioc.normalised} label="Copy" />
                         <button onClick={() => onInvestigate(ioc.normalised)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent-strong transition-colors">
+                          className="inline-flex items-center gap-1 h-7 px-2 text-xs rounded-md border border-line bg-surface text-fg-2 hover:border-accent hover:text-accent-fg transition-colors">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
                             <circle cx="11" cy="11" r="8" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
                           </svg>

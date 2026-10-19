@@ -1,4 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { StackedColumns, SeriesLegend, RankBars } from './charts';
+import type { Series } from './charts';
+import { IocTypeChip } from './IocTypeChip';
+import { dailyCounts, topCounts } from '../lib/activity';
 
 const API_BASE = '/api';
 
@@ -101,12 +105,54 @@ function formatDate(ts?: string): string {
 
 // ── Briefing event card ────────────────────────────────────────────────────
 
+// Event types use the categorical ramp (CVE teal matches CVE indicators); severity stays on the badge
 const TYPE_ICON: Record<ThreatEvent['type'], string> = {
-  cve: 'bg-danger-bg text-danger-fg',
-  ransomware: 'bg-high-bg text-high-fg',
-  malware: 'bg-violet-bg text-violet-fg',
-  advisory: 'bg-accent-bg text-accent-fg',
+  cve: 'bg-c5-bg text-c5-fg',
+  ransomware: 'bg-c3-bg text-c3-fg',
+  malware: 'bg-c4-bg text-c4-fg',
+  advisory: 'bg-c1-bg text-c1-fg',
 };
+
+const TYPE_RULE: Record<ThreatEvent['type'], string> = {
+  cve: 'bg-c5', ransomware: 'bg-c3', malware: 'bg-c4', advisory: 'bg-c1',
+};
+
+const EVENT_SERIES: Series[] = [
+  { key: 'cve', label: 'CISA KEV', bg: 'bg-c5' },
+  { key: 'ransomware', label: 'Ransomware', bg: 'bg-c3' },
+];
+
+function BriefingOverview({ events }: { events: ThreatEvent[] }) {
+  const columns = useMemo(() => dailyCounts(events, e => e.publishedAt, e => e.type, 30), [events]);
+  const counts = useMemo(() => Object.fromEntries(EVENT_SERIES.map(s => [s.key, events.filter(e => e.type === s.key).length])), [events]);
+  const groups = useMemo(() => topCounts(events.filter(e => e.type === 'ransomware').map(e => e.ransomwareGroup)), [events]);
+  const vendors = useMemo(() => topCounts(events.filter(e => e.type === 'cve').map(e => e.affectedProducts?.[0])), [events]);
+  const sectors = useMemo(() => topCounts(events.filter(e => e.type === 'ransomware').map(e => e.sector), ['not found', 'other', 'unknown']), [events]);
+
+  return (
+    <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))]">
+      <section className="wb-card p-4 lg:col-span-2 xl:col-span-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+          <h2 className="wb-label">Last 30 days</h2>
+          <SeriesLegend series={EVENT_SERIES} counts={counts} />
+        </div>
+        <StackedColumns columns={columns} series={EVENT_SERIES} label="Briefing events per day" height={96} labelEvery={7} />
+      </section>
+      <section className="wb-card p-4">
+        <h2 className="wb-label mb-3">Most active groups</h2>
+        <RankBars items={groups} bg="bg-c3" label="Ransomware posts by group" />
+      </section>
+      <section className="wb-card p-4">
+        <h2 className="wb-label mb-3">Exploited vendors</h2>
+        <RankBars items={vendors} bg="bg-c5" label="KEV additions by vendor" />
+      </section>
+      <section className="wb-card p-4">
+        <h2 className="wb-label mb-3">Victim sectors</h2>
+        <RankBars items={sectors} bg="bg-c2" label="Ransomware victims by sector" />
+      </section>
+    </div>
+  );
+}
 
 const TYPE_LABEL: Record<ThreatEvent['type'], string> = {
   cve: 'CVE',
@@ -120,14 +166,15 @@ function EventCard({ event }: { event: ThreatEvent }) {
   const iconCls = TYPE_ICON[event.type] ?? 'bg-raised text-fg-3';
 
   return (
-    <div className="bg-surface border border-line rounded-lg overflow-hidden">
+    <div className="relative wb-card overflow-hidden">
+      <span className={`absolute left-0 top-0 bottom-0 w-[3px] ${TYPE_RULE[event.type] ?? 'bg-line-strong'}`} aria-hidden />
       <button
         onClick={() => setExpanded(v => !v)}
-        className="w-full flex items-start gap-3 px-3.5 py-3 text-left hover:bg-inset transition-colors"
+        aria-expanded={expanded}
+        className="w-full flex items-start gap-3 pl-4 pr-3.5 py-3 text-left hover:bg-inset transition-colors"
       >
-        {/* Type dot */}
-        <span className={`mt-0.5 w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${iconCls}`}>
-          {TYPE_LABEL[event.type][0]}
+        <span className={`mt-0.5 h-6 px-1.5 rounded-md flex items-center justify-center text-[10px] font-semibold shrink-0 ${iconCls}`}>
+          {event.type === 'cve' ? 'KEV' : TYPE_LABEL[event.type]}
         </span>
 
         <div className="flex-1 min-w-0">
@@ -178,12 +225,10 @@ function EventCard({ event }: { event: ThreatEvent }) {
 
 // ── Pulsedive section card ─────────────────────────────────────────────────
 
+const PULSEDIVE_TYPE: Record<string, string> = { ip: 'ipv4', ipv6: 'ipv6', domain: 'domain', url: 'url' };
+
 function TypeBadge({ type }: { type?: string }) {
-  return (
-    <span className="text-xs bg-raised text-fg-3 border border-line-strong px-1.5 py-0.5 rounded font-mono">
-      {type ?? '?'}
-    </span>
-  );
+  return <IocTypeChip type={PULSEDIVE_TYPE[type ?? ''] ?? type ?? 'unknown'} size="sm" />;
 }
 
 function IndicatorRow({ item }: { item: Indicator }) {
@@ -234,7 +279,7 @@ const SECTION_COLOR: Record<string, string> = {
 function PulsediveSectionCard({ section }: { section: FeedSection }) {
   const dotColor = SECTION_COLOR[section.label] ?? 'var(--color-fg-3)';
   return (
-    <div className="bg-surface border border-line rounded-lg overflow-hidden flex flex-col">
+    <div className="wb-card overflow-hidden flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dotColor }} />
@@ -361,9 +406,10 @@ export function ThreatFeedPanel() {
                   setActiveView(v);
                   if (v === 'pulsedive' && !pulsediveData && !pulsediveLoading) void fetchPulsedive();
                 }}
+                  aria-pressed={activeView === v}
                   className={`px-3 py-1.5 font-medium transition-colors ${
                     activeView === v
-                      ? 'bg-fg-1 text-surface'
+                      ? 'bg-selected text-selected-fg'
                       : 'bg-surface text-fg-3 hover:bg-raised'
                   }`}>
                   {v === 'briefing' ? 'Threat Briefing' : 'Pulsedive'}
@@ -391,10 +437,10 @@ export function ThreatFeedPanel() {
               <span className="font-semibold text-fg-1">{briefing.events.length}</span> events
             </span>
             {kevCount > 0 && (
-              <span className="text-danger-fg font-semibold">{kevCount} CISA KEV</span>
+              <span className="text-c5-fg font-semibold">{kevCount} CISA KEV</span>
             )}
             {ransomCount > 0 && (
-              <span className="text-high-fg font-semibold">{ransomCount} ransomware</span>
+              <span className="text-c3-fg font-semibold">{ransomCount} ransomware</span>
             )}
             {briefingRefreshed && (
               <span className="text-fg-4 ml-auto">Updated {briefingRefreshed.toLocaleTimeString()}</span>
@@ -437,16 +483,20 @@ export function ThreatFeedPanel() {
       {/* ── Briefing view ───────────────────────────────────────────────── */}
       {activeView === 'briefing' && briefing && !briefingLoading && (
         <div className="space-y-3">
+          {briefing.events.length > 0 && <BriefingOverview events={briefing.events} />}
+
           {/* Type filter */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap">
             {(['all', 'cve', 'ransomware'] as const).map(t => (
               <button key={t} onClick={() => setTypeFilter(t)}
-                className={`px-3 py-1 text-xs rounded border font-medium transition-colors ${
+                aria-pressed={typeFilter === t}
+                className={`flex items-center gap-1.5 h-7 px-2.5 text-xs rounded-md border font-medium transition-colors ${
                   typeFilter === t
-                    ? 'bg-fg-1 text-surface border-fg-1'
-                    : 'bg-surface text-fg-3 border-line hover:border-line-strong'
+                    ? 'bg-selected text-selected-fg border-selected'
+                    : 'bg-surface text-fg-2 border-line hover:border-line-strong'
                 }`}>
-                {t === 'all' ? `All (${briefing.events.length})` : t === 'cve' ? `CVE / KEV (${kevCount})` : `Ransomware (${ransomCount})`}
+                {t !== 'all' && <span className={`w-2 h-2 rounded-full ${TYPE_RULE[t]}`} aria-hidden />}
+                {t === 'all' ? `All (${briefing.events.length})` : t === 'cve' ? `CISA KEV (${kevCount})` : `Ransomware (${ransomCount})`}
               </button>
             ))}
           </div>

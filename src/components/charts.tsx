@@ -152,3 +152,92 @@ export function SeverityColumns({ columns, height = 96, label }: { columns: Colu
     </div>
   );
 }
+
+// ── Category charts (non-severity series) ────────────────────────────────
+
+export interface Series {
+  key: string;
+  label: string;
+  /** bg-* class */
+  bg: string;
+}
+
+export interface CategoryColumn {
+  key: string;
+  label: string;
+  values: Record<string, number>;
+}
+
+/** Stacked columns for arbitrary series; labels every `labelEvery` columns to stay legible. */
+export function StackedColumns({ columns, series, height = 96, label, labelEvery = 1 }: {
+  columns: CategoryColumn[]; series: Series[]; height?: number; label: string; labelEvery?: number;
+}) {
+  const totalOf = (c: CategoryColumn) => series.reduce((n, s) => n + (c.values[s.key] ?? 0), 0);
+  const max = Math.max(1, ...columns.map(totalOf));
+  const describe = (c: CategoryColumn) => series.filter(s => c.values[s.key]).map(s => `${c.values[s.key]} ${s.label}`).join(', ') || 'none';
+  return (
+    <div role="img" aria-label={`${label}: ${columns.map(c => `${c.label} ${describe(c)}`).join('; ')}`}>
+      <div className="flex items-end gap-1" style={{ height }}>
+        {columns.map(c => {
+          const total = totalOf(c);
+          return (
+            <div key={c.key} className="flex-1 min-w-0 h-full flex flex-col justify-end" title={`${c.label}: ${describe(c)}`}>
+              {total === 0 ? (
+                <span className="block mx-auto w-full max-w-6 h-[2px] rounded-full bg-line" />
+              ) : (
+                <div className="mx-auto w-full max-w-6 flex flex-col-reverse gap-[2px] rounded-[3px] overflow-hidden" style={{ height: `${(total / max) * 100}%` }}>
+                  {series.filter(s => c.values[s.key]).map(s => (
+                    <span key={s.key} className={s.bg} style={{ flexGrow: c.values[s.key], flexBasis: 0 }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-1 mt-1.5">
+        {columns.map((c, i) => (
+          <span key={c.key} className="flex-1 min-w-0 text-center text-[10px] text-fg-4 whitespace-nowrap overflow-visible">
+            {(columns.length - 1 - i) % labelEvery === 0 ? c.label : ''}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function SeriesLegend({ series, counts }: { series: Series[]; counts?: Record<string, number> }) {
+  return (
+    <ul className="flex flex-wrap gap-x-3 gap-y-1">
+      {series.map(s => (
+        <li key={s.key} className="flex items-center gap-1.5 text-[11px] text-fg-3">
+          <span className={`w-2 h-2 rounded-sm ${s.bg}`} aria-hidden />
+          {s.label}
+          {counts && <span className="tabular-nums text-fg-1 font-medium">{counts[s.key] ?? 0}</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Ranked horizontal bars: top-N lists such as groups, vendors or categories. */
+export function RankBars({ items, bg, label, max: maxItems = 5 }: {
+  items: { label: string; value: number }[]; bg: string; label: string; max?: number;
+}) {
+  const shown = items.slice(0, maxItems);
+  const max = Math.max(1, ...shown.map(i => i.value));
+  return (
+    <ul className="space-y-1.5" aria-label={label}>
+      {shown.map(i => (
+        <li key={i.label} className="grid grid-cols-[minmax(0,7.5rem)_1fr_1.75rem] items-center gap-2 text-[11px]">
+          <span className="text-fg-2 truncate" title={i.label}>{i.label}</span>
+          <span className="h-2 rounded-full bg-raised overflow-hidden">
+            <span className={`block h-full rounded-full ${bg}`} style={{ width: `${(i.value / max) * 100}%` }} />
+          </span>
+          <span className="text-right tabular-nums text-fg-1 font-medium">{i.value}</span>
+        </li>
+      ))}
+      {shown.length === 0 && <li className="text-[11px] text-fg-4">Nothing to show.</li>}
+    </ul>
+  );
+}

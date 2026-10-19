@@ -218,7 +218,7 @@ export function AnalysisBar({
                     title={workflow.description}
                     className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-xs whitespace-nowrap transition-colors ${
                       isSelected
-                        ? 'bg-rail border-rail text-rail-fg-1 font-medium'
+                        ? 'bg-selected border-selected text-selected-fg font-medium'
                         : 'bg-surface border-line text-fg-2 hover:border-line-strong hover:text-fg-1'
                     }`}
                   >

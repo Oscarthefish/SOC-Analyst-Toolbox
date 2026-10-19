@@ -84,6 +84,10 @@
   --color-rail-dim:    #8696b4;
   --color-rail-mark:   #6f9cff;
 
+  /* Selected state for toggles, filters and chips (stands out in both themes) */
+  --color-selected:    #13284a;
+  --color-selected-fg: #ffffff;
+
   /*
    * Categorical ramp: blue → indigo → plum → raspberry, plus teal.
    * Used to tell kinds of thing apart (indicator types, relationship kinds,
@@ -146,6 +150,8 @@
   --color-rail-hover:  #13213b;
   --color-rail-active: #1a2d50;
   --color-rail-line:   #182540;
+
+  --color-selected:    #2c4c8a;
 
   --color-c1: #5b8ef0;  --color-c1-fg: #8fb3ff;  --color-c1-bg: #13213d;
   --color-c2: #7f7af0;  --color-c2-fg: #aca8ff;  --color-c2-bg: #1b1a3a;
