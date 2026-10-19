@@ -24,17 +24,17 @@
   --radius-xl: 8px;
   --radius-2xl: 10px;
 
-  --shadow-sm: 0 1px 2px rgb(14 17 22 / .04);
-  --shadow: 0 1px 3px rgb(14 17 22 / .06);
+  --shadow-sm: 0 1px 2px rgb(19 40 74 / .05);
+  --shadow: 0 1px 2px rgb(19 40 74 / .05), 0 3px 10px -4px rgb(19 40 74 / .08);
   --shadow-lg: 0 8px 24px -6px rgb(14 17 22 / .14), 0 0 0 1px rgb(14 17 22 / .04);
 
   /* Neutrals */
-  --color-canvas:      #f4f5f7;
+  --color-canvas:      #edf1f7;
   --color-surface:     #ffffff;
   --color-inset:       #f8f9fa;
   --color-raised:      #eef0f3;
-  --color-line-soft:   #eceef1;
-  --color-line:        #e1e4e8;
+  --color-line-soft:   #e9edf3;
+  --color-line:        #dde3ec;
   --color-line-strong: #c9ced6;
   --color-fg-1:        #0e1116;
   --color-fg-2:        #3a414c;
@@ -73,18 +73,39 @@
   --color-violet-fg:   #5536c2;
   --color-violet-bg:   #f3f0fd;
   --color-violet-line: #d8cff7;
+
+  /* Navigation rail (deep navy in both themes) */
+  --color-rail:        #13284a;
+  --color-rail-hover:  #1c3561;
+  --color-rail-active: #24427a;
+  --color-rail-line:   #223c68;
+  --color-rail-fg:     #b7c4dc;
+  --color-rail-fg-1:   #ffffff;
+  --color-rail-dim:    #8696b4;
+  --color-rail-mark:   #6f9cff;
+
+  /*
+   * Categorical ramp: blue → indigo → plum → raspberry, plus teal.
+   * Used to tell kinds of thing apart (indicator types, relationship kinds,
+   * charts). Severity always uses the danger/high/warn/ok scale instead.
+   */
+  --color-c1: #2a63d4;  --color-c1-fg: #1f50b3;  --color-c1-bg: #e9f0fd;
+  --color-c2: #4c46c0;  --color-c2-fg: #3e38a8;  --color-c2-bg: #eeedfb;
+  --color-c3: #84398f;  --color-c3-fg: #73307d;  --color-c3-bg: #f6ecf7;
+  --color-c4: #bd3158;  --color-c4-fg: #a12649;  --color-c4-bg: #fbecf0;
+  --color-c5: #0f7c84;  --color-c5-fg: #0b6870;  --color-c5-bg: #e6f4f4;
 }
 
 :root.dark {
   color-scheme: dark;
 
-  --color-canvas:      #0c0e12;
-  --color-surface:     #13161b;
-  --color-inset:       #0f1216;
-  --color-raised:      #1b1f26;
-  --color-line-soft:   #1c2027;
-  --color-line:        #262b33;
-  --color-line-strong: #353c47;
+  --color-canvas:      #0a0f18;
+  --color-surface:     #111826;
+  --color-inset:       #0d1320;
+  --color-raised:      #18212f;
+  --color-line-soft:   #1a2332;
+  --color-line:        #232e40;
+  --color-line-strong: #33405a;
   --color-fg-1:        #e7eaee;
   --color-fg-2:        #b8bec8;
   --color-fg-3:        #a3abb6;
@@ -120,6 +141,19 @@
   --color-violet-fg:   #b6a5ff;
   --color-violet-bg:   #1b1730;
   --color-violet-line: #362c62;
+
+  --color-rail:        #0b1426;
+  --color-rail-hover:  #13213b;
+  --color-rail-active: #1a2d50;
+  --color-rail-line:   #182540;
+
+  --color-c1: #5b8ef0;  --color-c1-fg: #8fb3ff;  --color-c1-bg: #13213d;
+  --color-c2: #7f7af0;  --color-c2-fg: #aca8ff;  --color-c2-bg: #1b1a3a;
+  --color-c3: #b46cc0;  --color-c3-fg: #d9a2e2;  --color-c3-bg: #261a2b;
+  --color-c4: #e0607f;  --color-c4-fg: #ff9bb2;  --color-c4-bg: #2a1520;
+  --color-c5: #2fb0b8;  --color-c5-fg: #74d6dc;  --color-c5-bg: #0f2427;
+
+  --shadow: 0 1px 2px rgb(0 0 0 / .3);
 
   --shadow-lg: 0 10px 30px -8px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .04);
 }
@@ -174,7 +208,8 @@
   .wb-card {
     background: var(--color-surface);
     border: 1px solid var(--color-line);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow);
   }
 
   /* Section eyebrow label */

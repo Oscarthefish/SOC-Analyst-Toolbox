@@ -11,6 +11,7 @@ import type { RunRequest } from './components/AutoAnalysisPanel';
 import { AppShell } from './components/AppShell';
 import { CaseWorkspace } from './components/CaseWorkspace';
 import { CommandPalette } from './components/CommandPalette';
+import { InvestigateOverview } from './components/InvestigateOverview';
 import { loadCases } from './lib/cases';
 import { STORAGE_KEYS, writeRaw } from './lib/storage';
 import type { CaseRecord } from './types/case';
@@ -44,6 +45,7 @@ const workflows = workflowsData as Workflow[];
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('single');
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
+  const [configuredProviders, setConfiguredProviders] = useState<number | null>(null);
   const [customTools, setCustomTools] = useState<Tool[]>([]);
   const [hiddenToolIds, setHiddenToolIds] = useState<Set<string>>(() => loadHiddenToolIds());
   const [toolsSaving, setToolsSaving] = useState(false);
@@ -94,7 +96,9 @@ export default function App() {
     let cancelled = false;
     async function check() {
       const result = await checkBackendHealth();
-      if (!cancelled) setBackendOnline(result !== null);
+      if (cancelled) return;
+      setBackendOnline(result !== null);
+      setConfiguredProviders(result ? result.configuredProviders.length : null);
     }
     void check();
     const interval = setInterval(() => { void check(); }, 30_000);
@@ -295,8 +299,17 @@ export default function App() {
             preloadResult={historyPreload}
             onLoadingChange={setAnalysisLoading}
           />
+          {!ioc && (
+            <InvestigateOverview
+              history={searchHistory}
+              cases={cases}
+              configuredProviders={configuredProviders}
+              onLoadHistory={handleHistoryLoad}
+              onNavigate={setActiveTab}
+            />
+          )}
           {/* Pivot tools stay available below the verdict once a workflow is chosen */}
-          {(!currentResults || selectedWorkflow) && (
+          {ioc && (!currentResults || selectedWorkflow) && (
             <ToolPanel
               workflow={selectedWorkflow}
               ioc={ioc}

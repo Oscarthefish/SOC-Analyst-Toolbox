@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { IocTypeChip } from './IocTypeChip';
 import type { DetectedIoc } from '../types/ioc';
 import { detectIoc, normalizeIocInput } from '../lib/detectIoc';
 import { defangUrlSmart, defangIp, defangDomain } from '../lib/defang';
@@ -41,16 +42,14 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 function TypeChip({ type }: { type: string }) {
-  const isUnknown = type === 'unknown';
-  return (
-    <span className={`inline-flex items-center h-[22px] px-2 rounded text-[11px] font-semibold font-mono border ${
-      isUnknown
-        ? 'bg-danger-bg border-danger-line text-danger-fg'
-        : 'bg-accent-bg border-accent-line text-accent-fg'
-    }`}>
-      {TYPE_LABELS[type] ?? type}
-    </span>
-  );
+  if (type === 'unknown') {
+    return (
+      <span className="inline-flex items-center h-[22px] px-2 rounded text-[11px] font-semibold font-mono border bg-danger-bg border-danger-line text-danger-fg">
+        Unknown
+      </span>
+    );
+  }
+  return <IocTypeChip type={type} />;
 }
 
 function ConfidenceChip({ confidence }: { confidence: 'high' | 'medium' | 'low' }) {

@@ -1,23 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { AnalysisResponse } from '../types/analysis';
-import type { EnrichmentResult } from '../types/enrichment';
-import { EnrichmentCard } from './EnrichmentCard';
 import { CopyButton } from './CopyButton';
 import { KeyFactsSummaryStrip, PivotSection, ContradictionBanner, ProviderComparisonPanel } from './enrichmentShared';
+import { RelationshipGraph } from './RelationshipGraph';
+import { ProviderMatrix } from './ProviderMatrix';
+import { RingGauge, SeverityBar, SeverityLegend } from './charts';
 import { parseNarrative, buildSourceMap, findSourceUrl } from '../lib/narrative';
+import { hasData, severityMix, flaggedCount } from '../lib/severityMix';
 
-const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, unknown: 4, benign: 5 };
-
-const SEVERITY_STYLE: Record<string, { rule: string; text: string; label: string }> = {
-  critical: { rule: 'bg-danger', text: 'text-danger-fg', label: 'Critical' },
-  high:     { rule: 'bg-high',   text: 'text-high-fg',   label: 'High' },
-  medium:   { rule: 'bg-warn',   text: 'text-warn-fg',   label: 'Medium' },
-  low:      { rule: 'bg-accent', text: 'text-accent-fg', label: 'Low' },
-  benign:   { rule: 'bg-ok',     text: 'text-ok-fg',     label: 'Benign' },
-  unknown:  { rule: 'bg-fg-4',   text: 'text-fg-2',      label: 'Inconclusive' },
+const SEVERITY_STYLE: Record<string, { band: string; ring: string; text: string; label: string }> = {
+  critical: { band: 'bg-danger-bg border-danger-line', ring: 'stroke-danger', text: 'text-danger-fg', label: 'Critical' },
+  high:     { band: 'bg-high-bg border-high-line',     ring: 'stroke-high',   text: 'text-high-fg',   label: 'High' },
+  medium:   { band: 'bg-warn-bg border-warn-line',     ring: 'stroke-warn',   text: 'text-warn-fg',   label: 'Medium' },
+  low:      { band: 'bg-c1-bg border-line',            ring: 'stroke-c1',     text: 'text-c1-fg',     label: 'Low' },
+  benign:   { band: 'bg-ok-bg border-ok-line',         ring: 'stroke-ok',     text: 'text-ok-fg',     label: 'Benign' },
+  unknown:  { band: 'bg-inset border-line',            ring: 'stroke-fg-4',   text: 'text-fg-2',      label: 'Inconclusive' },
 };
 
-const hasData = (r: EnrichmentResult) => r.status === 'ok' || r.status === 'cached';
+/** Related hosts beyond this many are listed in full under the graph. */
+const GRAPH_HOST_LIMIT = 6;
 
 /** Plain-text summary suitable for pasting into a ticket. */
 export function buildTicketSummary(response: AnalysisResponse): string {
@@ -61,16 +62,13 @@ interface Props {
  */
 export function AnalysisResultView({ response, onPivot }: Props) {
   const { results, overall, contradictions, narrative, narrativeError, ollamaModel, analysedAt } = response;
-  const [showProviders, setShowProviders] = useState(false);
 
   const parsed = useMemo(() => (narrative ? parseNarrative(narrative) : null), [narrative]);
   const sourceMap = useMemo(() => buildSourceMap(results), [results]);
-  const sorted = useMemo(
-    () => [...results].sort((a, b) => (SEVERITY_RANK[a.severity] ?? 4) - (SEVERITY_RANK[b.severity] ?? 4)),
-    [results],
-  );
+  const mix = useMemo(() => severityMix(results), [results]);
 
   const withData = results.filter(hasData);
+  const flagged = flaggedCount(results);
   const cachedCount = results.filter(r => r.status === 'cached' || r.fromCache).length;
   const style = SEVERITY_STYLE[overall.severity] ?? SEVERITY_STYLE['unknown']!;
   const resolvedIps = [...new Set(withData.flatMap(r => r.resolvedIps ?? []))];
@@ -80,38 +78,59 @@ export function AnalysisResultView({ response, onPivot }: Props) {
   return (
     <div className="space-y-6">
       {/* ── Verdict ─────────────────────────────────────────────────── */}
-      <div className="flex gap-4">
-        <span className={`w-1 rounded-full shrink-0 ${style.rule}`} aria-hidden />
-        <div className="flex-1 min-w-0 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] text-fg-4">Severity</p>
-              <p className={`text-[22px] leading-tight font-semibold ${style.text}`}>{style.label}</p>
-              <p className="mt-1 text-xs text-fg-3">
-                <span className="capitalize">{overall.confidence}</span> confidence
-                <span className="text-fg-4"> · </span>
-                {withData.length} of {results.length} sources returned data
-                {cachedCount > 0 && <><span className="text-fg-4"> · </span>{cachedCount} from cache</>}
+      <div className={`rounded-xl border p-4 sm:p-5 grid gap-5 lg:grid-cols-[auto_minmax(0,1fr)_260px] items-start ${style.band}`}>
+        <RingGauge
+          fraction={withData.length ? flagged / withData.length : 0}
+          tone={style.ring}
+          size={104}
+          thickness={9}
+          label={`${flagged} of ${withData.length} sources with data rate this medium or worse`}
+        >
+          <div className="leading-none">
+            <p className="text-[26px] font-semibold text-fg-1 tabular-nums">{flagged}<span className="text-[15px] text-fg-4">/{withData.length}</span></p>
+            <p className="mt-1 text-[10px] uppercase tracking-[.06em] text-fg-3">flag it</p>
+          </div>
+        </RingGauge>
+
+        <div className="min-w-0 space-y-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[.06em] text-fg-3">Severity</p>
+            <p className={`text-[26px] leading-tight font-semibold ${style.text}`}>{style.label}</p>
+            <p className="mt-1 text-xs text-fg-2">
+              <span className="capitalize">{overall.confidence}</span> confidence
+              <span className="text-fg-4"> · </span>
+              {withData.length} of {results.length} sources returned data
+              {cachedCount > 0 && <><span className="text-fg-4"> · </span>{cachedCount} from cache</>}
+            </p>
+            {parsed?.verdict && (
+              <p className="mt-1 text-xs text-fg-2">
+                Local LLM verdict: <span className="font-medium text-fg-1">{parsed.verdict}</span>
               </p>
-              {parsed?.verdict && (
-                <p className="mt-1 text-xs text-fg-3">
-                  Local LLM verdict: <span className="font-medium text-fg-1">{parsed.verdict}</span>
-                </p>
-              )}
-            </div>
-            <CopyButton text={buildTicketSummary(response)} label="ticket summary" />
+            )}
           </div>
 
           {overall.recommendedActions.length > 0 && (
-            <ol className="space-y-1">
+            <ol className="space-y-1.5">
               {overall.recommendedActions.map((a, i) => (
                 <li key={i} className="flex gap-2.5 text-[13px] text-fg-1">
-                  <span className="w-4 text-right text-xs text-fg-4 tabular-nums pt-px">{i + 1}.</span>
-                  <span>{a}</span>
+                  <span className="w-5 h-5 shrink-0 grid place-items-center rounded-full bg-surface border border-line text-[11px] font-medium text-fg-2 tabular-nums">{i + 1}</span>
+                  <span className="pt-px">{a}</span>
                 </li>
               ))}
             </ol>
           )}
+        </div>
+
+        <div className="space-y-3 rounded-lg bg-surface border border-line p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium text-fg-2">Source verdicts</p>
+            <span className="text-[11px] text-fg-4 tabular-nums">{results.length} queried</span>
+          </div>
+          <SeverityBar mix={mix} label="Provider verdicts" />
+          <SeverityLegend mix={mix} />
+          <div className="pt-1 border-t border-line-soft">
+            <CopyButton text={buildTicketSummary(response)} label="ticket summary" />
+          </div>
         </div>
       </div>
 
@@ -169,35 +188,24 @@ export function AnalysisResultView({ response, onPivot }: Props) {
         </p>
       )}
 
-      {/* ── Pivots ──────────────────────────────────────────────────── */}
-      {onPivot && resolvedIps.length > 0 && (
-        <PivotSection items={resolvedIps} label="Resolved IPs — click to investigate" color="blue" onPivot={onPivot} />
+      <RelationshipGraph results={results} indicator={response.ioc.normalised} onPivot={onPivot} />
+
+      {/* Full host lists when there are more than the graph shows */}
+      {onPivot && resolvedIps.length + relatedDomains.length > GRAPH_HOST_LIMIT && (
+        <details className="group">
+          <summary className="cursor-pointer text-xs text-accent-fg hover:underline list-none">
+            All {resolvedIps.length + relatedDomains.length} related hosts
+          </summary>
+          <div className="mt-2 space-y-2">
+            {resolvedIps.length > 0 && <PivotSection items={resolvedIps} label="Resolved IPs — click to investigate" color="blue" onPivot={onPivot} />}
+            {relatedDomains.length > 0 && <PivotSection items={relatedDomains} label="Certificate SANs — click to investigate" color="purple" onPivot={onPivot} />}
+          </div>
+        </details>
       )}
-      {onPivot && relatedDomains.length > 0 && (
-        <PivotSection items={relatedDomains} label="Certificate SANs — click to investigate" color="purple" onPivot={onPivot} />
-      )}
+
+      <ProviderMatrix results={results} />
 
       <ProviderComparisonPanel results={results} iocType={response.ioc.type} />
-
-      {/* ── Provider detail ─────────────────────────────────────────── */}
-      <section>
-        <button
-          onClick={() => setShowProviders(v => !v)}
-          aria-expanded={showProviders}
-          className="w-full flex items-center gap-2 text-left"
-        >
-          <svg className={`w-3 h-3 text-fg-4 transition-transform ${showProviders ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-          <span className="wb-label">Provider results</span>
-          <span className="ml-auto text-[11px] text-fg-4">{withData.length} with data · {results.length - withData.length} without</span>
-        </button>
-        {showProviders && (
-          <div className="mt-2 space-y-1.5">
-            {sorted.map(r => <EnrichmentCard key={r.providerId} result={r} />)}
-          </div>
-        )}
-      </section>
 
       <p className="text-[11px] font-mono text-fg-4">Analysed {new Date(analysedAt).toLocaleString()}</p>
     </div>

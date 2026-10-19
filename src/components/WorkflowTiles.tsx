@@ -138,6 +138,15 @@ const WORKFLOW_ICONS: Record<string, React.ReactNode> = {
   'business-domain-osint':   <IconBuilding />,
 };
 
+/** Icon colour per workflow, by what it investigates (matches indicator type colours). */
+const WORKFLOW_TONE: Record<string, string> = {
+  'ip-triage': 'text-c1', 'suspicious-connection': 'text-c1', 'external-exposure': 'text-c1', 'waf-web-attack': 'text-c1',
+  'domain-triage': 'text-c2', 'url-phishing': 'text-c2', 'business-domain-osint': 'text-c2', 'takedown-reporting': 'text-c2',
+  'malware-hash': 'text-c3', 'ransomware-context': 'text-c3',
+  'spam-source': 'text-c4', 'email-header-review': 'text-c4', 'dark-web-exposure': 'text-c4',
+  'cve-context': 'text-c5',
+};
+
 const DEFAULT_ICON = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -209,11 +218,11 @@ export function AnalysisBar({
                     title={workflow.description}
                     className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-xs whitespace-nowrap transition-colors ${
                       isSelected
-                        ? 'bg-accent-bg border-accent-line text-accent-fg font-medium'
+                        ? 'bg-rail border-rail text-rail-fg-1 font-medium'
                         : 'bg-surface border-line text-fg-2 hover:border-line-strong hover:text-fg-1'
                     }`}
                   >
-                    <span className="w-3.5 h-3.5 shrink-0 block">{icon}</span>
+                    <span className={`w-3.5 h-3.5 shrink-0 block ${isSelected ? 'text-rail-mark' : WORKFLOW_TONE[workflow.id] ?? 'text-fg-3'}`}>{icon}</span>
                     {workflow.name}
                   </button>
                 );
