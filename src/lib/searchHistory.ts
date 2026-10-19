@@ -1,7 +1,7 @@
 import type { AnalysisResponse } from '../types/analysis';
 import type { IocInput } from '../types/enrichment';
+import { STORAGE_KEYS, readList, writeJson, removeKey, hasStringFields, isRecord } from './storage';
 
-const STORAGE_KEY = 'soc-toolbox-search-history';
 const MAX_ENTRIES = 10;
 
 export interface HistoryEntry {
@@ -12,25 +12,22 @@ export interface HistoryEntry {
   result: AnalysisResponse;
 }
 
+function isHistoryEntry(x: unknown): x is HistoryEntry {
+  return hasStringFields(x, ['id', 'savedAt'])
+    && hasStringFields(x.ioc, ['normalised', 'type'])
+    && isRecord(x.result) && isRecord(x.result.overall) && Array.isArray(x.result.results);
+}
+
 export function loadHistory(): HistoryEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
-  } catch {
-    return [];
-  }
+  return readList(STORAGE_KEYS.history, isHistoryEntry);
 }
 
 function persist(entries: HistoryEntry[]): HistoryEntry[] {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  } catch {
-    // Storage quota — drop oldest until it fits
-    const trimmed = entries.slice(0, Math.max(1, Math.floor(entries.length / 2)));
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed)); } catch { /* give up */ }
-    return trimmed;
-  }
-  return entries;
+  if (writeJson(STORAGE_KEYS.history, entries)) return entries;
+  // Storage quota: keep the newest half
+  const trimmed = entries.slice(0, Math.max(1, Math.floor(entries.length / 2)));
+  writeJson(STORAGE_KEYS.history, trimmed);
+  return trimmed;
 }
 
 export function saveSearch(
@@ -58,6 +55,6 @@ export function removeEntry(id: string): HistoryEntry[] {
 }
 
 export function clearHistory(): HistoryEntry[] {
-  try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  removeKey(STORAGE_KEYS.history);
   return [];
 }

@@ -1,4 +1,5 @@
 import type { IocType } from '../types/ioc';
+import { isIpv4, isIpv4Cidr, isIpv6 } from './ipUtils';
 
 // Common valid TLDs to reduce false positives (not exhaustive, but covers the vast majority)
 const VALID_TLDS = new Set([
@@ -97,7 +98,18 @@ function isValidDomain(candidate: string): boolean {
   return true;
 }
 
-export function extractIocs(text: string): ExtractedIoc[] {
+/** Refang common defanging so defanged indicators are extracted whole. */
+function refangText(text: string): string {
+  return text
+    .replace(/\[(?:\.|dot)\]|\((?:\.|dot)\)|\{\.\}/gi, '.')
+    .replace(/\[(?:@|at)\]|\((?:@|at)\)/gi, '@')
+    .replace(/\[:\]/g, ':')
+    .replace(/\[:\/\/\]/g, '://')
+    .replace(/\bhxxp(s?)(?=:\/\/)/gi, 'http$1');
+}
+
+export function extractIocs(input: string): ExtractedIoc[] {
+  const text = refangText(input);
   const results: ExtractedIoc[] = [];
   const seen = new Set<string>(); // deduplication key: type:normalised
 
@@ -142,30 +154,23 @@ export function extractIocs(text: string): ExtractedIoc[] {
   // --- IPv4 CIDR ---
   const cidrRe = /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2})\b/g;
   for (const m of text.matchAll(cidrRe)) {
-    const parts = m[1].split('/');
-    const ipParts = parts[0].split('.').map(Number);
-    const prefix = parseInt(parts[1], 10);
-    if (ipParts.every(p => p >= 0 && p <= 255) && prefix >= 0 && prefix <= 32) {
+    if (isIpv4Cidr(m[1])) {
       add(m[1], 'cidr', m[1]);
     }
   }
 
-  // --- IPv4 ---
-  const ipv4Re = /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g;
+  // --- IPv4 (the lookahead skips a CIDR's network address) ---
+  const ipv4Re = /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b(?!\/\d)/g;
   for (const m of text.matchAll(ipv4Re)) {
-    // Skip if part of CIDR (already captured above)
-    const cidrKey = `cidr:${m[1]}`;
-    const parts = m[1].split('.').map(Number);
-    if (parts.every(p => p >= 0 && p <= 255) && !seen.has(cidrKey)) {
+    if (isIpv4(m[1])) {
       add(m[1], 'ipv4', m[1]);
     }
   }
 
-  // --- IPv6 ---
-  const ipv6Re = /\b([0-9a-fA-F]{0,4}(?::[0-9a-fA-F]{0,4}){2,7})\b/g;
+  // --- IPv6 (candidates validated strictly, so timestamps like 12:30:45 are ignored) ---
+  const ipv6Re = /(?<![\w:])((?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4})(?![\w:])/g;
   for (const m of text.matchAll(ipv6Re)) {
-    // Must have at least 2 colons to avoid false positives
-    if ((m[1].match(/:/g) ?? []).length >= 2) {
+    if (isIpv6(m[1])) {
       add(m[1], 'ipv6', m[1].toLowerCase());
     }
   }
@@ -199,21 +204,6 @@ export function extractIocs(text: string): ExtractedIoc[] {
       const parsed = new URL(url);
       urlHostnames.add(parsed.hostname.toLowerCase().replace(/^www\./, ''));
       add(url, 'url', url);
-    } catch {
-      // skip invalid
-    }
-  }
-
-  // Also handle defanged URLs
-  // eslint-disable-next-line no-useless-escape
-  const defangedUrlRe = /\bhxxps?:\/\/[^\s<>"'`\]\[{}|\\^]+/gi;
-  for (const m of text.matchAll(defangedUrlRe)) {
-    const url = m[0].replace(/[.,;:!?)]+$/, '');
-    const refanged = url.replace(/^hxxps/i, 'https').replace(/^hxxp(?!s)/i, 'http').replace(/\[\.\]/g, '.');
-    try {
-      const parsed = new URL(refanged);
-      urlHostnames.add(parsed.hostname.toLowerCase().replace(/^www\./, ''));
-      add(url, 'url', refanged);
     } catch {
       // skip invalid
     }

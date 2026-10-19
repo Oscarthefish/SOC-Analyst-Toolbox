@@ -2,35 +2,18 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import fs from 'fs/promises';
 import path from 'path';
-import { reloadConfig } from '../config.js';
+import { reloadConfig, PROVIDER_KEYS } from '../config.js';
+import type { ProviderKeyEnv } from '../config.js';
 
 const router = Router();
 
 /**
- * Allowlist of API key names that may be read or written via this endpoint.
- * Intentionally excludes PORT, CACHE_TTL_MINUTES and other non-key settings.
+ * Allowlist of env vars that may be read or written via this endpoint, derived from
+ * the provider registry. Intentionally excludes PORT, feature flags and other settings.
  */
-const ALLOWED_KEYS = [
-  'GREYNOISE_API_KEY',
-  'ABUSEIPDB_API_KEY',
-  'IPINFO_TOKEN',
-  'VIRUSTOTAL_API_KEY',
-  'URLSCAN_API_KEY',
-  'SHODAN_API_KEY',
-  'CENSYS_API_TOKEN',
-  'WHOISXMLAPI_KEY',
-  'OTX_API_KEY',
-  'PULSEDIVE_API_KEY',
-  'GOOGLE_SAFE_BROWSING_KEY',
-  'HIBP_API_KEY',
-  'HYBRID_ANALYSIS_KEY',
-  'THREATFOX_API_KEY',
-  'URLHAUS_API_KEY',
-  'HUNTER_API_KEY',
-  'DNSDUMPSTER_API_KEY',
-] as const;
+const ALLOWED_KEYS: readonly ProviderKeyEnv[] = PROVIDER_KEYS.map(p => p.env);
 
-type AllowedKey = (typeof ALLOWED_KEYS)[number];
+type AllowedKey = ProviderKeyEnv;
 
 /** Resolve .env path relative to the backend package root (process.cwd when run from backend/). */
 function envFilePath(): string {

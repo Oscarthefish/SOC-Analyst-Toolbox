@@ -92,3 +92,11 @@ export function applyTemplate(template: string, vars: TemplateVars): string {
 export function isTemplateValid(generated: string): boolean {
   return !generated.includes('{{') || !generated.includes('}}');
 }
+
+/**
+ * Returns the URL only if it is http(s); otherwise undefined so it is never
+ * rendered as a link. Guards against javascript:/data: templates in custom tools.
+ */
+export function safeHref(url: string): string | undefined {
+  return /^https?:\/\//i.test(url.trim()) ? url : undefined;
+}

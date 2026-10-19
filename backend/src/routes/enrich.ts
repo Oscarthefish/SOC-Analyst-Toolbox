@@ -6,15 +6,13 @@ import type {
   EnrichRequest,
   EnrichmentResult,
   EnrichmentResponse,
-  OverallAssessment,
   EnrichOptions,
-  Severity,
-  Confidence,
 } from '../types.js';
 import { adapters } from '../adapters/index.js';
 import { config } from '../config.js';
 import * as cache from '../cache.js';
-import { isRateLimited, recordRequest } from '../rateLimit.js';
+import { acquire } from '../rateLimit.js';
+import { computeOverallAssessment, detectContradictions, detectVpnOrTor } from '../lib/scoring.js';
 
 const router = Router();
 
@@ -51,8 +49,12 @@ const IOC_TYPE_PROVIDERS: Record<IocType, string[]> = {
   asn: [],
   cidr: [],
   cve: ['cisakev'],
-  secret: ['credvalidate'],
+  // credvalidate sends the credential to its issuer, so it is never a default
+  secret: [],
 };
+
+/** Providers that transmit the IOC itself as a credential and need explicit opt-in. */
+const HIGH_RISK_PROVIDERS = new Set(['credvalidate']);
 
 function chooseProviders(
   ioc: IocInput,
@@ -66,113 +68,6 @@ function chooseProviders(
     return WORKFLOW_PROVIDERS[workflowId] ?? [];
   }
   return IOC_TYPE_PROVIDERS[ioc.type] ?? [];
-}
-
-const SEVERITY_RANK: Record<Severity, number> = {
-  critical: 5,
-  high: 4,
-  medium: 3,
-  low: 2,
-  benign: 1,
-  unknown: 0,
-};
-
-function detectContradictions(results: EnrichmentResult[]): string[] {
-  const meaningful = results.filter(
-    r => (r.status === 'ok' || r.status === 'cached') && r.severity !== 'unknown',
-  );
-  if (meaningful.length < 2) return [];
-
-  const malicious = meaningful.filter(r => SEVERITY_RANK[r.severity] >= 4);
-  const benign = meaningful.filter(r => r.severity === 'benign');
-
-  if (malicious.length > 0 && benign.length > 0) {
-    const maliciousNames = malicious.map(r => r.providerName).join(', ');
-    const benignNames = benign.map(r => r.providerName).join(', ');
-    return [
-      `Provider disagreement: ${maliciousNames} rates this IOC as high/critical, while ${benignNames} considers it benign. Treat with caution — cross-reference raw data from each provider and consider manual investigation before taking action.`,
-    ];
-  }
-
-  return [];
-}
-
-function computeOverallAssessment(results: EnrichmentResult[]): OverallAssessment {
-  const successful = results.filter(
-    r => r.status === 'ok' || r.status === 'cached',
-  );
-
-  const severityCounts: Record<Severity, number> = {
-    critical: 0,
-    high: 0,
-    medium: 0,
-    low: 0,
-    benign: 0,
-    unknown: 0,
-  };
-
-  for (const r of successful) {
-    severityCounts[r.severity] = (severityCounts[r.severity] ?? 0) + 1;
-  }
-
-  let severity: Severity;
-  const recommendedActions: string[] = [];
-
-  if (severityCounts.critical > 0) {
-    severity = 'critical';
-    recommendedActions.push('Immediately isolate affected systems.');
-    recommendedActions.push('Escalate to Tier 2/3 or incident response.');
-    recommendedActions.push('Block IOC across all controls (firewall, proxy, EDR).');
-    recommendedActions.push('Initiate incident response procedure.');
-  } else if (severityCounts.high >= 2 || (severityCounts.high >= 1 && severityCounts.medium >= 1)) {
-    severity = 'high';
-    recommendedActions.push('Block IOC at firewall and proxy.');
-    recommendedActions.push('Search for related IOCs across environment.');
-    recommendedActions.push('Escalate to senior analyst for review.');
-  } else if (severityCounts.high >= 1) {
-    severity = 'high';
-    recommendedActions.push('Block IOC at perimeter controls.');
-    recommendedActions.push('Investigate correlated events in SIEM.');
-  } else if (severityCounts.medium >= 1) {
-    severity = 'medium';
-    recommendedActions.push('Monitor for additional activity from this IOC.');
-    recommendedActions.push('Consider adding to watchlist.');
-  } else if (severityCounts.low > 0) {
-    severity = 'low';
-    recommendedActions.push('Log and monitor. No immediate action required.');
-  } else if (severityCounts.benign > 0 && severityCounts.unknown === 0) {
-    severity = 'benign';
-    recommendedActions.push('No action required. Document findings.');
-  } else {
-    severity = 'unknown';
-    recommendedActions.push('Insufficient data. Consider manual investigation.');
-    recommendedActions.push('Check if additional API keys can be configured.');
-  }
-
-  // Confidence based on how many providers succeeded
-  let confidence: Confidence;
-  const successCount = successful.length;
-  if (successCount >= 3) {
-    confidence = 'high';
-  } else if (successCount >= 1) {
-    confidence = 'medium';
-  } else {
-    confidence = 'low';
-  }
-
-  const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1);
-  let summary =
-    successful.length === 0
-      ? 'No enrichment providers returned data. Check API key configuration.'
-      : `Aggregated assessment from ${successful.length} provider(s): ${severityLabel} severity, ${confidence} confidence.`;
-
-  const contradictions = detectContradictions(results);
-  if (contradictions.length > 0) {
-    summary += ' ⚠ Provider disagreement detected — see recommended actions.';
-    recommendedActions.push(...contradictions);
-  }
-
-  return { severity, confidence, summary, recommendedActions };
 }
 
 router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
@@ -210,6 +105,20 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
   };
 
   let providerList = chooseProviders(ioc, workflowId, requestedProviders);
+
+  const wantsHighRisk = providerList.filter(p => HIGH_RISK_PROVIDERS.has(p));
+  if (wantsHighRisk.length > 0) {
+    if (!config.enableHighRiskEnrichment || options.allowCredentialValidation !== true) {
+      res.status(403).json({
+        error: `${wantsHighRisk.join(', ')} requires ENABLE_HIGH_RISK_ENRICHMENT=true in backend/.env and options.allowCredentialValidation=true on the request.`,
+      });
+      return;
+    }
+    if (ioc.type !== 'secret') {
+      res.status(400).json({ error: 'credvalidate only accepts IOCs of type "secret".' });
+      return;
+    }
+  }
   if (includeHunter && (ioc.type === 'domain' || ioc.type === 'url' || ioc.type === 'email') && !providerList.includes('hunter')) {
     providerList = [...providerList, 'hunter'];
   }
@@ -251,7 +160,7 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
     const isSensitiveUrl = ioc.type === 'url';
     const cacheKey = cache.buildCacheKey(providerId, ioc.type, ioc.normalised, isSensitiveUrl);
 
-    if (!enrichOptions.forceRefresh) {
+    if (!enrichOptions.forceRefresh && !HIGH_RISK_PROVIDERS.has(providerId)) {
       const cached = cache.get(cacheKey);
       if (cached) {
         return cached;
@@ -259,12 +168,14 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
     }
 
     // Check rate limit
-    if (isRateLimited(providerId)) {
+    // Waits briefly for a free slot; gives up if the provider is paused or saturated
+    const retryInMs = await acquire(providerId);
+    if (retryInMs > 0) {
       return {
         providerId,
         providerName: providerId,
         status: 'rate_limited',
-        summary: `${providerId} is currently rate-limited. Try again in 60 seconds.`,
+        summary: `${providerId} is rate-limited. Try again in ${Math.ceil(retryInMs / 1000)} s.`,
         severity: 'unknown',
         confidence: 'unknown',
         data: {},
@@ -275,10 +186,10 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
     }
 
     try {
-      recordRequest(providerId);
       const result = await adapter(ioc, enrichOptions);
-      // Cache successful results and missing_key (don't hammer missing keys)
-      if (result.status === 'ok' || result.status === 'missing_key') {
+      // Only real data is cached; a missing key costs nothing to re-check and must
+      // stop applying as soon as the key is added
+      if (result.status === 'ok' && !HIGH_RISK_PROVIDERS.has(providerId)) {
         cache.set(cacheKey, result, config.cacheTtlMinutes);
       }
       return result;
@@ -317,8 +228,9 @@ router.post('/enrich', async (req: Request, res: Response): Promise<void> => {
     };
   });
 
-  const overall = computeOverallAssessment(results);
-  const response: EnrichmentResponse = { ioc, results, overall };
+  const contradictions = detectContradictions(results);
+  const overall = computeOverallAssessment(results, detectVpnOrTor(results));
+  const response: EnrichmentResponse = { ioc, results, overall, contradictions };
 
   res.json(response);
 });

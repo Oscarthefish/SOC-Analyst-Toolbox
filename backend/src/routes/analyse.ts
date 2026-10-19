@@ -7,15 +7,15 @@ import type {
   EnrichmentResponse,
   OverallAssessment,
   EnrichOptions,
-  Severity,
-  Confidence,
   ContradictionFlag,
 } from '../types.js';
 import { adapters } from '../adapters/index.js';
 import { config } from '../config.js';
 import * as cache from '../cache.js';
-import { isRateLimited, recordRequest } from '../rateLimit.js';
+import { acquire } from '../rateLimit.js';
 import { resolveOllamaModel, ollamaGenerate } from '../lib/ollama.js';
+import { computeOverallAssessment, detectContradictions, detectVpnOrTor } from '../lib/scoring.js';
+import type { VpnTorFlags } from '../lib/scoring.js';
 import { getProviderTtl } from '../lib/providerTtl.js';
 
 const router = Router();
@@ -38,239 +38,6 @@ const ANALYSE_PROVIDERS: Record<string, string[]> = {
   cidr:   ['bgpview'],
   cve:    ['cisakev'],
 };
-
-// Passive/contextual sources that should not contribute to severity scoring
-const PASSIVE_PROVIDERS = new Set(['bgpview', 'ipapi', 'ipinfo', 'torproject', 'whois', 'dns', 'dnsdumpster', 'crtsh', 'wayback', 'hunter']);
-
-function detectContradictions(results: EnrichmentResult[]): ContradictionFlag[] {
-  const flags: ContradictionFlag[] = [];
-  const successful = results.filter(r => r.status === 'ok' || r.status === 'cached');
-
-  const activeSources = successful.filter(r => !PASSIVE_PROVIDERS.has(r.providerId));
-  const highSeverity = activeSources.filter(r => r.severity === 'high' || r.severity === 'critical');
-  const benignResults = activeSources.filter(r => r.severity === 'benign');
-
-  // Contradiction: some sources say benign, others say malicious/high
-  if (highSeverity.length > 0 && benignResults.length > 0) {
-    flags.push({
-      type: 'CONFLICT_BENIGN_VS_MALICIOUS',
-      message: `${benignResults.map(r => r.providerName).join(', ')} classify as benign/clean, but ${highSeverity.map(r => r.providerName).join(', ')} flag as high severity or malicious.`,
-      sources: [...highSeverity, ...benignResults].map(r => r.providerId),
-      recommendation: 'Investigate whether this is shared infrastructure (CDN, hosting provider, VPN exit) where platform reputation does not reflect specific hosted content.',
-    });
-  }
-
-  // Low-count VT detection with no corroboration
-  const vtResult = successful.find(r => r.providerId === 'virustotal');
-  if (vtResult && (vtResult.status === 'ok' || vtResult.status === 'cached')) {
-    const malicious = vtResult.data.malicious as number | undefined;
-    const harmless = vtResult.data.harmless as number | undefined;
-    const undetected = vtResult.data.undetected as number | undefined;
-    const suspicious = vtResult.data.suspicious as number | undefined;
-    const total = (malicious ?? 0) + (harmless ?? 0) + (undetected ?? 0) + (suspicious ?? 0);
-    if (malicious && malicious <= 2 && total > 10) {
-      const otherHighResults = highSeverity.filter(r => r.providerId !== 'virustotal');
-      if (otherHighResults.length === 0) {
-        flags.push({
-          type: 'LOW_DETECTION_NO_CORROBORATION',
-          message: `VirusTotal shows only ${malicious}/${total} engine detections with no corroboration from other sources.`,
-          sources: ['virustotal'],
-          recommendation: 'Low-count VT detections without corroboration are often false positives. Consider sandbox analysis or additional context before acting.',
-        });
-      }
-    }
-  }
-
-  // Newly registered domain with no detections
-  const whoisResult = successful.find(r => r.providerId === 'whois');
-  if (whoisResult && (whoisResult.status === 'ok' || whoisResult.status === 'cached')) {
-    const age = whoisResult.data.domainAge;
-    if (typeof age === 'number' && age >= 0 && age <= 14) {
-      const anyThreat = activeSources.some(r =>
-        r.severity === 'high' || r.severity === 'critical' || r.severity === 'medium');
-      if (!anyThreat) {
-        flags.push({
-          type: 'NEWLY_REGISTERED_UNDETECTED',
-          message: `Domain is only ${age} day(s) old but has no detections from checked sources.`,
-          sources: ['whois'],
-          recommendation: 'Newly registered domains with no detections are not confirmed benign. Absence of detection is not proof of safety for new domains — monitor closely.',
-        });
-      }
-    }
-
-    // DOMAIN_AGE_ARCHIVE_MISMATCH: WHOIS says old domain but Wayback has no or very recent archive
-    const waybackResult = successful.find(r => r.providerId === 'wayback');
-    if (
-      waybackResult && (waybackResult.status === 'ok' || waybackResult.status === 'cached') &&
-      typeof age === 'number' && age > 365
-    ) {
-      const firstArchivedFact = waybackResult.keyFacts?.find(f => f.label === 'First archived');
-      if (!firstArchivedFact) {
-        flags.push({
-          type: 'DOMAIN_AGE_ARCHIVE_MISMATCH',
-          message: `WHOIS shows domain age of ${age} days, but Wayback Machine has no archived snapshots for this domain.`,
-          sources: ['whois', 'wayback'],
-          recommendation: 'This may indicate a recently re-registered or re-purposed domain. The domain may have dropped and been re-registered, or never had a web presence. Treat as higher risk.',
-        });
-      } else {
-        // Check if first archive is much more recent than WHOIS registration
-        const firstDate = new Date(firstArchivedFact.value.split(' ')[0] ?? firstArchivedFact.value);
-        const archiveDaysAgo = Math.floor((Date.now() - firstDate.getTime()) / 86_400_000);
-        if (!isNaN(archiveDaysAgo) && age > 365 && archiveDaysAgo < 90) {
-          flags.push({
-            type: 'DOMAIN_AGE_ARCHIVE_MISMATCH',
-            message: `WHOIS shows domain age of ${age} days, but Wayback Machine first snapshot is only ${archiveDaysAgo} day(s) ago. The domain may have been re-registered or repurposed.`,
-            sources: ['whois', 'wayback'],
-            recommendation: 'Domain re-registration is a common technique to abuse the reputation of expired domains. Check historical WHOIS records and compare with current content.',
-          });
-        }
-      }
-    }
-  }
-
-  return flags;
-}
-
-const VPN_ORG_KEYWORDS = [
-  'mullvad', 'nordvpn', 'expressvpn', 'protonvpn', 'cyberghost', 'hidemyass',
-  'ipvanish', 'surfshark', 'windscribe', 'privateinternetaccess', 'purevpn',
-  'tunnelbear', 'astrill', 'ivpn', 'azirevpn', 'ovpn.com', 'airvpn',
-  'anonymizer', 'anonymous proxy',
-];
-
-interface VpnTorFlags {
-  isTor: boolean;
-  isVpn: boolean;
-  signals: string[];
-}
-
-function detectVpnOrTor(results: EnrichmentResult[]): VpnTorFlags {
-  const successful = results.filter(r => r.status === 'ok' || r.status === 'cached');
-  const signals: string[] = [];
-  let isTor = false;
-  let isVpn = false;
-
-  for (const r of successful) {
-    // TOR: authoritative signal from the torproject adapter
-    if (r.providerId === 'torproject' && r.data.isTorNode === true) {
-      isTor = true;
-      const role = r.data.isExitNode ? 'exit node' : 'relay';
-      signals.push(`Tor Project: confirmed TOR ${role}`);
-    }
-
-    // VPN: check org/ISP/name fields and usage type across all providers
-    const fields = [
-      typeof r.data.isp === 'string' ? r.data.isp : '',
-      typeof r.data.name === 'string' ? r.data.name : '',
-      typeof r.data.asName === 'string' ? r.data.asName : '',
-      typeof r.data.org === 'string' ? r.data.org : '',
-      typeof r.data.usageType === 'string' ? r.data.usageType : '',
-    ].join(' ').toLowerCase();
-
-    // "vpn" in org/ISP name is nearly always a commercial VPN provider
-    if (fields.includes('vpn')) {
-      isVpn = true;
-      signals.push(`${r.providerName}: org/ISP name contains "vpn"`);
-    }
-    // Check well-known VPN provider names
-    for (const kw of VPN_ORG_KEYWORDS) {
-      if (fields.includes(kw)) {
-        isVpn = true;
-        if (!signals.some(s => s.startsWith(r.providerName))) {
-          signals.push(`${r.providerName}: identified as ${kw}`);
-        }
-        break;
-      }
-    }
-    // AbuseIPDB usageType explicitly set to VPN or anonymizer
-    if (typeof r.data.usageType === 'string') {
-      const ut = r.data.usageType.toLowerCase();
-      if (ut.includes('vpn') || ut.includes('anonymiz') || ut.includes('proxy')) {
-        isVpn = true;
-        signals.push(`${r.providerName}: usage type "${r.data.usageType}"`);
-      }
-    }
-  }
-
-  return { isTor, isVpn, signals };
-}
-
-function computeOverallAssessment(results: EnrichmentResult[], vpnTor?: VpnTorFlags): OverallAssessment {
-  const successful = results.filter(r => r.status === 'ok' || r.status === 'cached');
-  // Only active (non-passive) sources contribute to severity
-  const activeSources = successful.filter(r => !PASSIVE_PROVIDERS.has(r.providerId));
-
-  const severityCounts: Record<Severity, number> = {
-    critical: 0, high: 0, medium: 0, low: 0, benign: 0, unknown: 0,
-  };
-  for (const r of activeSources) {
-    severityCounts[r.severity] = (severityCounts[r.severity] ?? 0) + 1;
-  }
-
-  let severity: Severity;
-  const recommendedActions: string[] = [];
-
-  if (severityCounts.critical > 0) {
-    severity = 'critical';
-    recommendedActions.push('Immediately isolate affected systems.');
-    recommendedActions.push('Escalate to Tier 2/3 or incident response.');
-    recommendedActions.push('Block IOC across all controls (firewall, proxy, EDR).');
-    recommendedActions.push('Initiate incident response procedure.');
-  } else if (severityCounts.high >= 2 || (severityCounts.high >= 1 && severityCounts.medium >= 1)) {
-    severity = 'high';
-    recommendedActions.push('Block IOC at firewall and proxy.');
-    recommendedActions.push('Search for related IOCs across environment.');
-    recommendedActions.push('Escalate to senior analyst for review.');
-  } else if (severityCounts.high >= 1) {
-    severity = 'high';
-    recommendedActions.push('Block IOC at perimeter controls.');
-    recommendedActions.push('Investigate correlated events in SIEM.');
-  } else if (severityCounts.medium >= 1) {
-    severity = 'medium';
-    recommendedActions.push('Monitor for additional activity from this IOC.');
-    recommendedActions.push('Consider adding to watchlist.');
-  } else if (severityCounts.low > 0) {
-    severity = 'low';
-    recommendedActions.push('Log and monitor. No immediate action required.');
-  } else if (severityCounts.benign > 0 && severityCounts.unknown === 0) {
-    severity = 'benign';
-    recommendedActions.push('No action required. Document findings.');
-  } else {
-    severity = 'unknown';
-    recommendedActions.push('Insufficient data. Consider manual investigation.');
-    recommendedActions.push('Check if additional API keys can be configured.');
-  }
-
-  // Confidence based on data quality: how many active sources returned data
-  const activeDataCount = activeSources.length;
-  const allHistorical = activeSources.every(r =>
-    r.freshnessLabel === 'historical' || r.freshnessLabel === 'unknown');
-
-  let confidence: Confidence;
-  if (activeDataCount >= 3 && !allHistorical) {
-    confidence = 'high';
-  } else if (activeDataCount >= 1) {
-    confidence = allHistorical ? 'low' : 'medium';
-  } else {
-    confidence = 'low';
-  }
-
-  // Elevate severity for VPN/TOR: these are active obfuscation tools — never leave as benign/unknown.
-  if (vpnTor?.isTor && (severity === 'benign' || severity === 'unknown' || severity === 'low')) {
-    severity = 'medium';
-    recommendedActions.unshift('Investigate all activity originating from this TOR node — high anonymity risk.');
-  } else if (vpnTor?.isVpn && (severity === 'benign' || severity === 'unknown')) {
-    severity = 'low';
-    recommendedActions.unshift('Note: IP belongs to a commercial VPN provider — identity obfuscation should be considered in context.');
-  }
-
-  const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1);
-  const summary = successful.length === 0
-    ? 'No enrichment providers returned data. Check API key configuration.'
-    : `Aggregated assessment from ${successful.length} provider(s): ${severityLabel} severity, ${confidence} confidence.`;
-
-  return { severity, confidence, summary, recommendedActions };
-}
 
 async function runAdapter(
   providerId: string,
@@ -302,12 +69,14 @@ async function runAdapter(
     if (cached) return cached;
   }
 
-  if (isRateLimited(providerId)) {
+  // Waits briefly for a free slot; gives up if the provider is paused or saturated
+  const retryInMs = await acquire(providerId);
+  if (retryInMs > 0) {
     return {
       providerId,
       providerName: providerId,
       status: 'rate_limited',
-      summary: `${providerId} is currently rate-limited. Try again later.`,
+      summary: `${providerId} is rate-limited. Try again in ${Math.ceil(retryInMs / 1000)} s.`,
       severity: 'unknown',
       confidence: 'unknown',
       data: {},
@@ -318,9 +87,10 @@ async function runAdapter(
   }
 
   try {
-    recordRequest(providerId);
     const result = await adapter(ioc, options);
-    if (result.status === 'ok' || result.status === 'missing_key') {
+    // Only real data is cached; a missing key costs nothing to re-check and must
+    // stop applying as soon as the key is added
+    if (result.status === 'ok') {
       const ttl = getProviderTtl(providerId, config.cacheTtlMinutes);
       cache.set(cacheKey, result, ttl);
     }
@@ -453,50 +223,78 @@ ${whoisSection}
 ${contradictionSection}`;
 }
 
-router.post('/analyse', async (req: Request, res: Response): Promise<void> => {
-  const body = req.body as {
+type AnalyseResponse = EnrichmentResponse & {
+  narrative: string | null;
+  narrativeError?: string;
+  ollamaModel: string;
+  ollamaAvailable: boolean;
+  analysedAt: string;
+  contradictions: ContradictionFlag[];
+  citationRetried: boolean;
+};
+
+interface AnalyseParams {
+  ioc: IocInput;
+  workflowId?: string;
+  ollamaModel: string;
+  enrichOptions: EnrichOptions;
+  providerList: string[];
+}
+
+/** Events emitted while an analysis runs (sent as SSE by /analyse/stream). */
+export type AnalyseEvent =
+  | { event: 'start'; data: { ioc: IocInput; providers: string[] } }
+  | { event: 'provider'; data: EnrichmentResult }
+  | { event: 'assessment'; data: { results: EnrichmentResult[]; overall: OverallAssessment; contradictions: ContradictionFlag[] } }
+  | { event: 'done'; data: AnalyseResponse };
+
+function parseAnalyseRequest(raw: unknown): AnalyseParams | { error: string } {
+  const body = raw as {
     ioc?: Partial<IocInput>;
     workflowId?: string;
     options?: { ollamaModel?: string; forceRefresh?: boolean; includeHunter?: boolean };
   };
 
-  if (!body.ioc?.normalised || !body.ioc.type) {
-    res.status(400).json({ error: 'ioc.normalised and ioc.type are required.' });
-    return;
-  }
-
-  if (!VALID_IOC_TYPES.includes(body.ioc.type as IocType)) {
-    res.status(400).json({ error: `Invalid IOC type: ${body.ioc.type}` });
-    return;
-  }
+  if (!body?.ioc?.normalised || !body.ioc.type) return { error: 'ioc.normalised and ioc.type are required.' };
+  if (!VALID_IOC_TYPES.includes(body.ioc.type as IocType)) return { error: `Invalid IOC type: ${body.ioc.type}` };
 
   const ioc: IocInput = {
     original: body.ioc.original ?? body.ioc.normalised,
     normalised: body.ioc.normalised,
     type: body.ioc.type as IocType,
   };
-
-  const workflowId = body.workflowId;
-  const ollamaModel = body.options?.ollamaModel ?? DEFAULT_OLLAMA_MODEL;
-  const forceRefresh = body.options?.forceRefresh ?? false;
   const includeHunter = body.options?.includeHunter ?? false;
-
-  const enrichOptions: EnrichOptions = {
-    forceRefresh,
-    allowSensitiveUrl: false,
-    allowUrlSubmission: false,
-    includeRaw: false,
-    includeHunter,
-  };
 
   let providerList = ANALYSE_PROVIDERS[ioc.type] ?? [];
   if (includeHunter && (ioc.type === 'domain' || ioc.type === 'url' || ioc.type === 'email') && !providerList.includes('hunter')) {
     providerList = [...providerList, 'hunter'];
   }
 
+  return {
+    ioc,
+    workflowId: body.workflowId,
+    ollamaModel: body.options?.ollamaModel ?? DEFAULT_OLLAMA_MODEL,
+    providerList,
+    enrichOptions: {
+      forceRefresh: body.options?.forceRefresh ?? false,
+      allowSensitiveUrl: false,
+      allowUrlSubmission: false,
+      includeRaw: false,
+      includeHunter,
+    },
+  };
+}
+
+async function runAnalysis(params: AnalyseParams, emit: (e: AnalyseEvent) => void = () => {}): Promise<AnalyseResponse> {
+  const { ioc, workflowId, ollamaModel, enrichOptions, providerList } = params;
+  emit({ event: 'start', data: { ioc, providers: providerList } });
+
   const [resolvedModelResult, ...enrichSettled] = await Promise.allSettled([
     resolveOllamaModel(ollamaModel),
-    ...providerList.map(p => runAdapter(p, ioc, enrichOptions)),
+    ...providerList.map(p => runAdapter(p, ioc, enrichOptions).then(r => {
+      emit({ event: 'provider', data: r });
+      return r;
+    })),
   ]);
 
   const results: EnrichmentResult[] = enrichSettled.map((s, i) => {
@@ -522,6 +320,7 @@ router.post('/analyse', async (req: Request, res: Response): Promise<void> => {
   const contradictions = detectContradictions(results);
   const vpnTor = detectVpnOrTor(results);
   const overall = computeOverallAssessment(results, vpnTor);
+  emit({ event: 'assessment', data: { results, overall, contradictions } });
 
   let narrative: string | null = null;
   let narrativeError: string | undefined;
@@ -557,30 +356,61 @@ router.post('/analyse', async (req: Request, res: Response): Promise<void> => {
     narrativeError = 'Ollama is not running or the model is not available. Start Ollama and ensure qwen2.5 is pulled.';
   }
 
-  const effectiveModel = resolvedModel ?? ollamaModel;
-
-  const response: EnrichmentResponse & {
-    narrative: string | null;
-    narrativeError?: string;
-    ollamaModel: string;
-    ollamaAvailable: boolean;
-    analysedAt: string;
-    contradictions: ContradictionFlag[];
-    citationRetried: boolean;
-  } = {
+  const response: AnalyseResponse = {
     ioc,
     results,
     overall,
     narrative,
     narrativeError,
-    ollamaModel: effectiveModel,
+    ollamaModel: resolvedModel ?? ollamaModel,
     ollamaAvailable: resolvedModel !== null,
     analysedAt: new Date().toISOString(),
     contradictions,
     citationRetried,
   };
+  emit({ event: 'done', data: response });
+  return response;
+}
 
-  res.json(response);
+router.post('/analyse', async (req: Request, res: Response): Promise<void> => {
+  const params = parseAnalyseRequest(req.body);
+  if ('error' in params) {
+    res.status(400).json({ error: params.error });
+    return;
+  }
+  res.json(await runAnalysis(params));
+});
+
+/**
+ * Same analysis as POST /analyse, streamed as server-sent events so the UI can show
+ * provider results and the verdict before the LLM narrative is ready.
+ */
+router.post('/analyse/stream', async (req: Request, res: Response): Promise<void> => {
+  const params = parseAnalyseRequest(req.body);
+  if ('error' in params) {
+    res.status(400).json({ error: params.error });
+    return;
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+
+  let open = true;
+  res.on('close', () => { open = false; });
+  const send = (e: AnalyseEvent | { event: 'error'; data: { error: string } }) => {
+    if (open) res.write(`event: ${e.event}\ndata: ${JSON.stringify(e.data)}\n\n`);
+  };
+
+  try {
+    await runAnalysis(params, send);
+  } catch (err) {
+    send({ event: 'error', data: { error: err instanceof Error ? err.message : 'Analysis failed.' } });
+  }
+  if (open) res.end();
 });
 
 export default router;

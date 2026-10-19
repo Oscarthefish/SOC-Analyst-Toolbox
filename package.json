@@ -11,9 +11,14 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "backend:install": "cd backend && npm install",
-    "backend:build": "cd backend && npm run build"
+    "backend:build": "cd backend && npm run build",
+    "test": "vitest run",
+    "backend:test": "cd backend && npm test",
+    "check": "npm run lint && tsc -b && npm test && cd backend && npm run typecheck && npm test"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
@@ -24,6 +29,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "axe-core": "^4.14.0",
     "concurrently": "^9.1.2",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -32,7 +38,8 @@
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^4.1.12"
   },
   "allowScripts": {
     "fsevents@2.3.3": true

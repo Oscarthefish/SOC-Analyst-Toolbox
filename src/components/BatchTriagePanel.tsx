@@ -1,113 +1,87 @@
-import { useState, useCallback, useRef } from 'react';
-import { detectIoc } from '../lib/detectIoc';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { runEnrichment } from '../lib/apiClient';
-import type { IocType } from '../types/ioc';
-import type { Severity, EnrichmentResult } from '../types/enrichment';
+import { parseBatchInput, topFinding, rowsToCsv, SEVERITY_ORDER, BATCH_LIMIT } from '../lib/batch';
+import type { BatchRow } from '../lib/batch';
+import { downloadText } from '../lib/cases';
+import type { Severity } from '../types/enrichment';
 
 interface BatchTriagePanelProps {
   onInvestigate: (ioc: string) => void;
 }
 
-type RowStatus = 'pending' | 'running' | 'done' | 'error' | 'skipped';
-
-interface BatchRow {
-  id: string;
-  raw: string;
-  normalised: string;
-  type: IocType | 'unknown';
-  status: RowStatus;
-  severity?: Severity;
-  confidence?: string;
-  topFinding?: string;
-  errorMsg?: string;
-}
+const CONCURRENCY = 5;
 
 const TYPE_LABELS: Record<string, string> = {
-  ipv4: 'IPv4', ipv6: 'IPv6', domain: 'Domain', url: 'URL',
-  md5: 'MD5', sha1: 'SHA-1', sha256: 'SHA-256', email: 'Email',
-  asn: 'ASN', cidr: 'CIDR', cve: 'CVE', unknown: '?',
+  ipv4: 'IPv4', ipv6: 'IPv6', domain: 'Domain', url: 'URL', md5: 'MD5', sha1: 'SHA-1', sha256: 'SHA-256',
+  email: 'Email', asn: 'ASN', cidr: 'CIDR', cve: 'CVE', secret: 'Secret', unknown: '—',
 };
 
-const SEV_CLS: Record<Severity, string> = {
-  critical: 'bg-[#fef3f2] border-[#fecdca] text-[#b42318]',
-  high:     'bg-[#fef3f2] border-[#fecdca] text-[#b42318]',
-  medium:   'bg-[#fffaeb] border-[#fedf89] text-[#b54708]',
-  low:      'bg-[#eff8ff] border-[#b2ddff] text-[#175cd3]',
-  benign:   'bg-[#ecfdf3] border-[#abefc6] text-[#067647]',
-  unknown:  'bg-[#f2f4f7] border-[#e4e7ec] text-[#667085]',
+const SEV: Record<Severity, { dot: string; text: string; label: string }> = {
+  critical: { dot: 'bg-danger', text: 'text-danger-fg', label: 'Critical' },
+  high:     { dot: 'bg-high',   text: 'text-high-fg',   label: 'High' },
+  medium:   { dot: 'bg-warn',   text: 'text-warn-fg',   label: 'Medium' },
+  low:      { dot: 'bg-accent', text: 'text-accent-fg', label: 'Low' },
+  benign:   { dot: 'bg-ok',     text: 'text-ok-fg',     label: 'Benign' },
+  unknown:  { dot: 'bg-fg-4',   text: 'text-fg-3',      label: 'Inconclusive' },
 };
 
-const SEVERITY_ORDER: Record<Severity, number> = {
-  critical: 0, high: 1, medium: 2, low: 3, benign: 4, unknown: 5,
-};
+type SortKey = 'severity' | 'indicator' | 'type' | 'sources';
 
-function extractTopFinding(results: EnrichmentResult[]): string {
-  const active = results
-    .filter(r => r.status === 'ok' || r.status === 'cached')
-    .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9));
-  const best = active[0];
-  if (!best) return 'No data returned.';
-  const kf = best.keyFacts?.[0];
-  if (kf) return `[${best.providerName}] ${kf.label}: ${kf.value}`;
-  const s = best.summary;
-  return s.length > 110 ? s.slice(0, 107) + '…' : s;
+/** Sort rank: finished rows by severity first, then in-flight, pending, failed, skipped. */
+function severityRank(r: BatchRow): number {
+  if (r.status === 'done' && r.severity) return SEVERITY_ORDER[r.severity];
+  return { running: 6, pending: 7, error: 8, skipped: 9, done: 5 }[r.status];
 }
 
-function parseInput(raw: string): BatchRow[] {
-  const lines = raw
-    .split(/[\n,]+/)
-    .map(l => l.trim())
-    .filter(Boolean);
-  const seen = new Set<string>();
-  const rows: BatchRow[] = [];
-  for (const line of lines.slice(0, 50)) {
-    const detected = detectIoc(line);
-    const key = detected.normalised || line;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    rows.push({
-      id: key,
-      raw: line,
-      normalised: detected.normalised || line,
-      type: detected.type,
-      status: detected.type === 'unknown' || detected.isEmailHeader ? 'skipped' : 'pending',
-    });
-  }
-  return rows;
+function SortableTh({ k, sort, onSort, children, className = '' }: {
+  k: SortKey;
+  sort: { key: SortKey; dir: 1 | -1 };
+  onSort: (k: SortKey) => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <th className={`font-normal px-3 py-2 ${className}`} aria-sort={sort.key === k ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
+      <button onClick={() => onSort(k)} className="inline-flex items-center gap-1 hover:text-fg-1">
+        {children}
+        <span className="text-[9px] w-2">{sort.key === k ? (sort.dir === 1 ? '▲' : '▼') : ''}</span>
+      </button>
+    </th>
+  );
 }
 
 export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
   const [input, setInput] = useState('');
   const [rows, setRows] = useState<BatchRow[]>([]);
   const [running, setRunning] = useState(false);
-  const abortRef = useRef(false);
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'severity', dir: 1 });
+  const [filter, setFilter] = useState<Severity | 'all'>('all');
+  const [stopped, setStopped] = useState(false);
+  const stopRef = useRef(false);
+
+  const preview = useMemo(() => parseBatchInput(input), [input]);
+  const runnable = preview.rows.filter(r => r.status === 'pending').length;
 
   const updateRow = useCallback((id: string, update: Partial<BatchRow>) => {
-    setRows(prev => prev.map(r => r.id === id ? { ...r, ...update } : r));
+    setRows(prev => prev.map(r => (r.id === id ? { ...r, ...update } : r)));
   }, []);
 
-  const handleParse = useCallback(() => {
-    if (!input.trim()) return;
-    setRows(parseInput(input));
-  }, [input]);
-
   const handleRun = useCallback(async () => {
-    if (running) return;
-    abortRef.current = false;
+    if (running || runnable === 0) return;
+    const parsed = preview.rows;
+    setRows(parsed);
+    stopRef.current = false;
+    setStopped(false);
     setRunning(true);
 
-    const pending = rows.filter(r => r.status === 'pending');
-    const CONCURRENCY = 5;
-    let idx = 0;
-
+    const queue = parsed.filter(r => r.status === 'pending');
+    let next = 0;
     async function worker() {
-      while (idx < pending.length && !abortRef.current) {
-        const row = pending[idx++]!;
+      while (next < queue.length && !stopRef.current) {
+        const row = queue[next++]!;
         updateRow(row.id, { status: 'running' });
         try {
-          const result = await runEnrichment({
-            ioc: { original: row.raw, normalised: row.normalised, type: row.type as IocType },
-          });
+          const result = await runEnrichment({ ioc: { original: row.raw, normalised: row.normalised, type: row.type } });
           if (!result) {
             updateRow(row.id, { status: 'error', errorMsg: 'Backend unreachable' });
           } else {
@@ -115,176 +89,181 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
               status: 'done',
               severity: result.overall.severity,
               confidence: result.overall.confidence,
-              topFinding: extractTopFinding(result.results),
+              sources: {
+                withData: result.results.filter(r => r.status === 'ok' || r.status === 'cached').length,
+                total: result.results.length,
+              },
+              topFinding: topFinding(result.results),
             });
           }
         } catch (err) {
-          updateRow(row.id, {
-            status: 'error',
-            errorMsg: err instanceof Error ? err.message : 'Failed',
-          });
+          updateRow(row.id, { status: 'error', errorMsg: err instanceof Error ? err.message : 'Failed' });
         }
       }
     }
-
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pending.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
     setRunning(false);
-  }, [rows, running, updateRow]);
+  }, [running, runnable, preview, updateRow]);
 
-  const handleClear = useCallback(() => {
-    setInput(''); setRows([]); abortRef.current = true;
-  }, []);
+  const handleStop = () => { stopRef.current = true; setStopped(true); };
+  const handleClear = () => { stopRef.current = true; setInput(''); setRows([]); setFilter('all'); };
 
-  const done = rows.filter(r => r.status === 'done' || r.status === 'error').length;
+  const finished = rows.filter(r => r.status === 'done' || r.status === 'error').length;
   const total = rows.filter(r => r.status !== 'skipped').length;
+  const counts = useMemo(() => {
+    const c: Partial<Record<Severity, number>> = {};
+    for (const r of rows) if (r.status === 'done' && r.severity) c[r.severity] = (c[r.severity] ?? 0) + 1;
+    return c;
+  }, [rows]);
+
+  const visible = useMemo(() => {
+    const list = filter === 'all' ? rows : rows.filter(r => r.status === 'done' && r.severity === filter);
+    const cmp = (a: BatchRow, b: BatchRow): number => {
+      switch (sort.key) {
+        case 'severity': return severityRank(a) - severityRank(b);
+        case 'indicator': return a.normalised.localeCompare(b.normalised);
+        case 'type': return a.type.localeCompare(b.type);
+        case 'sources': return (b.sources?.withData ?? -1) - (a.sources?.withData ?? -1);
+      }
+    };
+    return [...list].sort((a, b) => cmp(a, b) * sort.dir || a.normalised.localeCompare(b.normalised));
+  }, [rows, filter, sort]);
+
+  const toggleSort = (key: SortKey) =>
+    setSort(s => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: 1 }));
 
   return (
     <div className="space-y-4">
-      <div className="wb-card p-5 space-y-4">
-        <div>
-          <p className="wb-label mb-1">Batch IOC Triage</p>
-          <p className="text-xs text-[#98a2b3]">Paste up to 50 IOCs — one per line or comma-separated. Mixed types supported.</p>
+      <div className="wb-card p-4 space-y-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <label htmlFor="batch-input" className="wb-label">Indicators</label>
+          <span className="text-[11px] text-fg-4">One per line or comma-separated · up to {BATCH_LIMIT} · defanged input is fine</span>
         </div>
-
         <textarea
+          id="batch-input"
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleRun(); }}
-          placeholder={'185.220.101.42\nevil-phishing.com\ne3b0c44298fc1c149afbf4c8996fb924...\nCVE-2024-1234'}
-          className="w-full h-32 px-3 py-2.5 text-xs font-mono rounded-lg border border-[#e4e7ec] bg-[#fafbfc] placeholder-[#d0d5dd] text-[#101828] resize-none focus:outline-none focus:border-[#84caff] focus:bg-white transition-colors"
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void handleRun(); } }}
+          placeholder={'185.220.101.42\nevil-phishing[.]com\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nCVE-2024-3400'}
+          className="w-full h-32 px-3 py-2.5 text-[13px] font-mono rounded-md border border-line-strong bg-surface text-fg-1 resize-y focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/15"
           disabled={running}
+          spellCheck={false}
         />
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={handleParse}
-            disabled={!input.trim() || running}
-            className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-[#e4e7ec] bg-white text-[#344054] hover:bg-[#f9fafb] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Parse IOCs
-          </button>
-          <button
-            onClick={() => void handleRun()}
-            disabled={running || rows.filter(r => r.status === 'pending').length === 0}
-            className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#1570ef] text-white hover:bg-[#175cd3] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {running ? `Running… ${done}/${total}` : `Run Triage (${rows.filter(r => r.status === 'pending').length})`}
-          </button>
-          {rows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {running ? (
+            <button onClick={handleStop} className="h-8 px-3.5 text-xs font-semibold rounded-md border border-line-strong bg-surface text-fg-1 hover:border-danger-line hover:text-danger-fg">
+              Stop
+            </button>
+          ) : (
             <button
-              onClick={handleClear}
-              className="px-3 py-2 text-xs font-medium rounded-lg border border-[#e4e7ec] bg-white text-[#667085] hover:text-[#344054] transition-colors"
+              onClick={() => void handleRun()}
+              disabled={runnable === 0}
+              className="h-8 px-3.5 text-xs font-semibold rounded-md bg-accent text-white hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Clear
+              {runnable === 0 ? 'Run triage' : `Triage ${runnable} indicator${runnable === 1 ? '' : 's'}`}
             </button>
           )}
-          {running && (
-            <div className="flex items-center gap-1.5 text-xs text-[#667085]">
-              <div className="w-3 h-3 rounded-full border-2 border-[#e4e7ec] border-t-[#1570ef] animate-spin" />
-              {total - done} remaining
-            </div>
+          {(rows.length > 0 || input) && !running && (
+            <button onClick={handleClear} className="h-8 px-3 text-xs rounded-md text-fg-3 hover:text-fg-1">Clear</button>
           )}
+          <span className="text-xs text-fg-4">
+            {running
+              ? `${finished} of ${total} done · ${CONCURRENCY} at a time`
+              : input && `${preview.rows.length} found${preview.rows.length - runnable > 0 ? ` · ${preview.rows.length - runnable} not recognised` : ''}${preview.truncated ? ` · ${preview.truncated} over the limit ignored` : ''}`}
+          </span>
+          <span className="ml-auto text-[11px] text-fg-4 hidden sm:inline"><span className="kbd">⌘</span> <span className="kbd">↵</span> to run</span>
         </div>
       </div>
 
       {rows.length > 0 && (
         <div className="wb-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-[#f2f4f7] flex items-center justify-between">
-            <p className="wb-label">
-              Results
-              <span className="ml-2 font-normal text-[#98a2b3]">
-                {rows.length} IOC{rows.length !== 1 ? 's' : ''}
-                {rows.some(r => r.status === 'skipped') ? ` · ${rows.filter(r => r.status === 'skipped').length} skipped (unknown type)` : ''}
-              </span>
-            </p>
-            {!running && done > 0 && (
-              <div className="flex gap-3 text-xs text-[#667085]">
-                {(['critical', 'high', 'medium'] as Severity[]).map(s => {
-                  const n = rows.filter(r => r.severity === s).length;
-                  return n > 0 ? (
-                    <span key={s} className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${SEV_CLS[s]}`}>
-                      {n} {s}
-                    </span>
-                  ) : null;
-                })}
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-line">
+            <div role="tablist" className="flex flex-wrap gap-1">
+              <button role="tab" aria-selected={filter === 'all'} onClick={() => setFilter('all')}
+                className={`h-7 px-2.5 rounded-md text-xs ${filter === 'all' ? 'bg-raised text-fg-1 font-medium' : 'text-fg-3 hover:text-fg-1'}`}>
+                All {rows.length}
+              </button>
+              {(Object.keys(SEV) as Severity[]).filter(s => counts[s]).map(s => (
+                <button key={s} role="tab" aria-selected={filter === s} onClick={() => setFilter(s)}
+                  className={`h-7 px-2.5 rounded-md text-xs inline-flex items-center gap-1.5 ${filter === s ? 'bg-raised text-fg-1 font-medium' : 'text-fg-3 hover:text-fg-1'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${SEV[s].dot}`} />{SEV[s].label} {counts[s]}
+                </button>
+              ))}
+            </div>
+            {running && (
+              <div className="flex-1 min-w-[120px] max-w-[240px] h-1 rounded-full bg-raised overflow-hidden" aria-label="Progress">
+                <div className="h-full bg-accent transition-all" style={{ width: `${total ? (finished / total) * 100 : 0}%` }} />
               </div>
             )}
+            <button
+              onClick={() => downloadText(`batch-triage-${new Date().toISOString().slice(0, 10)}.csv`, rowsToCsv(visible), 'text/csv')}
+              disabled={finished === 0}
+              className="ml-auto h-8 px-2.5 text-xs font-medium rounded-md border border-line bg-surface text-fg-2 hover:border-line-strong disabled:opacity-40"
+            >
+              Export CSV
+            </button>
           </div>
 
-          <div className="divide-y divide-[#f2f4f7]">
-            {rows.map(row => (
-              <div
-                key={row.id}
-                className={`flex items-start gap-3 px-5 py-3 transition-colors ${
-                  row.status === 'running' ? 'bg-[#f9fafb]' : ''
-                } ${row.status === 'skipped' ? 'opacity-40' : ''}`}
-              >
-                {/* Status indicator */}
-                <div className="mt-0.5 shrink-0">
-                  {row.status === 'running' && (
-                    <div className="w-3.5 h-3.5 rounded-full border-2 border-[#e4e7ec] border-t-[#1570ef] animate-spin" />
-                  )}
-                  {row.status === 'pending' && (
-                    <div className="w-3.5 h-3.5 rounded-full border border-[#d0d5dd] bg-white" />
-                  )}
-                  {row.status === 'done' && row.severity && (
-                    <div className={`w-3.5 h-3.5 rounded-full border ${
-                      row.severity === 'critical' || row.severity === 'high' ? 'bg-[#d92d20] border-[#d92d20]'
-                      : row.severity === 'medium' ? 'bg-[#dc6803] border-[#dc6803]'
-                      : row.severity === 'low' ? 'bg-[#1570ef] border-[#1570ef]'
-                      : row.severity === 'benign' ? 'bg-[#079455] border-[#079455]'
-                      : 'bg-[#98a2b3] border-[#98a2b3]'
-                    }`} />
-                  )}
-                  {row.status === 'error' && (
-                    <div className="w-3.5 h-3.5 rounded-full bg-[#d92d20] border-[#d92d20]" />
-                  )}
-                  {row.status === 'skipped' && (
-                    <div className="w-3.5 h-3.5 rounded-full border border-[#d0d5dd] bg-[#f2f4f7]" />
-                  )}
-                </div>
-
-                {/* IOC value */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <code className="text-[12px] font-mono text-[#101828] break-all leading-snug">
-                      {row.normalised.length > 60 ? row.normalised.slice(0, 57) + '…' : row.normalised}
-                    </code>
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#f2f4f7] text-[#667085] shrink-0">
-                      {TYPE_LABELS[row.type] ?? row.type.toUpperCase()}
-                    </span>
-                    {row.status === 'done' && row.severity && (
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${SEV_CLS[row.severity]} shrink-0`}>
-                        {row.severity}
-                      </span>
-                    )}
-                  </div>
-                  {row.topFinding && (
-                    <p className="text-[11px] text-[#475467] mt-0.5 leading-snug">{row.topFinding}</p>
-                  )}
-                  {row.errorMsg && (
-                    <p className="text-[11px] text-[#b42318] mt-0.5">{row.errorMsg}</p>
-                  )}
-                  {row.status === 'skipped' && (
-                    <p className="text-[11px] text-[#98a2b3] mt-0.5">Type not recognised — skipped</p>
-                  )}
-                </div>
-
-                {/* Pivot button */}
-                {(row.status === 'done' || row.status === 'pending') && row.type !== 'unknown' && (
-                  <button
-                    onClick={() => onInvestigate(row.normalised)}
-                    className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#e4e7ec] bg-white text-[#475467] text-xs font-medium hover:border-[#b2ddff] hover:text-[#1570ef] transition-colors"
-                    title="Open in Single IOC tab"
-                  >
-                    Triage
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[13px]">
+              <thead>
+                <tr className="text-[11px] text-fg-4 border-b border-line bg-inset">
+                  <SortableTh k="severity" sort={sort} onSort={toggleSort} className="sticky left-0 bg-inset w-[130px]">Severity</SortableTh>
+                  <SortableTh k="indicator" sort={sort} onSort={toggleSort}>Indicator</SortableTh>
+                  <SortableTh k="type" sort={sort} onSort={toggleSort}>Type</SortableTh>
+                  <SortableTh k="sources" sort={sort} onSort={toggleSort}>Sources</SortableTh>
+                  <th className="font-normal px-3 py-2">Top finding</th>
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line-soft">
+                {visible.map(row => {
+                  const sev = row.severity ? SEV[row.severity] : null;
+                  return (
+                    <tr key={row.id} className={`group hover:bg-inset ${row.status === 'skipped' ? 'text-fg-4' : ''}`}>
+                      <td className="sticky left-0 bg-surface group-hover:bg-inset px-3 py-2 whitespace-nowrap">
+                        {row.status === 'done' && sev ? (
+                          <span className={`inline-flex items-center gap-2 font-medium ${sev.text}`}>
+                            <span className={`w-2 h-2 rounded-full ${sev.dot}`} />{sev.label}
+                          </span>
+                        ) : row.status === 'running' ? (
+                          <span className="inline-flex items-center gap-2 text-xs text-fg-3">
+                            <span className="w-3 h-3 rounded-full border-2 border-line border-t-accent animate-spin" />Running
+                          </span>
+                        ) : row.status === 'error' ? (
+                          <span className="text-xs text-danger-fg">Failed</span>
+                        ) : row.status === 'skipped' ? (
+                          <span className="text-xs">Not recognised</span>
+                        ) : (
+                          <span className="text-xs text-fg-4">{stopped && !running ? 'Not run' : 'Queued'}</span>
+                        )}
+                        {row.confidence && <p className="text-[11px] text-fg-4 pl-4">{row.confidence} conf.</p>}
+                      </td>
+                      <td className="px-3 py-2 max-w-[340px]">
+                        <code className="font-mono text-xs text-fg-1 break-all">{row.normalised}</code>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-fg-3 whitespace-nowrap">{TYPE_LABELS[row.type] ?? row.type}</td>
+                      <td className="px-3 py-2 text-xs text-fg-3 tabular-nums whitespace-nowrap">
+                        {row.sources ? `${row.sources.withData}/${row.sources.total}` : ''}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-fg-2 max-w-[420px]">
+                        <span className="line-clamp-2">{row.errorMsg ?? row.topFinding ?? ''}</span>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {row.status !== 'skipped' && (
+                          <button
+                            onClick={() => onInvestigate(row.normalised)}
+                            className="h-7 px-2 text-xs rounded-md border border-line bg-surface text-fg-2 hover:border-accent hover:text-accent-fg whitespace-nowrap"
+                          >
+                            Investigate
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

@@ -7,15 +7,15 @@ interface EnrichmentCardProps {
 
 function statusDot(status: EnrichmentStatus) {
   const map: Record<EnrichmentStatus, string> = {
-    ok:               'bg-[#079455]',
-    cached:           'bg-[#079455]',
-    missing_key:      'bg-[#98a2b3]',
-    unsupported_ioc:  'bg-[#98a2b3]',
-    rate_limited:     'bg-[#dc6803]',
-    error:            'bg-[#d92d20]',
-    skipped_safety:   'bg-[#dc6803]',
+    ok:               'bg-ok',
+    cached:           'bg-ok',
+    missing_key:      'bg-fg-4',
+    unsupported_ioc:  'bg-fg-4',
+    rate_limited:     'bg-warn',
+    error:            'bg-danger',
+    skipped_safety:   'bg-warn',
   };
-  return map[status] ?? 'bg-[#98a2b3]';
+  return map[status] ?? 'bg-fg-4';
 }
 
 function statusLabel(status: EnrichmentStatus) {
@@ -40,14 +40,14 @@ function CopyUrlButton({ url }: { url: string }) {
     <button
       onClick={handleCopy}
       title="Copy link"
-      className="text-[11px] text-[#667085] hover:text-[#344054] font-medium flex items-center gap-1 transition-colors"
+      className="text-[11px] text-fg-3 hover:text-fg-2 font-medium flex items-center gap-1 transition-colors"
     >
       {copied ? (
         <>
-          <svg className="w-3 h-3 text-[#079455]" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <svg className="w-3 h-3 text-ok-fg" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
-          <span className="text-[#079455]">Copied</span>
+          <span className="text-ok-fg">Copied</span>
         </>
       ) : (
         <>
@@ -64,12 +64,12 @@ function CopyUrlButton({ url }: { url: string }) {
 
 function SeverityChip({ severity }: { severity: Severity }) {
   const map: Record<Severity, { cls: string; label: string }> = {
-    benign:   { cls: 'bg-[#ecfdf3] border-[#abefc6] text-[#067647]', label: 'Benign' },
-    low:      { cls: 'bg-[#eff8ff] border-[#b2ddff] text-[#175cd3]', label: 'Low' },
-    medium:   { cls: 'bg-[#fffaeb] border-[#fedf89] text-[#b54708]', label: 'Medium' },
-    high:     { cls: 'bg-[#fef3f2] border-[#fecdca] text-[#b42318]', label: 'High' },
-    critical: { cls: 'bg-[#fef3f2] border-[#d92d20] text-[#b42318] font-bold', label: 'Critical' },
-    unknown:  { cls: 'bg-[#f2f4f7] border-[#e4e7ec] text-[#667085]', label: 'Unknown' },
+    benign:   { cls: 'bg-ok-bg border-ok-line text-ok-fg', label: 'Benign' },
+    low:      { cls: 'bg-accent-bg border-accent-line text-accent-fg', label: 'Low' },
+    medium:   { cls: 'bg-warn-bg border-warn-line text-warn-fg', label: 'Medium' },
+    high:     { cls: 'bg-danger-bg border-danger-line text-danger-fg', label: 'High' },
+    critical: { cls: 'bg-danger-bg border-danger text-danger-fg font-bold', label: 'Critical' },
+    unknown:  { cls: 'bg-raised border-line text-fg-3', label: 'Unknown' },
   };
   const s = map[severity] ?? map.unknown;
   return <span className={`text-[11px] px-2 py-0.5 rounded-md border font-semibold ${s.cls}`}>{s.label}</span>;
@@ -77,11 +77,11 @@ function SeverityChip({ severity }: { severity: Severity }) {
 
 function FreshnessBadge({ label }: { label: FreshnessLabel }) {
   const map: Record<FreshnessLabel, { cls: string; text: string }> = {
-    last24h:   { cls: 'bg-[#ecfdf3] border-[#abefc6] text-[#067647]', text: 'Active' },
-    last7d:    { cls: 'bg-[#eff8ff] border-[#b2ddff] text-[#175cd3]', text: '7d' },
-    last30d:   { cls: 'bg-[#f2f4f7] border-[#e4e7ec] text-[#475467]', text: '30d' },
-    historical:{ cls: 'bg-[#fffaeb] border-[#fedf89] text-[#b54708]', text: 'Historical' },
-    unknown:   { cls: 'bg-[#f2f4f7] border-[#e4e7ec] text-[#98a2b3]', text: '?' },
+    last24h:   { cls: 'bg-ok-bg border-ok-line text-ok-fg', text: 'Active' },
+    last7d:    { cls: 'bg-accent-bg border-accent-line text-accent-fg', text: '7d' },
+    last30d:   { cls: 'bg-raised border-line text-fg-2', text: '30d' },
+    historical:{ cls: 'bg-warn-bg border-warn-line text-warn-fg', text: 'Historical' },
+    unknown:   { cls: 'bg-raised border-line text-fg-4', text: '?' },
   };
   const s = map[label] ?? map.unknown;
   return (
@@ -91,11 +91,11 @@ function FreshnessBadge({ label }: { label: FreshnessLabel }) {
 
 function TierBadge({ tier }: { tier: SourceTier }) {
   const map: Record<SourceTier, { cls: string; text: string }> = {
-    'authoritative':  { cls: 'bg-[#eff8ff] border-[#b2ddff] text-[#175cd3]', text: 'Auth' },
-    'commercial-ti':  { cls: 'bg-[#f4f3ff] border-[#d9d6fe] text-[#5925dc]', text: 'TI' },
-    'community':      { cls: 'bg-[#f2f4f7] border-[#e4e7ec] text-[#475467]', text: 'Rep' },
-    'reputation':     { cls: 'bg-[#f2f4f7] border-[#e4e7ec] text-[#475467]', text: 'Rep' },
-    'passive-infra':  { cls: 'bg-[#fafbfc] border-[#f2f4f7] text-[#98a2b3]', text: 'Infra' },
+    'authoritative':  { cls: 'bg-accent-bg border-accent-line text-accent-fg', text: 'Auth' },
+    'commercial-ti':  { cls: 'bg-violet-bg border-violet-line text-violet-fg', text: 'TI' },
+    'community':      { cls: 'bg-raised border-line text-fg-2', text: 'Rep' },
+    'reputation':     { cls: 'bg-raised border-line text-fg-2', text: 'Rep' },
+    'passive-infra':  { cls: 'bg-inset border-line-soft text-fg-4', text: 'Infra' },
   };
   const s = map[tier] ?? map['community'];
   return (
@@ -109,11 +109,11 @@ function KeyFactsTable({ facts }: { facts: { label: string; value: string; times
     <table className="w-full text-xs mt-2">
       <tbody>
         {facts.map((f, i) => (
-          <tr key={i} className="border-t border-[#f2f4f7]">
-            <td className="py-1 pr-3 text-[#98a2b3] font-medium whitespace-nowrap align-top w-1/3">{f.label}</td>
-            <td className="py-1 text-[#344054] break-all">
+          <tr key={i} className="border-t border-line-soft">
+            <td className="py-1 pr-3 text-fg-4 font-medium whitespace-nowrap align-top w-1/3">{f.label}</td>
+            <td className="py-1 text-fg-2 break-all">
               {f.value}
-              {f.timestamp && <span className="text-[#98a2b3] ml-1 font-mono text-[10px]">({f.timestamp.split('T')[0]})</span>}
+              {f.timestamp && <span className="text-fg-4 ml-1 font-mono text-[10px]">({f.timestamp.split('T')[0]})</span>}
             </td>
           </tr>
         ))}
@@ -129,9 +129,9 @@ function DataTable({ data }: { data: Record<string, unknown> }) {
     <table className="w-full text-xs mt-2">
       <tbody>
         {entries.map(([key, value]) => (
-          <tr key={key} className="border-t border-[#f2f4f7]">
-            <td className="py-1 pr-3 text-[#98a2b3] font-mono whitespace-nowrap align-top w-1/3">{key}</td>
-            <td className="py-1 text-[#344054] break-all">
+          <tr key={key} className="border-t border-line-soft">
+            <td className="py-1 pr-3 text-fg-4 font-mono whitespace-nowrap align-top w-1/3">{key}</td>
+            <td className="py-1 text-fg-2 break-all">
               {Array.isArray(value) ? (value as unknown[]).join(', ') : String(value)}
             </td>
           </tr>
@@ -147,13 +147,13 @@ export function EnrichmentCard({ result }: EnrichmentCardProps) {
   const hasData = result.status === 'ok' || result.status === 'cached';
 
   return (
-    <div className={`border rounded-[10px] overflow-hidden ${hasData ? 'border-[#e4e7ec] bg-white' : 'border-[#f2f4f7] bg-[#fafbfc] opacity-60'}`}>
+    <div className={`border rounded-lg overflow-hidden ${hasData ? 'border-line bg-surface' : 'border-line-soft bg-inset'}`}>
       <button
         onClick={() => hasData && setExpanded(v => !v)}
-        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left ${hasData ? 'hover:bg-[#f9fafb]' : 'cursor-default'} transition-colors`}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left ${hasData ? 'hover:bg-inset' : 'cursor-default'} transition-colors`}
       >
         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(result.status)}`} />
-        <span className="text-[13px] font-semibold text-[#344054] flex-1 min-w-0 truncate">{result.providerName}</span>
+        <span className="text-[13px] font-semibold text-fg-2 flex-1 min-w-0 truncate">{result.providerName}</span>
 
         <div className="flex items-center gap-1.5 shrink-0">
           {hasData && result.sourceReliability && <TierBadge tier={result.sourceReliability} />}
@@ -162,17 +162,17 @@ export function EnrichmentCard({ result }: EnrichmentCardProps) {
           )}
           {hasData && <SeverityChip severity={result.severity} />}
           {result.fromCache && (
-            <span className="text-[10px] font-mono text-[#98a2b3] bg-[#f2f4f7] px-1.5 py-0.5 rounded border border-[#e4e7ec]">
+            <span className="text-[10px] font-mono text-fg-4 bg-raised px-1.5 py-0.5 rounded border border-line">
               cached
             </span>
           )}
           <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded border ${
-            hasData ? 'bg-[#f2f4f7] border-[#e4e7ec] text-[#667085]' : 'bg-transparent border-transparent text-[#98a2b3]'
+            hasData ? 'bg-raised border-line text-fg-3' : 'bg-transparent border-transparent text-fg-4'
           }`}>
             {statusLabel(result.status)}
           </span>
           {hasData && (
-            <svg className={`w-3.5 h-3.5 text-[#98a2b3] transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <svg className={`w-3.5 h-3.5 text-fg-4 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           )}
@@ -181,23 +181,23 @@ export function EnrichmentCard({ result }: EnrichmentCardProps) {
 
       {/* Summary always visible if has data */}
       {hasData && result.summary && !expanded && (
-        <p className="px-3 pb-2.5 text-xs text-[#667085] leading-relaxed border-t border-[#f2f4f7] pt-2">{result.summary}</p>
+        <p className="px-3 pb-2.5 text-xs text-fg-3 leading-relaxed border-t border-line-soft pt-2">{result.summary}</p>
       )}
 
       {/* Expanded detail */}
       {expanded && hasData && (
-        <div className="px-3 pb-3 border-t border-[#f2f4f7] pt-2 space-y-2">
-          {result.summary && <p className="text-xs text-[#475467] leading-relaxed">{result.summary}</p>}
-          {result.errorMessage && <p className="text-xs text-[#d92d20] font-mono">Error: {result.errorMessage}</p>}
+        <div className="px-3 pb-3 border-t border-line-soft pt-2 space-y-2">
+          {result.summary && <p className="text-xs text-fg-2 leading-relaxed">{result.summary}</p>}
+          {result.errorMessage && <p className="text-xs text-danger-fg font-mono">Error: {result.errorMessage}</p>}
           {result.keyFacts && result.keyFacts.length > 0
             ? <KeyFactsTable facts={result.keyFacts} />
             : Object.keys(result.data).length > 0 && <DataTable data={result.data} />
           }
-          <div className="flex items-center justify-between pt-1 border-t border-[#f2f4f7]">
+          <div className="flex items-center justify-between pt-1 border-t border-line-soft">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono text-[#98a2b3]">{checkedAt}</span>
+              <span className="text-[10px] font-mono text-fg-4">{checkedAt}</span>
               {result.firstSeenDate && (
-                <span className="text-[10px] text-[#98a2b3]">
+                <span className="text-[10px] text-fg-4">
                   first seen {result.firstSeenDate.split('T')[0]}
                 </span>
               )}
@@ -206,7 +206,7 @@ export function EnrichmentCard({ result }: EnrichmentCardProps) {
               <div className="flex items-center gap-2">
                 <CopyUrlButton url={result.sourceUrl} />
                 <a href={result.sourceUrl} target="_blank" rel="noopener noreferrer"
-                  className="text-[11px] text-[#1570ef] hover:text-[#175cd3] font-medium flex items-center gap-1">
+                  className="text-[11px] text-accent-fg hover:text-accent-fg font-medium flex items-center gap-1">
                   View ↗
                 </a>
               </div>
@@ -217,7 +217,7 @@ export function EnrichmentCard({ result }: EnrichmentCardProps) {
 
       {/* Error / no-data summary */}
       {!hasData && result.summary && (
-        <p className="px-3 pb-2 text-[11px] text-[#98a2b3] border-t border-[#f2f4f7] pt-1.5">{result.summary}</p>
+        <p className="px-3 pb-2 text-[11px] text-fg-4 border-t border-line-soft pt-1.5">{result.summary}</p>
       )}
     </div>
   );

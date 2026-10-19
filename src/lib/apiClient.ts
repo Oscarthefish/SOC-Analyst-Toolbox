@@ -1,7 +1,8 @@
-import type { EnrichRequest, EnrichmentResponse, HealthResponse } from '../types/enrichment';
+import type { EnrichRequest, EnrichmentResponse, HealthResponse, EnrichmentResult, OverallAssessment } from '../types/enrichment';
 import type { AnalysisRequest, AnalysisResponse, EmailHeaderAnalysisRequest, EmailHeaderAnalysisResponse } from '../types/analysis';
 
-const BACKEND_URL = 'http://localhost:8787';
+// Relative: the Vite dev/preview server proxies /api to the local backend
+const BACKEND_URL = '';
 const ENRICH_TIMEOUT_MS = 30_000;
 const ANALYSE_TIMEOUT_MS = 120_000;
 const SHORT_TIMEOUT_MS = 5_000;
@@ -81,6 +82,95 @@ export async function runAutoAnalysis(request: AnalysisRequest): Promise<Analysi
   } catch (err) {
     console.error('[apiClient] Auto analysis request failed:', err);
     return null;
+  }
+}
+
+// ── Streaming analysis ────────────────────────────────────────────────────
+
+export interface SseEvent {
+  event: string;
+  data: string;
+}
+
+/** Split buffered SSE text into complete events plus the unfinished remainder. */
+export function parseSse(buffer: string): { events: SseEvent[]; rest: string } {
+  const blocks = buffer.replace(/\r\n/g, '\n').split('\n\n');
+  const rest = blocks.pop() ?? '';
+  const events: SseEvent[] = [];
+  for (const block of blocks) {
+    let event = 'message';
+    const data: string[] = [];
+    for (const line of block.split('\n')) {
+      if (line.startsWith('event:')) event = line.slice(6).trim();
+      else if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''));
+    }
+    if (data.length > 0) events.push({ event, data: data.join('\n') });
+  }
+  return { events, rest };
+}
+
+export interface AnalysisProgress {
+  /** Providers being queried, in request order */
+  providers: string[];
+  /** Results received so far */
+  results: EnrichmentResult[];
+  /** Verdict, available once all providers have answered (before the narrative) */
+  overall?: OverallAssessment;
+}
+
+/**
+ * Run an analysis via /api/analyse/stream, reporting provider results and the verdict
+ * as they arrive. Falls back to the non-streaming endpoint if streaming is unavailable.
+ */
+export async function streamAutoAnalysis(
+  request: AnalysisRequest,
+  onProgress: (progress: AnalysisProgress) => void,
+): Promise<AnalysisResponse | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ANALYSE_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/analyse/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+    if (!res.ok || !res.body || !res.headers.get('content-type')?.includes('text/event-stream')) {
+      clearTimeout(timeout);
+      return runAutoAnalysis(request);
+    }
+
+    const progress: AnalysisProgress = { providers: [], results: [] };
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const { events, rest } = parseSse(buffer + value);
+      buffer = rest;
+      for (const { event, data } of events) {
+        const payload: unknown = JSON.parse(data);
+        if (event === 'start') {
+          progress.providers = (payload as { providers: string[] }).providers;
+        } else if (event === 'provider') {
+          progress.results = [...progress.results, payload as EnrichmentResult];
+        } else if (event === 'assessment') {
+          progress.overall = (payload as { overall: OverallAssessment }).overall;
+        } else if (event === 'done') {
+          return payload as AnalysisResponse;
+        } else if (event === 'error') {
+          throw new Error((payload as { error: string }).error);
+        }
+        onProgress({ ...progress });
+      }
+    }
+    return null;
+  } catch (err) {
+    console.error('[apiClient] Streaming analysis failed:', err);
+    if (err instanceof Error && err.name !== 'AbortError' && err.name !== 'TypeError') throw err;
+    return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

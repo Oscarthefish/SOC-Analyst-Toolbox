@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import type { IocInput, EnrichmentResult, EnrichOptions } from '../types.js';
 import { computeFreshness } from '../lib/freshness.js';
 

@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import type { IocInput, EnrichmentResult, EnrichOptions, Confidence } from '../types.js';
 import { config } from '../config.js';
 import { markRateLimited } from '../rateLimit.js';

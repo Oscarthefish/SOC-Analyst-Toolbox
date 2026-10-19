@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 
 const OLLAMA_BASE = 'http://localhost:11434';
 const GENERATE_TIMEOUT_MS = 90_000;

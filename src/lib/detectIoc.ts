@@ -1,5 +1,6 @@
 import type { DetectedIoc, IocType, UrlExtract } from '../types/ioc';
 import { SENSITIVE_URL_TERMS } from './sensitive';
+import { isIpv4, isIpv4Cidr, isIpv6 } from './ipUtils';
 
 // Email header block detection: look for typical MIME/SMTP field names at line starts
 const EMAIL_HEADER_FIELDS = /^(Received|Delivered-To|Return-Path|Message-ID|MIME-Version|Content-Type|Subject|From|To|Date|Reply-To|X-[A-Za-z]|ARC-|Authentication-Results|DKIM-Signature|Received-SPF):/im;
@@ -37,9 +38,6 @@ function detectCredential(value: string): string | null {
   }
   return null;
 }
-const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
-const IPV4_CIDR_RE = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
-const IPV6_RE = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
 const MD5_RE = /^[0-9a-fA-F]{32}$/;
 const SHA1_RE = /^[0-9a-fA-F]{40}$/;
 const SHA256_RE = /^[0-9a-fA-F]{64}$/;
@@ -47,6 +45,28 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ASN_RE = /^AS\d+$/i;
 const DOMAIN_RE = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
 const URL_RE = /^https?:\/\//i;
+
+/** Split "accessToken", "session_id", "/auth/reset-password" into lowercase words. */
+function words(text: string): string[] {
+  return text
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+const JWT_RE = /^eyJ[\w-]+\.[\w-]+/;
+
+/**
+ * Match sensitive terms as whole words in path segments and query parameter names,
+ * so "/reset" or "?session_id=" match but "/android/video" does not.
+ */
+function findSensitiveTerms(path: string, params: URLSearchParams): string[] {
+  const tokens = new Set([...words(path), ...[...params.keys()].flatMap(words)]);
+  const found = SENSITIVE_URL_TERMS.filter(t => tokens.has(t));
+  if (!found.includes('jwt') && [...params.values()].some(v => JWT_RE.test(v))) found.push('jwt');
+  return found;
+}
 
 function extractUrl(raw: string): UrlExtract {
   let parsedUrl: URL;
@@ -62,8 +82,7 @@ function extractUrl(raw: string): UrlExtract {
   const query = parsedUrl.search;
   const queryParamNames = Array.from(parsedUrl.searchParams.keys());
 
-  const combined = (path + ' ' + query).toLowerCase();
-  const sensitiveTerms = SENSITIVE_URL_TERMS.filter(t => combined.includes(t));
+  const sensitiveTerms = findSensitiveTerms(path, parsedUrl.searchParams);
   const isSensitive = sensitiveTerms.length > 0;
 
   const domain = hostname.replace(/^www\./, '');
@@ -88,14 +107,14 @@ export function normalizeIocInput(raw: string): string {
     .replace(/(?:\u200B|\u200C|\u200D|\uFEFF|\u00AD)/g, '') // zero-width / soft-hyphen chars
     .replace(/\[\.\]/g, '.')   // [.] → .
     .replace(/\(\.\)/g, '.')   // (.) → .
-    .replace(/^hxxps?:\/\//i, m => m.replace(/xx/i, 'tt')) // hxxp → http
+    .replace(/^hxxp(s?):\/\//i, 'http$1://') // hxxp → http
     .trim();
 }
 
 export function detectIoc(input: string): DetectedIoc {
   const trimmed = normalizeIocInput(input.trim());
-  let type: IocType = 'unknown';
-  let confidence: DetectedIoc['confidence'] = 'low';
+  let type: IocType;
+  let confidence: DetectedIoc['confidence'];
   let normalised: string;
   let urlExtract: UrlExtract | undefined;
 
@@ -117,22 +136,19 @@ export function detectIoc(input: string): DetectedIoc {
     normalised = trimmed;
   }
   // CIDR
-  else if (IPV4_CIDR_RE.test(trimmed)) {
+  else if (isIpv4Cidr(trimmed)) {
     type = 'cidr';
     confidence = 'high';
     normalised = trimmed;
   }
   // IPv4
-  else if (IPV4_RE.test(trimmed)) {
-    const parts = trimmed.split('.').map(Number);
-    if (parts.every(p => p >= 0 && p <= 255)) {
-      type = 'ipv4';
-      confidence = 'high';
-    }
+  else if (isIpv4(trimmed)) {
+    type = 'ipv4';
+    confidence = 'high';
     normalised = trimmed;
   }
   // IPv6
-  else if (IPV6_RE.test(trimmed)) {
+  else if (isIpv6(trimmed)) {
     type = 'ipv6';
     confidence = 'high';
     normalised = trimmed.toLowerCase();
@@ -190,7 +206,7 @@ export function detectIoc(input: string): DetectedIoc {
 
     if (DOMAIN_RE.test(candidate)) {
       type = 'domain';
-      confidence = candidate !== trimmed ? 'medium' : 'high';
+      confidence = candidate !== trimmed.toLowerCase() ? 'medium' : 'high';
       normalised = candidate;
     } else {
       type = 'unknown';

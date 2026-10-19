@@ -52,16 +52,16 @@ export function BulkExtractPanel({ onInvestigate }: BulkExtractPanelProps) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="wb-label">Bulk IOC Extractor</p>
-            <p className="text-xs text-[#98a2b3] mt-0.5">Paste logs, email headers, EDR alerts, or any text</p>
+            <p className="text-xs text-fg-4 mt-0.5">Paste logs, email headers, EDR alerts, or any text</p>
           </div>
           <div className="flex gap-2">
             <button onClick={() => { setText(SAMPLE_TEXT); setResults([]); setHasRun(false); }}
-              className="text-xs px-2.5 py-1.5 rounded-lg border border-[#e4e7ec] bg-white text-[#475467] hover:border-[#d0d5dd] transition-colors font-medium">
+              className="text-xs px-2.5 py-1.5 rounded-lg border border-line bg-surface text-fg-2 hover:border-line-strong transition-colors font-medium">
               Load sample
             </button>
             {text && (
               <button onClick={handleClear}
-                className="text-xs px-2.5 py-1.5 rounded-lg border border-[#e4e7ec] bg-white text-[#475467] hover:border-[#fecdca] hover:text-[#b42318] transition-colors font-medium">
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-line bg-surface text-fg-2 hover:border-danger-line hover:text-danger-fg transition-colors font-medium">
                 Clear
               </button>
             )}
@@ -73,18 +73,18 @@ export function BulkExtractPanel({ onInvestigate }: BulkExtractPanelProps) {
           onChange={e => setText(e.target.value)}
           rows={8}
           placeholder="Paste logs, email headers, firewall output, EDR alerts, or any text containing IOCs…"
-          className="w-full bg-[#fafbfc] border border-[#e4e7ec] rounded-lg px-3.5 py-3 text-sm font-mono text-[#101828] placeholder-[#98a2b3] focus:outline-none focus:border-[#1570ef] focus:ring-2 focus:ring-[#1570ef]/20 resize-y transition-colors"
+          className="w-full bg-inset border border-line rounded-lg px-3.5 py-3 text-sm font-mono text-fg-1 placeholder-fg-4 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 resize-y transition-colors"
           spellCheck={false}
         />
 
         <div className="mt-3 flex items-center gap-3">
           <button onClick={handleExtract} disabled={!text.trim()}
-            className="px-4 py-2 text-sm font-semibold rounded-lg bg-[#1570ef] text-white hover:bg-[#175cd3] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            className="px-4 py-2 text-sm font-semibold rounded-lg bg-accent text-white hover:bg-accent-strong transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             Extract IOCs
           </button>
           {hasRun && (
-            <span className="text-sm text-[#667085]">
-              Found <strong className="text-[#101828]">{results.length}</strong> unique IOC{results.length !== 1 ? 's' : ''}
+            <span className="text-sm text-fg-3">
+              Found <strong className="text-fg-1">{results.length}</strong> unique IOC{results.length !== 1 ? 's' : ''}
             </span>
           )}
         </div>
@@ -92,8 +92,8 @@ export function BulkExtractPanel({ onInvestigate }: BulkExtractPanelProps) {
 
       {hasRun && results.length === 0 && (
         <div className="wb-card p-8 text-center">
-          <p className="text-sm text-[#667085]">No IOCs found in the provided text.</p>
-          <p className="text-xs text-[#98a2b3] mt-1">Try pasting logs or text containing IPs, domains, URLs, or file hashes.</p>
+          <p className="text-sm text-fg-3">No IOCs found in the provided text.</p>
+          <p className="text-xs text-fg-4 mt-1">Try pasting logs or text containing IPs, domains, URLs, or file hashes.</p>
         </div>
       )}
 
@@ -105,8 +105,8 @@ export function BulkExtractPanel({ onInvestigate }: BulkExtractPanelProps) {
                 <button key={t} onClick={() => setFilter(t)}
                   className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-colors ${
                     filter === t
-                      ? 'bg-[#eff8ff] border-[#b2ddff] text-[#175cd3]'
-                      : 'bg-white border-[#e4e7ec] text-[#667085] hover:border-[#d0d5dd]'
+                      ? 'bg-accent-bg border-accent-line text-accent-fg'
+                      : 'bg-surface border-line text-fg-3 hover:border-line-strong'
                   }`}>
                   {t === 'all' ? `All (${results.length})` : `${TYPE_LABELS[t]} (${typeCounts[t] ?? 0})`}
                 </button>
@@ -121,34 +121,34 @@ export function BulkExtractPanel({ onInvestigate }: BulkExtractPanelProps) {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-[#f2f4f7]">
+                <tr className="border-b border-line-soft">
                   <th className="text-left py-2 px-2 wb-label w-20">Type</th>
                   <th className="text-left py-2 px-2 wb-label">IOC</th>
                   <th className="text-left py-2 px-2 wb-label hidden md:table-cell">Normalised</th>
                   <th className="text-right py-2 px-2 wb-label w-36">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f9fafb]">
+              <tbody className="divide-y divide-inset">
                 {filteredResults.map((ioc, i) => (
-                  <tr key={i} className="hover:bg-[#f9fafb] transition-colors">
+                  <tr key={i} className="hover:bg-inset transition-colors">
                     <td className="py-2 px-2">
-                      <span className="inline-flex items-center h-5 px-2 rounded-md bg-[#eff8ff] border border-[#b2ddff] text-[#175cd3] text-[11px] font-semibold font-mono">
+                      <span className="inline-flex items-center h-5 px-2 rounded-md bg-accent-bg border border-accent-line text-accent-fg text-[11px] font-semibold font-mono">
                         {TYPE_LABELS[ioc.type]}
                       </span>
                     </td>
                     <td className="py-2 px-2">
-                      <code className="text-[13px] font-mono text-[#344054] break-all">{ioc.raw}</code>
+                      <code className="text-[13px] font-mono text-fg-2 break-all">{ioc.raw}</code>
                     </td>
                     <td className="py-2 px-2 hidden md:table-cell">
                       {ioc.normalised !== ioc.raw
-                        ? <code className="text-xs font-mono text-[#667085] break-all">{ioc.normalised}</code>
-                        : <span className="text-[#d0d5dd]">—</span>}
+                        ? <code className="text-xs font-mono text-fg-3 break-all">{ioc.normalised}</code>
+                        : <span className="text-fg-4">—</span>}
                     </td>
                     <td className="py-2 px-2 text-right">
                       <div className="flex gap-1.5 justify-end">
                         <CopyButton text={ioc.normalised} label="Copy" />
                         <button onClick={() => onInvestigate(ioc.normalised)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#1570ef] text-white hover:bg-[#175cd3] transition-colors">
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent-strong transition-colors">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
                             <circle cx="11" cy="11" r="8" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
                           </svg>

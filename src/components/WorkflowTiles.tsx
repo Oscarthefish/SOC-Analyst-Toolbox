@@ -1,21 +1,6 @@
 import type { DetectedIoc, IocType } from '../types/ioc';
 import type { Workflow } from '../types/workflow';
 
-function IconSpark() {
-  return (
-    <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
-    </svg>
-  );
-}
-
-interface WorkflowTilesProps {
-  ioc: DetectedIoc | null;
-  workflows: Workflow[];
-  selectedWorkflow: Workflow | null;
-  onSelect: (workflow: Workflow) => void;
-}
-
 function isWorkflowEnabled(workflow: Workflow, ioc: DetectedIoc | null): { enabled: boolean; reason?: string } {
   // Email header review accepts raw header text, not a single typed IOC
   if (workflow.id === 'email-header-review') {
@@ -175,74 +160,7 @@ const DEFAULT_ICON = (
   </svg>
 );
 
-export function WorkflowTiles({ ioc, workflows, selectedWorkflow, onSelect }: WorkflowTilesProps) {
-  const isUsableIoc = ioc && (ioc.type !== 'unknown' || ioc.isEmailHeader);
-  const enabledCount = isUsableIoc
-    ? workflows.filter(w => isWorkflowEnabled(w, ioc).enabled).length
-    : 0;
-
-  return (
-    <div className="wb-card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <p className="wb-label">Investigation Workflow</p>
-        {isUsableIoc && (
-          <span className="text-xs text-[#667085]">
-            {enabledCount} of {workflows.length} apply to {ioc.isEmailHeader ? 'EMAIL HEADER' : ioc.type.toUpperCase()}
-          </span>
-        )}
-      </div>
-
-      <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(212px, 1fr))' }}>
-        {workflows.map(workflow => {
-          const { enabled, reason } = isWorkflowEnabled(workflow, ioc);
-          const isSelected = selectedWorkflow?.id === workflow.id;
-          const icon = WORKFLOW_ICONS[workflow.id] ?? DEFAULT_ICON;
-
-          return (
-            <button
-              key={workflow.id}
-              disabled={!enabled}
-              onClick={() => enabled && onSelect(workflow)}
-              className={`
-                group text-left p-3 rounded-[10px] border transition-all flex items-start gap-3
-                ${isSelected
-                  ? 'bg-[#eff8ff] border-[#1570ef] shadow-sm'
-                  : enabled
-                  ? 'bg-white border-[#e4e7ec] hover:border-[#b2ddff] hover:bg-[#f9fafb] cursor-pointer'
-                  : 'bg-[#fafbfc] border-[#f2f4f7] cursor-not-allowed opacity-50'
-                }
-              `}
-              title={!enabled ? reason : workflow.description}
-            >
-              {/* Icon tile */}
-              <div className={`w-[34px] h-[34px] rounded-[9px] shrink-0 flex items-center justify-center ${
-                isSelected ? 'bg-[#1570ef] text-white' : 'bg-[#f2f4f7] text-[#475467]'
-              }`}>
-                <span className="w-[18px] h-[18px] block">{icon}</span>
-              </div>
-
-              {/* Text */}
-              <div className="min-w-0 flex-1 pt-0.5">
-                <p className={`text-[13px] font-semibold leading-tight truncate ${
-                  isSelected ? 'text-[#175cd3]' : 'text-[#101828]'
-                }`}>
-                  {workflow.name}
-                </p>
-                <p className={`text-xs mt-0.5 leading-tight ${
-                  isSelected ? 'text-[#1570ef]' : !enabled ? 'text-[#98a2b3]' : 'text-[#667085]'
-                }`}>
-                  {isSelected ? 'Active workflow' : !enabled ? reason : workflow.description}
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── Slim action bar: Auto Analysis trigger + horizontal workflow chips ────────
+// ── Analysis bar: run control + workflows applicable to the current IOC ──────
 
 interface AnalysisBarProps {
   ioc: DetectedIoc | null;
@@ -253,6 +171,7 @@ interface AnalysisBarProps {
   onForceRunAnalysis: () => void;
   analysisLoading: boolean;
   hasAnalysisResult: boolean;
+  backendOnline: boolean | null;
 }
 
 export function AnalysisBar({
@@ -264,82 +183,50 @@ export function AnalysisBar({
   onForceRunAnalysis,
   analysisLoading,
   hasAnalysisResult,
+  backendOnline,
 }: AnalysisBarProps) {
   const disabled = !ioc || !ioc.trimmed || (ioc.type === 'unknown' && !ioc.isEmailHeader);
   const hasIoc = !disabled;
+  const offline = backendOnline === false;
 
-  // Only show workflows that apply to the current IOC — hides irrelevant options.
   const applicableWorkflows = hasIoc
     ? workflows.filter(w => isWorkflowEnabled(w, ioc).enabled)
     : [];
 
   return (
-    <div className="wb-card flex items-stretch overflow-hidden">
-      {/* Auto Analysis section */}
-      <div className="flex items-center gap-3 px-4 py-3 shrink-0 border-r border-[#f2f4f7]">
-        <div className={`w-8 h-8 rounded-[9px] flex items-center justify-center shrink-0 transition-colors ${
-          hasAnalysisResult ? 'bg-[#eff8ff] text-[#1570ef]' : 'bg-[#f2f4f7] text-[#475467]'
-        }`}>
-          <IconSpark />
-        </div>
-        <div className="mr-1">
-          <p className="text-[13px] font-semibold text-[#101828] leading-none">Auto Analysis</p>
-          <p className="text-[11px] text-[#98a2b3] leading-none mt-0.5">AI-assisted verdict</p>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {hasAnalysisResult && !analysisLoading && (
-            <button
-              onClick={onForceRunAnalysis}
-              className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-[#e4e7ec] bg-white text-[#475467] hover:border-[#d0d5dd] transition-colors"
-            >
-              Re-run
-            </button>
-          )}
-          <button
-            onClick={onRunAnalysis}
-            disabled={disabled || analysisLoading}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#1570ef] text-white hover:bg-[#175cd3] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {analysisLoading ? (
-              <>
-                <div className="w-3 h-3 rounded-full border-[1.5px] border-white/30 border-t-white animate-spin" />
-                Analysing…
-              </>
-            ) : (
-              hasAnalysisResult ? '↺ Refresh' : '▶ Run'
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Workflow chips — wrapping, filtered to applicable only */}
-      <div className="flex-1 min-w-0 px-3 py-3">
-        {!hasIoc ? (
-          <div className="flex items-center h-full">
-            <p className="text-[12px] text-[#98a2b3]">Enter an IOC to see applicable investigation workflows.</p>
-          </div>
-        ) : applicableWorkflows.length === 0 ? (
-          <div className="flex items-center h-full">
-            <p className="text-[12px] text-[#98a2b3]">No investigation workflows apply to this IOC type.</p>
-          </div>
-        ) : (
-          <>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#d0d5dd] mb-2 select-none">
-              Investigation Workflow
+    <div className="wb-card">
+      <div className="flex flex-col md:flex-row md:items-center gap-3 px-4 py-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 mb-1.5">
+            <p className="wb-label">Workflow</p>
+            <p className="text-[11px] text-fg-4 truncate">
+              {!hasIoc
+                ? 'Shows playbooks that apply once an indicator is entered'
+                : selectedWorkflow
+                  ? selectedWorkflow.description
+                  : 'Optional — scopes providers, pivot tools and checklist'}
             </p>
-            <div className="flex flex-wrap gap-1.5">
+          </div>
+          {!hasIoc ? (
+            <div className="h-7 flex items-center text-xs text-fg-4">—</div>
+          ) : applicableWorkflows.length === 0 ? (
+            <div className="h-7 flex items-center text-xs text-fg-4">No workflows apply to this indicator type.</div>
+          ) : (
+            <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Investigation workflow">
               {applicableWorkflows.map(workflow => {
                 const isSelected = selectedWorkflow?.id === workflow.id;
                 const icon = WORKFLOW_ICONS[workflow.id] ?? DEFAULT_ICON;
                 return (
                   <button
                     key={workflow.id}
+                    role="radio"
+                    aria-checked={isSelected}
                     onClick={() => onSelectWorkflow(workflow)}
                     title={workflow.description}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[12px] font-medium whitespace-nowrap transition-all ${
+                    className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-xs whitespace-nowrap transition-colors ${
                       isSelected
-                        ? 'bg-[#eff8ff] border-[#1570ef] text-[#175cd3]'
-                        : 'bg-white border-[#e4e7ec] text-[#344054] hover:border-[#b2ddff] hover:bg-[#f9fafb]'
+                        ? 'bg-accent-bg border-accent-line text-accent-fg font-medium'
+                        : 'bg-surface border-line text-fg-2 hover:border-line-strong hover:text-fg-1'
                     }`}
                   >
                     <span className="w-3.5 h-3.5 shrink-0 block">{icon}</span>
@@ -348,9 +235,46 @@ export function AnalysisBar({
                 );
               })}
             </div>
-          </>
-        )}
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 md:pl-4 md:border-l md:border-line md:self-stretch">
+          {hasAnalysisResult && !analysisLoading && (
+            <button
+              onClick={onForceRunAnalysis}
+              title="Ignore cached provider results"
+              className="h-8 px-3 text-xs font-medium rounded-md border border-line bg-surface text-fg-2 hover:border-line-strong hover:text-fg-1 transition-colors"
+            >
+              Bypass cache
+            </button>
+          )}
+          <button
+            onClick={onRunAnalysis}
+            disabled={disabled || analysisLoading || offline}
+            title={offline ? 'Backend offline — run npm run backend:dev' : 'Enrich across providers and summarise (⌘↵)'}
+            className="inline-flex items-center gap-2 h-8 px-3.5 text-xs font-semibold rounded-md bg-accent text-white hover:bg-accent-strong transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {analysisLoading ? (
+              <>
+                <span className="w-3 h-3 rounded-full border-[1.5px] border-white/30 border-t-white animate-spin" />
+                Analysing…
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  {hasAnalysisResult ? <path d="M3 12a9 9 0 0115.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 01-15.5 6.2L3 16M3 21v-5h5" /> : <path d="M5 12h14M13 6l6 6-6 6" />}
+                </svg>
+                {hasAnalysisResult ? 'Re-analyse' : 'Run analysis'}
+              </>
+            )}
+          </button>
+        </div>
       </div>
+      {offline && hasIoc && (
+        <div className="px-4 py-2 border-t border-line text-xs text-warn-fg bg-warn-bg rounded-b-xl">
+          The enrichment backend isn’t reachable. Start it with <code className="font-mono">npm run backend:dev</code> — pivot tools below still work.
+        </div>
+      )}
     </div>
   );
 }

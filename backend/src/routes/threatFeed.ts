@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import fetch from 'node-fetch';
 import { config } from '../config.js';
 
 const router = Router();
