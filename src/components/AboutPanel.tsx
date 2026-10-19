@@ -129,6 +129,15 @@ const FEATURES = [
   {
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="2.5" /><path strokeLinecap="round" d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+      </svg>
+    ),
+    title: 'ATT&CK and hunt queries',
+    desc: 'Techniques linked to an indicator are shown with their evidence (reported by a provider, inferred from a label, or from the workflow). The Hunt page turns indicators and techniques into KQL for Sentinel or Defender XDR, or SPL for Splunk.',
+  },
+  {
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
       </svg>
     ),
@@ -296,7 +305,7 @@ export function AboutPanel() {
           {ARCH_STEPS.map((s, i) => (
             <li key={s.num} className="relative flex items-start gap-3.5 pb-4 last:pb-0">
               {i < ARCH_STEPS.length - 1 && <span className="absolute left-[13px] top-7 bottom-0 w-[2px] bg-line" aria-hidden />}
-              <span className={`relative w-7 h-7 rounded-full text-white text-[12px] font-semibold grid place-items-center shrink-0 ${STEP_TONES[i]}`}>
+              <span className={`relative w-7 h-7 rounded-full text-on-ramp text-[12px] font-semibold grid place-items-center shrink-0 ${STEP_TONES[i]}`}>
                 {s.num}
               </span>
               <div className="pt-0.5">

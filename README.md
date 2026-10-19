@@ -45,8 +45,9 @@ Open <http://localhost:5173>.
 | Page | What it's for |
 |---|---|
 | **Investigate** | Enter one indicator, optionally pick a workflow, run analysis, and open pivot tools. Results lead with the computed severity and next steps; the local LLM summary follows, labelled as such. The **Case** panel records your verdict, confidence, actions taken and notes, and shows the workflow's checklist and pre-filled internal SIEM/EDR queries. Shortcuts: `/` focuses the input, ⌘/Ctrl+Enter runs analysis, Esc clears it, ⌘/Ctrl+S saves the case. |
+| **Hunt** | Build hunting queries for **Microsoft Sentinel** (KQL), **Defender XDR advanced hunting** (KQL) or **Splunk** (SPL). Indicators give *sweeps* (where has this appeared in our logs?); MITRE ATT&CK techniques give *hunts* (is this behaviour happening anywhere?). Pick techniques from an ATT&CK matrix, choose a look-back, copy the query. See [Hunting and ATT&CK](#hunting-and-attck). |
 | **Cases** | Saved investigations, stored in this browser. Filter open/closed, search, reopen a case with its indicator, workflow and analysis restored, or export it as Markdown or JSON. |
-| **Bulk extract** | Paste logs, alerts or email bodies and extract every indicator. Send any of them to Investigate. |
+| **Bulk extract** | Paste logs, alerts or email bodies and extract every indicator. Send any of them to Investigate, or all of them to Hunt. |
 | **Batch triage** | Enrich up to 50 indicators (5 at a time), then sort and filter by severity and export as CSV. |
 | **Threat feed** | Recently exploited CVEs (CISA KEV), ransomware activity and Pulsedive high-risk infrastructure. |
 | **History** | Your last analyses, stored in this browser. Reload one without calling the providers again. |
@@ -58,6 +59,26 @@ Open <http://localhost:5173>.
 Press **⌘K / Ctrl+K** anywhere to jump to a page, an open case or a recent indicator, or type an indicator to investigate it.
 
 Light and dark themes follow your OS setting. You can override that in the sidebar. Both themes meet WCAG AA contrast and pass an axe-core audit.
+
+---
+
+## Hunting and ATT&CK
+
+Every analysis lists the MITRE ATT&CK techniques linked to the indicator, with the evidence for each:
+
+| Evidence | Where it comes from |
+|---|---|
+| **Reported** | The provider lists the technique against the indicator: AlienVault OTX pulse `attack_ids` and Hybrid Analysis sandbox reports. |
+| **Inferred** | A provider label maps to a technique, e.g. GreyNoise *SSH Bruteforcer* → T1110 Brute Force and T1021.004 SSH, *Tor* → T1090.003 Multi-hop Proxy, ThreatFox `botnet_cc` → T1071. The matching label is shown. |
+| **Workflow context** | The chosen workflow is about that activity, e.g. URL / Phishing → T1566.002 Spearphishing Link. |
+
+**Build hunt queries** opens the Hunt page with the indicator and techniques filled in. Queries are templates in `src/data/huntQueries.ts`:
+
+- **KQL** follows the [Sentinel-Queries](https://github.com/reprise99/Sentinel-Queries) style (time filter first, `summarize … by`). Sentinel uses `TimeGenerated`; Defender XDR uses `Timestamp` and its own tables. Queries are only offered on platforms where their tables exist.
+- **SPL** uses CIM field names. Base searches default to CIM tags (`index=* tag=network tag=communicate`, …); set your own index and sourcetype per data source on the Hunt page to make them faster. The Tor hunt needs a `tor_exit_nodes` lookup.
+- Treat them as starting points: check table and field names against your environment and tune thresholds before scheduling any as a detection.
+
+To add a query, append to `HUNT_TEMPLATES` with its techniques, platforms, source table and what to look for. A test renders every template on every platform and fails if a placeholder is left unfilled or a technique isn't in `src/data/attack.ts`.
 
 ---
 

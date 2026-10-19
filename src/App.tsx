@@ -21,6 +21,7 @@ import { fetchCustomTools, saveCustomTools, loadHiddenToolIds, toggleHiddenToolI
 import { loadFavorites, saveFavorites } from './lib/favorites';
 import { detectIoc } from './lib/detectIoc';
 import { isWorkflowEnabled } from './lib/workflows';
+import { deriveTechniques } from './lib/attackMapping';
 import { loadHistory, saveSearch, removeEntry, clearHistory } from './lib/searchHistory';
 import type { HistoryEntry } from './lib/searchHistory';
 import toolsData from './data/tools.json';
@@ -36,6 +37,7 @@ const ApiKeysPanel = lazy(() => import('./components/ApiKeysPanel').then(m => ({
 const ThreatFeedPanel = lazy(() => import('./components/ThreatFeedPanel').then(m => ({ default: m.ThreatFeedPanel })));
 const AboutPanel = lazy(() => import('./components/AboutPanel').then(m => ({ default: m.AboutPanel })));
 const SearchHistoryPanel = lazy(() => import('./components/SearchHistoryPanel').then(m => ({ default: m.SearchHistoryPanel })));
+const HuntPanel = lazy(() => import('./components/HuntPanel').then(m => ({ default: m.HuntPanel })));
 const ToolsManagementPanel = lazy(() => import('./components/ToolsManagementPanel').then(m => ({ default: m.ToolsManagementPanel })));
 
 const builtinTools = toolsData as Tool[];
@@ -243,6 +245,26 @@ export default function App() {
     setActiveTab('single');
   }, []);
 
+  // Hunt page draft lives here so it survives switching pages
+  const [huntIndicators, setHuntIndicators] = useState('');
+  const [huntTechniques, setHuntTechniques] = useState<string[]>([]);
+  const huntSuggestions = useMemo(
+    () => (currentResults ? deriveTechniques(currentResults.results, selectedWorkflow) : []),
+    [currentResults, selectedWorkflow],
+  );
+
+  const handleHunt = useCallback((techniqueIds: string[]) => {
+    const value = ioc?.normalised;
+    if (value) setHuntIndicators(prev => (prev.split('\n').map(s => s.trim()).includes(value) ? prev : prev.trim() ? `${prev.trimEnd()}\n${value}` : value));
+    setHuntTechniques(prev => [...new Set([...prev, ...techniqueIds])]);
+    setActiveTab('hunt');
+  }, [ioc]);
+
+  const handleHuntIndicators = useCallback((values: string[]) => {
+    setHuntIndicators(values.join('\n'));
+    setActiveTab('hunt');
+  }, []);
+
   const handleHistoryRemove = useCallback((id: string) => {
     setSearchHistory(removeEntry(id));
   }, []);
@@ -298,6 +320,8 @@ export default function App() {
             onPivot={handleInvestigate}
             preloadResult={historyPreload}
             onLoadingChange={setAnalysisLoading}
+            workflow={selectedWorkflow}
+            onHunt={handleHunt}
           />
           {!ioc && (
             <InvestigateOverview
@@ -332,7 +356,17 @@ export default function App() {
 
       <Suspense fallback={<p className="text-xs text-fg-4 py-6">Loading…</p>}>
       {activeTab === 'cases' && <CasesPanel cases={cases} workflows={workflows} onOpen={handleOpenCase} onChange={setCases} />}
-      {activeTab === 'bulk' && <BulkExtractPanel onInvestigate={handleInvestigate} />}
+      {activeTab === 'bulk' && <BulkExtractPanel onInvestigate={handleInvestigate} onHunt={handleHuntIndicators} />}
+      {activeTab === 'hunt' && (
+        <HuntPanel
+          indicators={huntIndicators}
+          onIndicatorsChange={setHuntIndicators}
+          techniques={huntTechniques}
+          onTechniquesChange={setHuntTechniques}
+          suggested={huntSuggestions}
+          currentIndicator={currentResults ? ioc?.normalised : undefined}
+        />
+      )}
       {activeTab === 'batch' && <BatchTriagePanel onInvestigate={handleInvestigate} />}
       {activeTab === 'defang' && <DefangPanel />}
       {activeTab === 'config' && <ConfigCheckPanel tools={allTools} customToolCount={customTools.length} />}

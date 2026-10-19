@@ -2,6 +2,7 @@ import type { IocInput, EnrichmentResult, EnrichOptions, Severity } from '../typ
 import { config } from '../config.js';
 import { markRateLimited } from '../rateLimit.js';
 import { resultFactory } from '../lib/result.js';
+import { collectAttackRefs } from '../lib/attack.js';
 
 const PROVIDER_ID = 'hybridanalysis';
 const PROVIDER_NAME = 'Hybrid Analysis';
@@ -22,6 +23,7 @@ interface HaResult {
   submit_name?: string;
   environment_description?: string;
   analysis_start_time?: string;
+  mitre_attcks?: Array<{ tactic?: string; technique?: string; attck_id?: string }>;
 }
 
 function verdictToSeverity(verdict: string | undefined, score: number): Severity {
@@ -92,6 +94,7 @@ export async function hybridanalysis(ioc: IocInput, _options: EnrichOptions): Pr
     const family = top.vx_family ?? '';
     const avDetect = top.av_detect ?? 0;
     const fileType = top.file_type ?? 'unknown';
+    const attackTechniques = collectAttackRefs(results.flatMap(r => r.mitre_attcks ?? []).map(m => ({ id: m.attck_id, name: m.technique })));
 
     let summary = `Hybrid Analysis: ${verdict.toUpperCase()} (threat score: ${score}/100, ${results.length} report(s)).`;
     if (family) summary += ` Family: ${family}.`;
@@ -104,6 +107,7 @@ export async function hybridanalysis(ioc: IocInput, _options: EnrichOptions): Pr
       rawAvailable: true,
       sourceUrl: `https://www.hybrid-analysis.com/sample/${top.sha256 ?? ioc.normalised}`,
       sourceReliability: 'commercial-ti' as const,
+      ...(attackTechniques.length ? { attackTechniques } : {}),
       keyFacts: [
         { label: 'Verdict', value: verdict.toUpperCase() },
         { label: 'Threat score', value: `${score}/100` },

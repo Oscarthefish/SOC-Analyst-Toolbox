@@ -70,6 +70,15 @@ export interface EnrichmentResult {
   contradicts?: string[];
   resolvedIps?: string[];
   relatedDomains?: string[];
+  /** MITRE ATT&CK techniques the provider itself associates with the indicator */
+  attackTechniques?: AttackRef[];
+}
+
+export interface AttackRef {
+  /** Technique id, e.g. T1071 or T1071.001 */
+  id: string;
+  /** Name as given by the provider, when it supplies one */
+  name?: string;
 }
 
 export interface OverallAssessment {

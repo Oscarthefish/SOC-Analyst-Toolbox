@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { markRateLimited } from '../rateLimit.js';
 import { computeFreshness } from '../lib/freshness.js';
 import { resultFactory } from '../lib/result.js';
+import { collectAttackRefs } from '../lib/attack.js';
 
 const PROVIDER_ID = 'otx';
 const PROVIDER_NAME = 'AlienVault OTX';
@@ -11,7 +12,10 @@ const BASE = 'https://otx.alienvault.com/api/v1/indicators';
 const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 interface OtxGeneral {
-  pulse_info?: { count?: number; pulses?: Array<{ name?: string; tags?: string[] }> };
+  pulse_info?: {
+    count?: number;
+    pulses?: Array<{ name?: string; tags?: string[]; attack_ids?: Array<{ id?: string; name?: string; display_name?: string }> }>;
+  };
   reputation?: number;
   country_name?: string;
   asn?: string;
@@ -70,6 +74,7 @@ export async function otx(ioc: IocInput, _options: EnrichOptions): Promise<Enric
     const pulses = body.pulse_info?.pulses ?? [];
     const pulseTags = [...new Set(pulses.flatMap(p => p.tags ?? []))].slice(0, 8);
     const pulseNames = pulses.slice(0, 3).map(p => p.name ?? '').filter(Boolean);
+    const attackTechniques = collectAttackRefs(pulses.flatMap(p => p.attack_ids ?? []).map(a => ({ id: a.id, name: a.name ?? a.display_name })));
 
     let severity: Severity;
     if (pulseCount === 0 && reputation === 0) {
@@ -100,6 +105,7 @@ export async function otx(ioc: IocInput, _options: EnrichOptions): Promise<Enric
       sourceUrl: `https://otx.alienvault.com/indicator/${indicatorPath}/${ioc.normalised}`,
       sourceReliability: 'community',
       freshnessLabel: computeFreshness(undefined),
+      ...(attackTechniques.length ? { attackTechniques } : {}),
       keyFacts: [
         { label: 'Pulse count', value: String(pulseCount) },
         { label: 'Reputation', value: String(reputation) },

@@ -4,6 +4,8 @@ import { CopyButton } from './CopyButton';
 import { KeyFactsSummaryStrip, PivotSection, ContradictionBanner, ProviderComparisonPanel } from './enrichmentShared';
 import { RelationshipGraph } from './RelationshipGraph';
 import { ProviderMatrix } from './ProviderMatrix';
+import { AttackPanel } from './AttackPanel';
+import { deriveTechniques } from '../lib/attackMapping';
 import { RingGauge, SeverityBar, SeverityLegend } from './charts';
 import { parseNarrative, buildSourceMap, findSourceUrl } from '../lib/narrative';
 import { hasData, severityMix, flaggedCount } from '../lib/severityMix';
@@ -54,18 +56,23 @@ function Section({ title, aside, children }: { title: string; aside?: React.Reac
 interface Props {
   response: AnalysisResponse;
   onPivot?: (value: string) => void;
+  /** Workflow in use, for ATT&CK context */
+  workflow?: { id: string; name: string } | null;
+  /** Open the Hunt page with these techniques and this indicator */
+  onHunt?: (techniqueIds: string[]) => void;
 }
 
 /**
  * Verdict-first view of a completed analysis: computed severity and next steps, then
  * conflicts, key facts, the local LLM summary, pivots and per-provider detail.
  */
-export function AnalysisResultView({ response, onPivot }: Props) {
+export function AnalysisResultView({ response, onPivot, workflow, onHunt }: Props) {
   const { results, overall, contradictions, narrative, narrativeError, ollamaModel, analysedAt } = response;
 
   const parsed = useMemo(() => (narrative ? parseNarrative(narrative) : null), [narrative]);
   const sourceMap = useMemo(() => buildSourceMap(results), [results]);
   const mix = useMemo(() => severityMix(results), [results]);
+  const techniques = useMemo(() => deriveTechniques(results, workflow), [results, workflow]);
 
   const withData = results.filter(hasData);
   const flagged = flaggedCount(results);
@@ -202,6 +209,8 @@ export function AnalysisResultView({ response, onPivot }: Props) {
           </div>
         </details>
       )}
+
+      <AttackPanel hits={techniques} onHunt={onHunt} />
 
       <ProviderMatrix results={results} />
 
