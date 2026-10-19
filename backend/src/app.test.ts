@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { request, type Server } from 'node:http';
@@ -16,6 +16,8 @@ beforeAll(async () => {
   process.env.CACHE_DIR = cacheDir;
   // Force "no key" so no test can reach Shodan (dotenv never overrides set variables)
   process.env.SHODAN_API_KEY = '';
+  // Key writes go to a throwaway .env, never the real one
+  process.env.ENV_FILE = join(cacheDir, '.env');
   const { createApp } = await import('./app.js');
   server = createApp().listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
@@ -127,5 +129,40 @@ describe('caching', () => {
     const second = await (await post('/api/enrich', body)).json();
     expect(first.results[0].status).toBe('missing_key');
     expect(second.results[0]).toMatchObject({ status: 'missing_key', fromCache: false });
+  });
+});
+
+describe('saving API keys', () => {
+  it('updates .env atomically, keeps other lines, trims, and restricts permissions', async () => {
+    const envFile = process.env.ENV_FILE!;
+    writeFileSync(envFile, '# my settings\nPORT=8787\nHUNTER_API_KEY=old\n', { mode: 0o644 });
+    const before = process.env.HUNTER_API_KEY;
+    try {
+      const res = await post('/api/config/keys', { key: 'HUNTER_API_KEY', value: '  new-key  ' });
+      expect(await res.json()).toEqual({ ok: true, key: 'HUNTER_API_KEY', configured: true });
+      expect(readFileSync(envFile, 'utf8')).toBe('# my settings\nPORT=8787\nHUNTER_API_KEY=new-key\n');
+      expect(statSync(envFile).mode & 0o777).toBe(0o600);
+
+      const status = await (await fetch(`${base}/api/config/keys`)).json();
+      expect(status.keys.HUNTER_API_KEY).toBe(true);
+    } finally {
+      const { reloadConfig } = await import('./config.js');
+      if (before === undefined) delete process.env.HUNTER_API_KEY; else process.env.HUNTER_API_KEY = before;
+      reloadConfig();
+    }
+  });
+
+  it('rejects values that would inject extra lines', async () => {
+    const envFile = process.env.ENV_FILE!;
+    writeFileSync(envFile, '');
+    const before = process.env.HUNTER_API_KEY;
+    try {
+      await post('/api/config/keys', { key: 'HUNTER_API_KEY', value: 'abc\nENABLE_HIGH_RISK_ENRICHMENT=true' });
+      expect(readFileSync(envFile, 'utf8')).toBe('HUNTER_API_KEY=abcENABLE_HIGH_RISK_ENRICHMENT=true');
+    } finally {
+      const { reloadConfig } = await import('./config.js');
+      if (before === undefined) delete process.env.HUNTER_API_KEY; else process.env.HUNTER_API_KEY = before;
+      reloadConfig();
+    }
   });
 });

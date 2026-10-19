@@ -1,23 +1,7 @@
-import type { DetectedIoc, IocType } from '../types/ioc';
+import type { DetectedIoc } from '../types/ioc';
 import type { Workflow } from '../types/workflow';
+import { isWorkflowEnabled } from '../lib/workflows';
 
-function isWorkflowEnabled(workflow: Workflow, ioc: DetectedIoc | null): { enabled: boolean; reason?: string } {
-  // Email header review accepts raw header text, not a single typed IOC
-  if (workflow.id === 'email-header-review') {
-    if (!ioc || !ioc.trimmed) return { enabled: false, reason: 'Paste email headers to enable' };
-    return { enabled: true };
-  }
-
-  if (!ioc || ioc.type === 'unknown') {
-    return { enabled: false, reason: 'Enter an IOC to enable' };
-  }
-  const type: IocType = ioc.type;
-  const effectiveType: IocType =
-    type === 'url' && workflow.allowedInputTypes.includes('domain') ? 'domain' : type;
-  if (workflow.allowedInputTypes.includes(effectiveType)) return { enabled: true };
-  const allowed = workflow.allowedInputTypes.map(t => t.toUpperCase()).join(', ');
-  return { enabled: false, reason: `Needs ${allowed}` };
-}
 
 // Feather/Lucide-style SVG icons for each workflow
 

@@ -20,6 +20,7 @@ import { checkBackendHealth } from './lib/apiClient';
 import { fetchCustomTools, saveCustomTools, loadHiddenToolIds, toggleHiddenToolId } from './lib/toolsStorage';
 import { loadFavorites, saveFavorites } from './lib/favorites';
 import { detectIoc } from './lib/detectIoc';
+import { isWorkflowEnabled } from './lib/workflows';
 import { loadHistory, saveSearch, removeEntry, clearHistory } from './lib/searchHistory';
 import type { HistoryEntry } from './lib/searchHistory';
 import toolsData from './data/tools.json';
@@ -148,10 +149,7 @@ export default function App() {
   const handleDetect = useCallback((detected: DetectedIoc | null) => {
     setIoc(detected);
     if (detected && selectedWorkflow) {
-      const supported =
-        selectedWorkflow.allowedInputTypes.includes(detected.type) ||
-        (detected.type === 'url' && selectedWorkflow.allowedInputTypes.includes('domain'));
-      if (!supported) setSelectedWorkflow(null);
+      if (!isWorkflowEnabled(selectedWorkflow, detected).enabled) setSelectedWorkflow(null);
     }
   }, [selectedWorkflow]);
 
@@ -175,10 +173,7 @@ export default function App() {
       setIoc(detected);
       setSelectedWorkflow(prev => {
         if (!prev || !detected) return prev;
-        const supported =
-          prev.allowedInputTypes.includes(detected.type) ||
-          (detected.type === 'url' && prev.allowedInputTypes.includes('domain'));
-        return supported ? prev : null;
+        return isWorkflowEnabled(prev, detected).enabled ? prev : null;
       });
       setPrefillIoc(iocValue);
       setActiveTab('single');
