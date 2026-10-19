@@ -83,6 +83,7 @@ export interface EnrichmentResponse {
   ioc: IocInput;
   results: EnrichmentResult[];
   overall: OverallAssessment;
+  contradictions?: ContradictionFlag[];
 }
 
 export interface EnrichRequest {

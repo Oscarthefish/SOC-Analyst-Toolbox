@@ -166,7 +166,74 @@ export function detectVpnOrTor(results: EnrichmentResult[]): VpnTorFlags {
   return { isTor, isVpn, signals };
 }
 
-export function computeOverallAssessment(results: EnrichmentResult[], vpnTor?: VpnTorFlags): OverallAssessment {
+/**
+ * Recommended actions per verdict. `highCorroborated` applies when two or more
+ * sources agree on high (or high + medium); `high` when a single source says high.
+ */
+export interface ActionSet {
+  critical: string[];
+  highCorroborated: string[];
+  high: string[];
+  medium: string[];
+  low: string[];
+  benign: string[];
+  unknown: string[];
+  tor: string;
+  vpn: string;
+}
+
+export const IOC_ACTIONS: ActionSet = {
+  critical: [
+    'Immediately isolate affected systems.',
+    'Escalate to Tier 2/3 or incident response.',
+    'Block IOC across all controls (firewall, proxy, EDR).',
+    'Initiate incident response procedure.',
+  ],
+  highCorroborated: [
+    'Block IOC at firewall and proxy.',
+    'Search for related IOCs across environment.',
+    'Escalate to senior analyst for review.',
+  ],
+  high: [
+    'Block IOC at perimeter controls.',
+    'Investigate correlated events in SIEM.',
+  ],
+  medium: [
+    'Monitor for additional activity from this IOC.',
+    'Consider adding to watchlist.',
+  ],
+  low: ['Log and monitor. No immediate action required.'],
+  benign: ['No action required. Document findings.'],
+  unknown: [
+    'Insufficient data. Consider manual investigation.',
+    'Check if additional API keys can be configured.',
+  ],
+  tor: 'Investigate all activity originating from this TOR node — high anonymity risk.',
+  vpn: 'Note: IP belongs to a commercial VPN provider — identity obfuscation should be considered in context.',
+};
+
+export const EMAIL_ACTIONS: ActionSet = {
+  critical: ['Block sender IP and domain immediately.', 'Escalate to incident response.'],
+  highCorroborated: ['Block sending IP at perimeter.', 'Quarantine the email and notify the recipient.', 'Search mail logs for other messages from this sender.'],
+  high: ['Block sending IP at perimeter.', 'Quarantine the email and notify the recipient.'],
+  medium: ['Quarantine the email pending further review.', 'Monitor for similar messages from this sender/IP.'],
+  low: ['Log and monitor. No immediate action required.'],
+  benign: ['No action required. Document findings.'],
+  unknown: ['Insufficient data. Consider manual investigation.'],
+  tor: 'Sending IP is a Tor node — treat the message as anonymised and suspicious.',
+  vpn: 'Sending IP belongs to a commercial VPN provider — sender identity is obscured.',
+};
+
+/**
+ * The single verdict scorer used by every route. Passive context sources (WHOIS,
+ * geolocation, DNS…) never drive severity; confidence reflects how many active
+ * sources returned data and whether any of it is recent.
+ */
+export function computeOverallAssessment(
+  results: EnrichmentResult[],
+  vpnTor?: VpnTorFlags,
+  actions: ActionSet = IOC_ACTIONS,
+): OverallAssessment {
   const successful = results.filter(r => r.status === 'ok' || r.status === 'cached');
   // Only active (non-passive) sources contribute to severity
   const activeSources = successful.filter(r => !PASSIVE_PROVIDERS.has(r.providerId));
@@ -179,37 +246,29 @@ export function computeOverallAssessment(results: EnrichmentResult[], vpnTor?: V
   }
 
   let severity: Severity;
-  const recommendedActions: string[] = [];
+  let recommendedActions: string[];
 
   if (severityCounts.critical > 0) {
     severity = 'critical';
-    recommendedActions.push('Immediately isolate affected systems.');
-    recommendedActions.push('Escalate to Tier 2/3 or incident response.');
-    recommendedActions.push('Block IOC across all controls (firewall, proxy, EDR).');
-    recommendedActions.push('Initiate incident response procedure.');
+    recommendedActions = [...actions.critical];
   } else if (severityCounts.high >= 2 || (severityCounts.high >= 1 && severityCounts.medium >= 1)) {
     severity = 'high';
-    recommendedActions.push('Block IOC at firewall and proxy.');
-    recommendedActions.push('Search for related IOCs across environment.');
-    recommendedActions.push('Escalate to senior analyst for review.');
+    recommendedActions = [...actions.highCorroborated];
   } else if (severityCounts.high >= 1) {
     severity = 'high';
-    recommendedActions.push('Block IOC at perimeter controls.');
-    recommendedActions.push('Investigate correlated events in SIEM.');
+    recommendedActions = [...actions.high];
   } else if (severityCounts.medium >= 1) {
     severity = 'medium';
-    recommendedActions.push('Monitor for additional activity from this IOC.');
-    recommendedActions.push('Consider adding to watchlist.');
+    recommendedActions = [...actions.medium];
   } else if (severityCounts.low > 0) {
     severity = 'low';
-    recommendedActions.push('Log and monitor. No immediate action required.');
+    recommendedActions = [...actions.low];
   } else if (severityCounts.benign > 0 && severityCounts.unknown === 0) {
     severity = 'benign';
-    recommendedActions.push('No action required. Document findings.');
+    recommendedActions = [...actions.benign];
   } else {
     severity = 'unknown';
-    recommendedActions.push('Insufficient data. Consider manual investigation.');
-    recommendedActions.push('Check if additional API keys can be configured.');
+    recommendedActions = [...actions.unknown];
   }
 
   // Confidence based on data quality: how many active sources returned data
@@ -229,10 +288,10 @@ export function computeOverallAssessment(results: EnrichmentResult[], vpnTor?: V
   // Elevate severity for VPN/TOR: these are active obfuscation tools — never leave as benign/unknown.
   if (vpnTor?.isTor && (severity === 'benign' || severity === 'unknown' || severity === 'low')) {
     severity = 'medium';
-    recommendedActions.unshift('Investigate all activity originating from this TOR node — high anonymity risk.');
+    recommendedActions.unshift(actions.tor);
   } else if (vpnTor?.isVpn && (severity === 'benign' || severity === 'unknown')) {
     severity = 'low';
-    recommendedActions.unshift('Note: IP belongs to a commercial VPN provider — identity obfuscation should be considered in context.');
+    recommendedActions.unshift(actions.vpn);
   }
 
   const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1);

@@ -5,7 +5,6 @@ import type {
   EnrichmentResult,
   OverallAssessment,
   EnrichOptions,
-  Severity,
 } from '../types.js';
 import { adapters } from '../adapters/index.js';
 import { config } from '../config.js';
@@ -13,6 +12,7 @@ import * as cache from '../cache.js';
 import { isRateLimited, recordRequest } from '../rateLimit.js';
 import { resolveOllamaModel, ollamaGenerate } from '../lib/ollama.js';
 import { parseEmailHeaders } from '../lib/emailHeaders.js';
+import { computeOverallAssessment, detectVpnOrTor, EMAIL_ACTIONS } from '../lib/scoring.js';
 import type { ParsedEmailHeaders } from '../lib/emailHeaders.js';
 
 const router = Router();
@@ -75,46 +75,6 @@ async function runAdapter(
   }
 }
 
-function computeOverall(results: EnrichmentResult[]): OverallAssessment {
-  const successful = results.filter(r => r.status === 'ok' || r.status === 'cached');
-  const counts: Record<Severity, number> = { critical:0, high:0, medium:0, low:0, benign:0, unknown:0 };
-  for (const r of successful) counts[r.severity] = (counts[r.severity] ?? 0) + 1;
-
-  let severity: Severity;
-  const actions: string[] = [];
-
-  if (counts.critical > 0) {
-    severity = 'critical';
-    actions.push('Block sender IP and domain immediately.');
-    actions.push('Escalate to incident response.');
-  } else if (counts.high > 0) {
-    severity = 'high';
-    actions.push('Block sending IP at perimeter.');
-    actions.push('Quarantine the email and notify the recipient.');
-  } else if (counts.medium > 0) {
-    severity = 'medium';
-    actions.push('Quarantine the email pending further review.');
-    actions.push('Monitor for similar messages from this sender/IP.');
-  } else if (counts.low > 0) {
-    severity = 'low';
-    actions.push('Log and monitor. No immediate action required.');
-  } else if (counts.benign > 0 && counts.unknown === 0) {
-    severity = 'benign';
-    actions.push('No action required. Document findings.');
-  } else {
-    severity = 'unknown';
-    actions.push('Insufficient data. Consider manual investigation.');
-  }
-
-  const successCount = successful.length;
-  const confidence = successCount >= 3 ? 'high' : successCount >= 1 ? 'medium' : 'low';
-
-  return {
-    severity, confidence,
-    summary: `Aggregated from ${successCount} provider(s): ${severity} severity, ${confidence} confidence.`,
-    recommendedActions: actions,
-  };
-}
 
 // ── Ollama prompt ────────────────────────────────────────────────────────────
 
@@ -259,7 +219,8 @@ router.post('/analyse-email-header', async (req: Request, res: Response): Promis
   const resolvedModel: string | null =
     resolvedModelResult.status === 'fulfilled' ? resolvedModelResult.value : null;
 
-  const overall = computeOverall(allResults);
+  // VPN/Tor flags come from the sending IP's providers only
+  const overall = computeOverallAssessment(allResults, detectVpnOrTor(ipResults), EMAIL_ACTIONS);
 
   let narrative: string | null = null;
   let narrativeError: string | undefined;

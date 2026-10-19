@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { EnrichmentResult } from '../types.js';
-import { computeOverallAssessment, detectContradictions, detectVpnOrTor } from './scoring.js';
+import { computeOverallAssessment, detectContradictions, detectVpnOrTor, EMAIL_ACTIONS } from './scoring.js';
 
 function r(providerId: string, overrides: Partial<EnrichmentResult> = {}): EnrichmentResult {
   return {
@@ -67,6 +67,15 @@ describe('computeOverallAssessment', () => {
     expect(computeOverallAssessment(benign, { isTor: true, isVpn: false, signals: [] }).severity).toBe('medium');
     expect(computeOverallAssessment(benign, { isTor: false, isVpn: true, signals: [] }).severity).toBe('low');
     expect(computeOverallAssessment([r('virustotal', { severity: 'high' })], { isTor: true, isVpn: false, signals: [] }).severity).toBe('high');
+  });
+
+  it('uses the supplied action wording without changing the verdict', () => {
+    const results = [r('virustotal', { severity: 'high' })];
+    const email = computeOverallAssessment(results, undefined, EMAIL_ACTIONS);
+    expect(email.severity).toBe(computeOverallAssessment(results).severity);
+    expect(email.recommendedActions.join(' ')).toMatch(/Quarantine the email/);
+    const tor = computeOverallAssessment([r('virustotal', { severity: 'benign' })], { isTor: true, isVpn: false, signals: [] }, EMAIL_ACTIONS);
+    expect(tor.recommendedActions[0]).toBe(EMAIL_ACTIONS.tor);
   });
 });
 
