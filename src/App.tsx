@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { flushSync } from 'react-dom';
 import type { DetectedIoc } from './types/ioc';
 import type { Workflow } from './types/workflow';
 import type { Tool } from './types/tool';
@@ -8,7 +7,7 @@ import { IocInput } from './components/IocInput';
 import { AnalysisBar } from './components/WorkflowTiles';
 import { ToolPanel } from './components/ToolPanel';
 import { AutoAnalysisPanel } from './components/AutoAnalysisPanel';
-import type { AutoAnalysisPanelHandle } from './components/AutoAnalysisPanel';
+import type { RunRequest } from './components/AutoAnalysisPanel';
 import { AppShell } from './components/AppShell';
 import { CaseWorkspace } from './components/CaseWorkspace';
 import { CommandPalette } from './components/CommandPalette';
@@ -20,6 +19,7 @@ import { checkBackendHealth } from './lib/apiClient';
 import { fetchCustomTools, saveCustomTools, loadHiddenToolIds, toggleHiddenToolId } from './lib/toolsStorage';
 import { loadFavorites, saveFavorites } from './lib/favorites';
 import { detectIoc } from './lib/detectIoc';
+import { isWorkflowEnabled } from './lib/workflows';
 import { loadHistory, saveSearch, removeEntry, clearHistory } from './lib/searchHistory';
 import type { HistoryEntry } from './lib/searchHistory';
 import toolsData from './data/tools.json';
@@ -115,6 +115,7 @@ export default function App() {
     const ok = await saveCustomTools(tools);
     if (ok) setCustomTools(tools);
     setToolsSaving(false);
+    return ok;
   }, []);
 
   const handleToggleHidden = useCallback((id: string) => {
@@ -127,7 +128,14 @@ export default function App() {
   const [prefillIoc, setPrefillIoc] = useState<string | undefined>(undefined);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResponse | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
-  const panelRef = useRef<AutoAnalysisPanelHandle>(null);
+  const [runRequest, setRunRequest] = useState<RunRequest | null>(null);
+  // Ids only ever increase, so a new request never matches one already handled
+  const runCounter = useRef(0);
+  const requestRun = useCallback((forceRefresh: boolean) => {
+    runCounter.current += 1;
+    setRunRequest({ id: runCounter.current, forceRefresh });
+  }, []);
+  const handleRunHandled = useCallback(() => setRunRequest(null), []);
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>(() => loadHistory());
   const [historyPreload, setHistoryPreload] = useState<AnalysisResponse | null>(null);
 
@@ -148,10 +156,7 @@ export default function App() {
   const handleDetect = useCallback((detected: DetectedIoc | null) => {
     setIoc(detected);
     if (detected && selectedWorkflow) {
-      const supported =
-        selectedWorkflow.allowedInputTypes.includes(detected.type) ||
-        (detected.type === 'url' && selectedWorkflow.allowedInputTypes.includes('domain'));
-      if (!supported) setSelectedWorkflow(null);
+      if (!isWorkflowEnabled(selectedWorkflow, detected).enabled) setSelectedWorkflow(null);
     }
   }, [selectedWorkflow]);
 
@@ -168,31 +173,21 @@ export default function App() {
 
   const handleInvestigate = useCallback((iocValue: string) => {
     const detected = detectIoc(iocValue);
-    // flushSync forces the new IOC and workflow to commit synchronously so that
-    // by the time panelRef.current.run() is called the panel already has the
-    // correct props (including the layout-effect reset of activeRunIdRef).
-    flushSync(() => {
-      setIoc(detected);
-      setSelectedWorkflow(prev => {
-        if (!prev || !detected) return prev;
-        const supported =
-          prev.allowedInputTypes.includes(detected.type) ||
-          (detected.type === 'url' && prev.allowedInputTypes.includes('domain'));
-        return supported ? prev : null;
-      });
-      setPrefillIoc(iocValue);
-      setActiveTab('single');
+    // State updates batch into one render; the panel runs the request after it has
+    // received the new indicator (see RunRequest in AutoAnalysisPanel)
+    setIoc(detected);
+    setSelectedWorkflow(prev => {
+      if (!prev || !detected) return prev;
+      return isWorkflowEnabled(prev, detected).enabled ? prev : null;
     });
-    panelRef.current?.run(false);
-  }, []);
+    setPrefillIoc(iocValue);
+    setActiveTab('single');
+    requestRun(false);
+  }, [requestRun]);
 
-  const handleRunAnalysis = useCallback(() => {
-    panelRef.current?.run(false);
-  }, []);
+  const handleRunAnalysis = useCallback(() => requestRun(false), [requestRun]);
 
-  const handleForceRunAnalysis = useCallback(() => {
-    panelRef.current?.run(true);
-  }, []);
+  const handleForceRunAnalysis = useCallback(() => requestRun(true), [requestRun]);
 
   const handlePrefillConsumed = useCallback(() => {
     setPrefillIoc(undefined);
@@ -291,7 +286,8 @@ export default function App() {
             backendOnline={backendOnline}
           />
           <AutoAnalysisPanel
-            ref={panelRef}
+            runRequest={runRequest}
+            onRunHandled={handleRunHandled}
             ioc={ioc}
             workflowId={selectedWorkflow?.id ?? null}
             onComplete={handleAnalysisComplete}

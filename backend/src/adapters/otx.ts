@@ -2,22 +2,13 @@ import type { IocInput, EnrichmentResult, EnrichOptions, Severity } from '../typ
 import { config } from '../config.js';
 import { markRateLimited } from '../rateLimit.js';
 import { computeFreshness } from '../lib/freshness.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'otx';
 const PROVIDER_NAME = 'AlienVault OTX';
 const TIMEOUT_MS = 10_000;
 const BASE = 'https://otx.alienvault.com/api/v1/indicators';
-
-function now(): string { return new Date().toISOString(); }
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID, providerName: PROVIDER_NAME,
-    status: 'ok', summary: '', severity: 'unknown', confidence: 'unknown',
-    data: {}, rawAvailable: false, checkedAt: now(), fromCache: false,
-    ...overrides,
-  };
-}
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 interface OtxGeneral {
   pulse_info?: { count?: number; pulses?: Array<{ name?: string; tags?: string[] }> };

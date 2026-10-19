@@ -1,31 +1,13 @@
 import type { IocInput, EnrichmentResult, EnrichOptions, Severity } from '../types.js';
 import { config } from '../config.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'whois';
 const PROVIDER_NAME = 'WHOIS';
 const TIMEOUT_MS = 12_000;
 const RDAP_BASE = 'https://rdap.org';
 const WHOISXML_BASE = 'https://www.whoisxmlapi.com/whoisserver/WhoisService';
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID,
-    providerName: PROVIDER_NAME,
-    status: 'ok',
-    summary: '',
-    severity: 'unknown',
-    confidence: 'unknown',
-    data: {},
-    rawAvailable: false,
-    checkedAt: now(),
-    fromCache: false,
-    ...overrides,
-  };
-}
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 function getDomainAge(dateStr: string | undefined | null): number | null {
   if (!dateStr) return null;

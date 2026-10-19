@@ -1,9 +1,11 @@
 import { promises as dnsPromises } from 'dns';
 import type { IocInput, EnrichmentResult, EnrichOptions } from '../types.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'dns';
 const PROVIDER_NAME = 'DNS Resolution';
 const DNS_TIMEOUT_MS = 8_000;
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 // dns.promises doesn't support AbortSignal — use Promise.race to enforce a deadline.
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -13,26 +15,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       setTimeout(() => reject(new Error('DNS lookup timed out')), ms),
     ),
   ]);
-}
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID,
-    providerName: PROVIDER_NAME,
-    status: 'ok',
-    summary: '',
-    severity: 'unknown',
-    confidence: 'unknown',
-    data: {},
-    rawAvailable: false,
-    checkedAt: now(),
-    fromCache: false,
-    ...overrides,
-  };
 }
 
 export async function dns(

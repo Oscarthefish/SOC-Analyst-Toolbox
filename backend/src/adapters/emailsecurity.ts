@@ -1,8 +1,10 @@
 import dns from 'node:dns/promises';
 import type { IocInput, EnrichmentResult, EnrichOptions, Severity } from '../types.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'emailsecurity';
 const PROVIDER_NAME = 'Email Security (DNS)';
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 // Common DKIM selectors to probe
 const DKIM_SELECTORS = [
@@ -10,26 +12,6 @@ const DKIM_SELECTORS = [
   'mandrill', 'sendgrid', 's1', 's2', 'k1', 'k2',
   'mail', 'email', 'dkim', 'proofpoint', 'mimecast',
 ];
-
-function now(): string {
-  return new Date().toISOString();
-}
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID,
-    providerName: PROVIDER_NAME,
-    status: 'ok',
-    summary: '',
-    severity: 'unknown',
-    confidence: 'unknown',
-    data: {},
-    rawAvailable: false,
-    checkedAt: now(),
-    fromCache: false,
-    ...overrides,
-  };
-}
 
 async function queryTxt(hostname: string): Promise<string[]> {
   try {

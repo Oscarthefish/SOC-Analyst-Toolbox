@@ -15,9 +15,21 @@ const ALLOWED_KEYS: readonly ProviderKeyEnv[] = PROVIDER_KEYS.map(p => p.env);
 
 type AllowedKey = ProviderKeyEnv;
 
-/** Resolve .env path relative to the backend package root (process.cwd when run from backend/). */
+/** The .env file holding API keys: backend/.env by default, or ENV_FILE (used by tests). */
 function envFilePath(): string {
-  return path.resolve(process.cwd(), '.env');
+  return process.env.ENV_FILE ?? path.resolve(process.cwd(), '.env');
+}
+
+/**
+ * Write the .env file atomically (temp file + rename) and readable only by the
+ * current user, since it holds API keys.
+ */
+async function writeEnvFile(content: string): Promise<void> {
+  const target = envFilePath();
+  const tmp = `${target}.${process.pid}.tmp`;
+  await fs.writeFile(tmp, content, { encoding: 'utf-8', mode: 0o600 });
+  await fs.rename(tmp, target);
+  await fs.chmod(target, 0o600);
 }
 
 /**
@@ -26,7 +38,7 @@ function envFilePath(): string {
  * preserved during a write-back (they are handled separately).
  */
 function parseEnvLines(content: string): string[] {
-  return content.split('\n');
+  return content ? content.split('\n') : [];
 }
 
 /**
@@ -101,8 +113,8 @@ router.post('/keys', async (req: Request, res: Response) => {
     return;
   }
 
-  // Strip newlines and null bytes to prevent .env injection
-  const safeValue = value.replace(/[\r\n\0]/g, '');
+  // Strip newlines and null bytes to prevent .env injection; trim like the reader does
+  const safeValue = value.replace(/[\r\n\0]/g, '').trim();
 
   let existingContent = '';
   try {
@@ -121,7 +133,7 @@ router.post('/keys', async (req: Request, res: Response) => {
   const updatedContent = updatedLines.join('\n');
 
   try {
-    await fs.writeFile(envFilePath(), updatedContent, 'utf-8');
+    await writeEnvFile(updatedContent);
   } catch (err: unknown) {
     console.error('[keys] Failed to write .env:', (err as Error).message);
     res.status(500).json({ ok: false, error: 'Failed to write configuration file.' });

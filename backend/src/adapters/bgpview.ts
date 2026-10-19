@@ -1,20 +1,11 @@
 import type { IocInput, EnrichmentResult, EnrichOptions } from '../types.js';
+import { resultFactory } from '../lib/result.js';
 
 const PROVIDER_ID = 'bgpview';
 const PROVIDER_NAME = 'RIPE Stat';
 const TIMEOUT_MS = 10_000;
 const BASE = 'https://stat.ripe.net/data';
-
-function now(): string { return new Date().toISOString(); }
-
-function makeResult(overrides: Partial<EnrichmentResult>): EnrichmentResult {
-  return {
-    providerId: PROVIDER_ID, providerName: PROVIDER_NAME,
-    status: 'ok', summary: '', severity: 'unknown', confidence: 'unknown',
-    data: {}, rawAvailable: false, checkedAt: now(), fromCache: false,
-    ...overrides,
-  };
-}
+const makeResult = resultFactory(PROVIDER_ID, PROVIDER_NAME);
 
 interface RipeAsn { asn?: number; holder?: string }
 interface RipePrefixData { announced?: boolean; asns?: RipeAsn[]; block?: { name?: string; desc?: string; country?: string } }
