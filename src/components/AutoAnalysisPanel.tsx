@@ -25,11 +25,13 @@ interface AutoAnalysisPanelProps {
   /** Pending run, handled once and then acknowledged via onRunHandled */
   runRequest?: RunRequest | null;
   onRunHandled?: () => void;
+  workflow?: { id: string; name: string } | null;
+  onHunt?: (techniqueIds: string[]) => void;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
-export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot, preloadResult, onLoadingChange, runRequest, onRunHandled }: AutoAnalysisPanelProps) {
+export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot, preloadResult, onLoadingChange, runRequest, onRunHandled, workflow, onHunt }: AutoAnalysisPanelProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -177,7 +179,7 @@ export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot, preloa
         {emailResult && !loading && <EmailAnalysisView result={emailResult} iocType={ioc?.type} />}
 
         {/* Standard IOC result */}
-        {iocResult && !loading && <AnalysisResultView response={iocResult} onPivot={onPivot} />}
+        {iocResult && !loading && <AnalysisResultView response={iocResult} onPivot={onPivot} workflow={workflow} onHunt={onHunt} />}
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ export const STORAGE_KEYS = {
   favorites: 'soc-toolbox-favorites',
   hiddenTools: 'soc-toolbox-hidden-tools',
   cases: 'soc-toolbox-cases-v2',
+  huntSettings: 'soc-toolbox-hunt-settings',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
@@ -27,6 +28,7 @@ export const STORAGE_DESCRIPTIONS: Record<StorageKey, string> = {
   'soc-toolbox-favorites': 'Pinned pivot tools',
   'soc-toolbox-hidden-tools': 'Hidden pivot tools',
   'soc-toolbox-cases-v2': 'Cases',
+  'soc-toolbox-hunt-settings': 'Hunt query settings',
 };
 
 export function readRaw(key: StorageKey): string | null {

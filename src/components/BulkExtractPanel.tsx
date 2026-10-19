@@ -6,6 +6,8 @@ import type { IocType } from '../types/ioc';
 
 interface BulkExtractPanelProps {
   onInvestigate: (ioc: string) => void;
+  /** Open the Hunt page with these indicators */
+  onHunt?: (iocs: string[]) => void;
 }
 
 const TYPE_LABELS: Record<IocType, string> = {
@@ -23,7 +25,7 @@ URL observed: https://login.evil-phishing.com/reset?token=abc123
 ASN: AS15169 (Google LLC) - this one is benign
 Also seen: 10.0.0.0/8 internal CIDR`;
 
-export function BulkExtractPanel({ onInvestigate }: BulkExtractPanelProps) {
+export function BulkExtractPanel({ onInvestigate, onHunt }: BulkExtractPanelProps) {
   const [text, setText] = useState('');
   const [results, setResults] = useState<ExtractedIoc[]>([]);
   const [filter, setFilter] = useState<IocType | 'all'>('all');
@@ -128,6 +130,12 @@ export function BulkExtractPanel({ onInvestigate }: BulkExtractPanelProps) {
               ))}
             </div>
             <div className="flex gap-2">
+              {onHunt && (
+                <button onClick={() => onHunt(filteredResults.map(r => r.normalised))}
+                  className="inline-flex items-center h-7 px-2.5 text-xs font-medium rounded-md bg-accent text-white hover:bg-accent-strong">
+                  Hunt for these ({filteredResults.length})
+                </button>
+              )}
               <CopyButton text={allIocsText} label="all IOCs" />
               <CopyButton text={allIocsCsv} label="CSV" />
             </div>

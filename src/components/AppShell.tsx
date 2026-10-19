@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 export type Tab =
-  | 'single' | 'cases' | 'bulk' | 'batch' | 'defang' | 'config'
+  | 'single' | 'hunt' | 'cases' | 'bulk' | 'batch' | 'defang' | 'config'
   | 'apikeys' | 'threatfeed' | 'history' | 'tools' | 'about';
 
 interface NavItem {
@@ -35,6 +35,7 @@ function Svg({ children }: { children: ReactNode }) {
 }
 
 const icons = {
+  hunt:     <Svg><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="2.5" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></Svg>,
   search:   <Svg><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></Svg>,
   extract:  <Svg><path d="M4 6h16M4 12h10M4 18h7" /><path d="M17 15l3 3-3 3" /></Svg>,
   batch:    <Svg><rect x="3" y="4" width="18" height="4" rx="1" /><rect x="3" y="10" width="18" height="4" rx="1" /><rect x="3" y="16" width="18" height="4" rx="1" /></Svg>,
@@ -56,6 +57,7 @@ export const NAV: NavGroup[] = [
     tone: 'c1',
     items: [
       { id: 'single', label: 'Investigate', title: 'Investigate indicator', description: 'Classify an indicator, enrich it across providers and pivot to external tools.', icon: icons.search },
+      { id: 'hunt', label: 'Hunt', title: 'Hunt queries', description: 'Build KQL or SPL hunts from indicators and MITRE ATT&CK techniques.', icon: icons.hunt },
       { id: 'cases', label: 'Cases', title: 'Cases', description: 'Saved investigations with verdicts, notes and checklists. Stored in this browser.', icon: icons.cases },
       { id: 'bulk', label: 'Bulk extract', title: 'Bulk extract', description: 'Pull every indicator out of logs, alerts or email bodies.', icon: icons.extract },
       { id: 'batch', label: 'Batch triage', title: 'Batch triage', description: 'Enrich a list of indicators and rank them by severity.', icon: icons.batch },

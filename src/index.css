@@ -98,6 +98,8 @@
   --color-c3: #84398f;  --color-c3-fg: #73307d;  --color-c3-bg: #f6ecf7;
   --color-c4: #bd3158;  --color-c4-fg: #a12649;  --color-c4-bg: #fbecf0;
   --color-c5: #0f7c84;  --color-c5-fg: #0b6870;  --color-c5-bg: #e6f4f4;
+  /* Text on a solid ramp colour */
+  --color-on-ramp: #ffffff;
 }
 
 :root.dark {
@@ -158,6 +160,7 @@
   --color-c3: #b46cc0;  --color-c3-fg: #d9a2e2;  --color-c3-bg: #261a2b;
   --color-c4: #e0607f;  --color-c4-fg: #ff9bb2;  --color-c4-bg: #2a1520;
   --color-c5: #2fb0b8;  --color-c5-fg: #74d6dc;  --color-c5-bg: #0f2427;
+  --color-on-ramp: #0a0f18;
 
   --shadow: 0 1px 2px rgb(0 0 0 / .3);
 
