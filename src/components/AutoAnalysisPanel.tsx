@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useLayoutEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import type { DetectedIoc } from '../types/ioc';
 import type { AnalysisResponse, EmailHeaderAnalysisResponse } from '../types/analysis';
 import { streamAutoAnalysis, runEmailHeaderAnalysis } from '../lib/apiClient';
@@ -9,8 +9,10 @@ import { ElapsedTimer, LiveProgress } from './AnalysisProgress';
 
 type AnyResult = AnalysisResponse | EmailHeaderAnalysisResponse;
 
-export interface AutoAnalysisPanelHandle {
-  run: (forceRefresh?: boolean) => void;
+/** A request from the parent to run analysis; a new id means a new run. */
+export interface RunRequest {
+  id: number;
+  forceRefresh: boolean;
 }
 
 interface AutoAnalysisPanelProps {
@@ -20,11 +22,14 @@ interface AutoAnalysisPanelProps {
   onPivot?: (iocValue: string) => void;
   preloadResult?: AnalysisResponse | null;
   onLoadingChange?: (loading: boolean) => void;
+  /** Pending run, handled once and then acknowledged via onRunHandled */
+  runRequest?: RunRequest | null;
+  onRunHandled?: () => void;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
-export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysisPanelProps>(function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot, preloadResult, onLoadingChange }, ref) {
+export function AutoAnalysisPanel({ ioc, workflowId, onComplete, onPivot, preloadResult, onLoadingChange, runRequest, onRunHandled }: AutoAnalysisPanelProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,14 +111,17 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
     }
   }, [ioc, workflowId, disabled, onComplete, includeHunter, isEmailHeaderWorkflow]);
 
-  // Keep a stable ref to handleRun so the imperative handle always calls the latest version.
-  const handleRunRef = useRef(handleRun);
-  useLayoutEffect(() => { handleRunRef.current = handleRun; }, [handleRun]);
-
-  // Expose run() so the parent can trigger analysis directly (no effect round-trip).
-  useImperativeHandle(ref, () => ({
-    run: (forceRefresh = false) => { void handleRunRef.current(forceRefresh); },
-  }), []);
+  // Run when the parent asks. This effect fires after the layout effect above has reset
+  // state for a new indicator, so a pivot to a new IOC runs against that IOC. The request
+  // is acknowledged at once so a later remount (switching pages) doesn't run it again.
+  // The handled id also guards StrictMode's double effect invocation in development.
+  const handledRunIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!runRequest || runRequest.id === handledRunIdRef.current) return;
+    handledRunIdRef.current = runRequest.id;
+    onRunHandled?.();
+    void handleRun(runRequest.forceRefresh);
+  }, [runRequest, handleRun, onRunHandled]);
 
   // Discriminate the two result shapes
   const emailResult = result && 'parsed' in result ? result as EmailHeaderAnalysisResponse : null;
@@ -173,4 +181,4 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
       </div>
     </div>
   );
-});
+}
