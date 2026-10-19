@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 
-const API_BASE = 'http://localhost:8787/api';
+const API_BASE = '/api';
 
 // ── Pulsedive types ────────────────────────────────────────────────────────
 

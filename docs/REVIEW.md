@@ -30,13 +30,27 @@ The main weaknesses:
 
 ## 2. Correctness and reliability
 
-- **No test suite.** Add Vitest. Highest value first: `detectIoc`, `normalizeIoc`, `extractIocs` (false positives such as version strings and file names), `defang`, and the backend scoring functions `computeOverallAssessment`, `detectContradictions` and `detectVpnOrTor`. These are pure functions and cheap to test.
+- **No test suite** *(Phase 1: added; see below)*. Add Vitest. Highest value first: `detectIoc`, `normalizeIoc`, `extractIocs` (false positives such as version strings and file names), `defang`, and the backend scoring functions `computeOverallAssessment`, `detectContradictions` and `detectVpnOrTor`. These are pure functions and cheap to test.
 - **`reloadConfig()` duplicates the startup config block** and has to be kept in sync by hand. Derive both from one `PROVIDER_ENV` table. The key allowlist in `keys.ts` is a third copy of the same list.
 - **The cache rewrites the whole JSON file synchronously on every `set`** (`writeFileSync` with pretty-printing). Nothing calls `prune()`, so the file grows without bound. It also lives at the repo root `.cache/`, not `backend/.cache/` as the README says. Recommendation: debounce writes, prune on startup and on an interval, cap the entry count, or switch to SQLite (`better-sqlite3`).
 - **The rate limiter only reacts to 429s.** It never enforces provider quotas proactively (VirusTotal free tier is 4 requests/min, and a batch triage run will burn through it). Add a token bucket per provider, configured from `providerTtl`-style data.
 - **The "Email Header Review" workflow shows for every indicator type** because `isWorkflowEnabled` only checks that input is present. It should require `ioc.isEmailHeader`.
 - **Hardcoded `BACKEND_URL = http://localhost:8787`, with CORS limited to ports 5173/5174.** `npm run preview` (port 4173) can't reach the backend. Use a Vite dev/preview proxy (`/api` → 8787) and relative URLs, and drop CORS entirely.
-- **Several network calls run without timeouts** (Ollama retry path, some adapters). Standardise on `AbortSignal.timeout()` in one shared `httpGet` helper. Each adapter currently re-implements `makeResult`, `now` and its timeout handling.
+- **Timeouts stop before the response body is read.** *(Corrected in Phase 1: an earlier draft said some calls had no timeout; every call has one.)* Adapters clear their abort timer as soon as response headers arrive, so a slow response body can still hang a request. Each adapter also re-implements `makeResult`, `now` and its timeout handling. A shared helper using `AbortSignal.timeout()` that covers the body read would fix both.
+
+- **Three different scoring implementations.** `/api/analyse` (`lib/scoring.ts`), `/api/enrich` (`routes/enrich.ts`, used by Batch triage) and `/api/analyse-email-header` each compute severity differently. For example, `/api/enrich` counts passive context sources such as WHOIS and IPinfo towards severity, while `/api/analyse` does not. So Batch triage and Investigate can give the same indicator different verdicts. Recommendation: make `lib/scoring.ts` the only scorer. This will change some Batch triage verdicts, so it needs a deliberate decision.
+
+### Bugs found by the Phase 1 tests (all fixed)
+
+| Area | Bug |
+|---|---|
+| Bulk extract | Defanged URLs in text were cut off at the first bracket (`hxxps://evil[.]com/x` was extracted as `https://evil`), and defanged domains (`evil[.]com`) were missed entirely |
+| Bulk extract | Clock times in logs (`12:30:45`) were extracted as IPv6 addresses |
+| Bulk extract | A CIDR's network address was also reported as a separate IPv4 address |
+| Detection | Invalid CIDRs (`10.0.0.0/40`, `300.0.0.0/8`) were accepted; IPv6 validation accepted clock times |
+| Detection | Ordinary URLs were flagged as sensitive by substring matching (`/android/video` matched "id"); terms are now matched as whole words in the path and parameter names, and JWT-looking parameter values are flagged |
+| Detection | Mixed-case domains were classified at medium confidence |
+| Email headers | DKIM alignment used a plain `endsWith`, so a signature from `notexample.com` passed for `From: example.com` |
 
 ## 3. Code health
 
@@ -80,7 +94,7 @@ The main weaknesses:
 | Phase | Effort | Items |
 |---|---|---|
 | **0: Done** (2026-10-19) | ~1 day | S2 credential validator gated and uncached · S3 Host + Origin enforcement (launch token dropped: it can't stop local processes, which can read `.env` anyway) · S4 server-side tool validation + `safeHref` · S5 audits clean in both packages · README rewritten · dead code removed |
-| **1: Foundations** | 3–5 days | Vitest plus tests for detection, extraction, defang and scoring; GitHub Actions running lint, typecheck, test and build; single provider registry (config/keys/reload); shared HTTP helper with timeouts; Vite proxy and relative API URLs |
+| **1: Done** (2026-10-19) | 3–5 days | 75 Vitest tests (49 frontend, 26 backend) covering detection, extraction, defang, templates, scoring, email header parsing and the provider registry · GitHub Actions CI · one provider registry drives config, reload and the key allowlist · `node-fetch` replaced with Node's built-in fetch · Vite dev/preview proxy with relative `/api` URLs · **Deferred:** shared HTTP helper (see "Timeouts" above) and scoring unification, which changes verdicts and needs a decision |
 | **2: Performance** | 2–3 days | Lazy-load tabs; SSE streaming for `/api/analyse`; cache rewrite (SQLite or debounced writes + pruning); proactive per-provider rate limiting |
 | **3: Product UX** | 1–2 weeks | Verdict-first unified results view; Cases workspace; ⌘K palette; batch triage table; accessibility pass |
 | **4: Hardening** | ongoing | Express 5; replace ip-api; split large components and move parsers into `lib/`; consolidated storage module with schema versioning |

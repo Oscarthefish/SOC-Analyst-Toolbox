@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import fetch from 'node-fetch';
 
 const router = Router();
 const TIMEOUT_MS = 15_000;

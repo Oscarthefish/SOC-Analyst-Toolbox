@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import type { IocInput, EnrichmentResult, EnrichOptions, Severity } from '../types.js';
 
 const PROVIDER_ID = 'hudsonrock';

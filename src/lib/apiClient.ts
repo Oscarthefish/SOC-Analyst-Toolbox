@@ -1,7 +1,8 @@
 import type { EnrichRequest, EnrichmentResponse, HealthResponse } from '../types/enrichment';
 import type { AnalysisRequest, AnalysisResponse, EmailHeaderAnalysisRequest, EmailHeaderAnalysisResponse } from '../types/analysis';
 
-const BACKEND_URL = 'http://localhost:8787';
+// Relative: the Vite dev/preview server proxies /api to the local backend
+const BACKEND_URL = '';
 const ENRICH_TIMEOUT_MS = 30_000;
 const ANALYSE_TIMEOUT_MS = 120_000;
 const SHORT_TIMEOUT_MS = 5_000;

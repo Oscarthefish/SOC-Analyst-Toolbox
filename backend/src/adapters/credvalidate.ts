@@ -9,7 +9,6 @@
  * explicitly by name (providers: ['credvalidate']) and only used during
  * authorized incident-response or red-team assessments.
  */
-import fetch from 'node-fetch';
 import type { IocInput, EnrichmentResult, EnrichOptions } from '../types.js';
 
 const PROVIDER_ID = 'credvalidate';

@@ -124,7 +124,7 @@ function BackendStatus({ online }: { online: boolean | null }) {
   const dot = state === 'online' ? 'bg-ok' : state === 'offline' ? 'bg-danger' : 'bg-fg-4';
   const label = state === 'online' ? 'Backend connected' : state === 'offline' ? 'Backend offline' : 'Checking backend…';
   return (
-    <div className="flex items-center gap-2 text-[12px] text-fg-3" title={state === 'offline' ? 'Start it with: npm run backend:dev' : 'localhost:8787'}>
+    <div className="flex items-center gap-2 text-[12px] text-fg-3" title={state === 'offline' ? 'Start it with: npm run backend:dev' : 'Local backend via /api'}>
       <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
       {label}
     </div>

@@ -1,6 +1,7 @@
 import type { Tool } from '../types/tool';
 
-const BACKEND_URL = 'http://localhost:8787';
+// Relative: the Vite dev/preview server proxies /api to the local backend
+const BACKEND_URL = '';
 const HIDDEN_KEY = 'soc-toolbox-hidden-tools';
 
 export async function fetchCustomTools(): Promise<Tool[]> {

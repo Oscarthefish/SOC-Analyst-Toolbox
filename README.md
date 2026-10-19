@@ -12,6 +12,8 @@ The browser talks only to a backend on your own machine. API keys stay in `backe
 
 ## Quick start
 
+Requires Node.js 20 or later.
+
 ```bash
 npm install
 npm run backend:install
@@ -33,6 +35,8 @@ Open <http://localhost:5173>.
 | `npm run build` | Typecheck and build the frontend to `dist/` |
 | `npm run backend:build` | Build the backend to `backend/dist/` |
 | `npm run lint` | ESLint |
+| `npm test` / `npm run backend:test` | Frontend / backend unit tests (Vitest) |
+| `npm run check` | Lint, typecheck and test both packages (what CI runs, minus the build) |
 
 ---
 
@@ -157,7 +161,8 @@ If a template still contains an unfilled variable for the current indicator type
 | Problem | Fix |
 |---|---|
 | Sidebar shows **Backend offline** | Run `npm run backend:dev`, or `npm run dev` |
-| `403 Forbidden origin` | You're serving the frontend from a port that isn't allowed. Add it to `ALLOWED_ORIGINS` in `backend/.env` |
+| `403 Forbidden origin` | You're calling the backend directly from a page on a port that isn't allowed. Use the Vite dev or preview server, which proxies `/api`, or add the origin to `ALLOWED_ORIGINS` in `backend/.env` |
+| Backend not on port 8787 | Start Vite with `BACKEND_PORT=<port>` so the `/api` proxy points at it |
 | Provider shows **No key** | Add the key in Integrations, or in `.env` and restart the backend |
 | Provider shows **Rate limited** | Wait 60 seconds. The backend backs off after a 429 |
 | No written summary | Start Ollama and pull a model (`ollama pull qwen2.5`) |
