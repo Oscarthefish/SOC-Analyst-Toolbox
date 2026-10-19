@@ -5,6 +5,12 @@ import type { Workflow } from '../types/workflow';
 import workflowsData from '../data/workflows.json';
 import { DEFAULT_TOOL_FORM, validateToolForm, formToTool } from '../lib/customTools';
 import type { ToolFormState } from '../lib/customTools';
+import { toolFamily, TOOL_FAMILY_ORDER, TOOL_FAMILY_LABEL } from '../lib/toolFamily';
+import type { ToolFamily } from '../lib/toolFamily';
+import { ToolCategoryBadge, FAMILY_FILL } from './ToolCategoryBadge';
+import { IocTypeChip } from './IocTypeChip';
+import { RingGauge, SeriesLegend } from './charts';
+import type { Series } from './charts';
 
 interface Props {
   builtinTools: Tool[];
@@ -114,11 +120,56 @@ function InputField({ value, onChange, placeholder, error }: {
   );
 }
 
-function CategoryBadge({ category }: { category: string }) {
+const CategoryBadge = ToolCategoryBadge;
+
+// Same wording as the exposure badge on each pivot tool (ToolCard)
+const RISK_SERIES: Series[] = [
+  { key: 'low', label: 'Passive', bg: 'bg-ok' },
+  { key: 'medium', label: 'Submits IOC', bg: 'bg-warn' },
+  { key: 'high', label: 'Public', bg: 'bg-danger' },
+];
+
+const FAMILY_RULE: Record<ToolFamily, string> = {
+  intel: 'border-l-c1', web: 'border-l-c2', malware: 'border-l-c3', infra: 'border-l-c5', business: 'border-l-c4',
+};
+
+function LibraryOverview({ tools, hiddenCount }: { tools: Tool[]; hiddenCount: number }) {
+  const families = TOOL_FAMILY_ORDER.map(f => ({ f, n: tools.filter(t => toolFamily(t.category) === f).length }));
+  const risk = Object.fromEntries(RISK_SERIES.map(r => [r.key, tools.filter(t => t.submissionRisk === r.key).length]));
+  const bar = (items: { key: string; n: number; bg: string; title: string }[], label: string) => (
+    <div className="flex h-2.5 gap-[2px] rounded-full overflow-hidden bg-raised" role="img" aria-label={`${label}: ${items.map(i => `${i.n} ${i.title}`).join(', ')}`}>
+      {items.filter(i => i.n > 0).map(i => <span key={i.key} className={i.bg} style={{ flexGrow: i.n, flexBasis: 0 }} title={`${i.title}: ${i.n}`} />)}
+    </div>
+  );
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-raised border border-line text-fg-2">
-      {category}
-    </span>
+    <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto]">
+      <section className="wb-card p-4 min-w-0">
+        <h2 className="wb-label mb-2.5">Tools by family</h2>
+        {bar(families.map(({ f, n }) => ({ key: f, n, bg: FAMILY_FILL[f], title: TOOL_FAMILY_LABEL[f] })), 'Tools by family')}
+        <ul className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1">
+          {families.map(({ f, n }) => (
+            <li key={f} className="flex items-center gap-1.5 text-[11px] text-fg-3">
+              <span className={`w-2 h-2 rounded-sm ${FAMILY_FILL[f]}`} aria-hidden />{TOOL_FAMILY_LABEL[f]}
+              <span className="text-fg-1 font-medium tabular-nums">{n}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section className="wb-card p-4 min-w-0">
+        <h2 className="wb-label mb-2.5">What opening a link exposes</h2>
+        {bar(RISK_SERIES.map(r => ({ key: r.key, n: risk[r.key] ?? 0, bg: r.bg, title: r.label })), 'Tools by exposure')}
+        <div className="mt-2.5"><SeriesLegend series={RISK_SERIES} counts={risk} /></div>
+      </section>
+      <section className="wb-card p-4 flex items-center gap-4">
+        <RingGauge fraction={tools.length ? (tools.length - hiddenCount) / tools.length : 0} tone="stroke-c2" size={68} thickness={8} label={`${tools.length - hiddenCount} of ${tools.length} tools visible`}>
+          <span className="text-[15px] font-semibold text-fg-1 tabular-nums">{tools.length - hiddenCount}</span>
+        </RingGauge>
+        <div>
+          <p className="text-[13px] font-medium text-fg-1">Visible</p>
+          <p className="text-[11px] text-fg-4">{hiddenCount} hidden of {tools.length}</p>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -126,7 +177,7 @@ function CategoryBadge({ category }: { category: string }) {
 
 function CustomToolRow({ tool, onDelete }: { tool: Tool; onDelete: () => void }) {
   return (
-    <div className="flex items-start gap-3 p-4 border border-line rounded-xl bg-surface">
+    <div className={`flex items-start gap-3 p-4 border border-line border-l-[3px] rounded-xl bg-surface ${FAMILY_RULE[toolFamily(tool.category)]}`}>
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2 mb-1">
           <span className="text-[13px] font-semibold text-fg-1">{tool.name}</span>
@@ -134,11 +185,7 @@ function CustomToolRow({ tool, onDelete }: { tool: Tool; onDelete: () => void })
         </div>
         <p className="text-[11px] font-mono text-fg-3 truncate mb-2">{tool.urlTemplate}</p>
         <div className="flex flex-wrap gap-1.5">
-          {tool.inputTypes.map(t => (
-            <span key={t} className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-accent-bg border border-accent-line text-accent-fg">
-              {t.toUpperCase()}
-            </span>
-          ))}
+          {tool.inputTypes.map(t => <IocTypeChip key={t} type={t} size="sm" />)}
           {tool.workflows.map(w => {
             const wf = ALL_WORKFLOWS.find(x => x.id === w);
             return wf ? (
@@ -269,6 +316,8 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
 
   return (
     <div className="space-y-4">
+      <LibraryOverview tools={builtinTools} hiddenCount={hiddenCount} />
+
 
       {/* ── Custom tools ─────────────────────────────────────────────────── */}
       <div className="wb-card p-5">

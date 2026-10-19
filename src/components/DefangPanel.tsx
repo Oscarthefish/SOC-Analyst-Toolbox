@@ -1,11 +1,19 @@
 import { useState, useCallback } from 'react';
 import { processDefang, type DefangResult } from '../lib/defang';
 import { CopyButton } from './CopyButton';
+import { IocTypeChip } from './IocTypeChip';
 
-const TYPE_LABELS: Record<string, string> = {
-  ipv4: 'IPv4', ipv6: 'IPv6', domain: 'Domain', url: 'URL',
-  email: 'Email', cidr: 'CIDR', other: 'Unknown',
-};
+/** Marks the parts defanging changes ([.], [@], [:], hxxp) so the transform is visible. */
+function Marked({ text }: { text: string }) {
+  const parts = text.split(/(\[\.\]|\[@\]|\[:\]|hxxps?)/g);
+  return (
+    <>
+      {parts.map((p, i) => /^(\[\.\]|\[@\]|\[:\]|hxxps?)$/.test(p)
+        ? <mark key={i} className="bg-warn-bg text-warn-fg rounded-sm px-px ring-1 ring-warn-line">{p}</mark>
+        : <span key={i}>{p}</span>)}
+    </>
+  );
+}
 
 export function DefangPanel() {
   const [input, setInput] = useState('');
@@ -66,9 +74,7 @@ export function DefangPanel() {
         <div className="wb-card p-5">
           <div className="flex items-center gap-2 mb-4">
             <p className="wb-label">Detected type</p>
-            <span className="inline-flex items-center h-6 px-2.5 rounded text-xs font-semibold font-mono bg-accent-bg border border-accent-line text-accent-fg">
-              {TYPE_LABELS[result.type] ?? result.type}
-            </span>
+            <IocTypeChip type={result.type === 'other' ? 'unknown' : result.type} />
           </div>
 
           <div className="space-y-3">
@@ -80,22 +86,22 @@ export function DefangPanel() {
               <CopyButton text={result.original} iconOnly />
             </div>
 
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-warn-bg border border-warn-line">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-surface border border-line border-l-[3px] border-l-warn">
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-warn-fg mb-1">
-                  Defanged <span className="font-normal normal-case text-warn-fg/60 tracking-normal">· safe to share in tickets &amp; reports</span>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-warn-fg mb-1">
+                  Defanged <span className="font-normal normal-case text-fg-3 tracking-normal">· safe to share in tickets &amp; reports</span>
                 </p>
-                <code className="text-[14px] font-mono text-warn-fg break-all">{result.defanged}</code>
+                <code className="text-[14px] font-mono text-fg-1 break-all"><Marked text={result.defanged} /></code>
               </div>
               <CopyButton text={result.defanged} iconOnly />
             </div>
 
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-ok-bg border border-ok-line">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-surface border border-line border-l-[3px] border-l-danger">
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-ok-fg mb-1">
-                  Refanged <span className="font-normal normal-case text-ok-fg/60 tracking-normal">· live / clickable form</span>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-danger-fg mb-1">
+                  Refanged <span className="font-normal normal-case text-fg-3 tracking-normal">· live, clickable form — handle with care</span>
                 </p>
-                <code className="text-[14px] font-mono text-ok-fg break-all">{result.refanged}</code>
+                <code className="text-[14px] font-mono text-fg-1 break-all">{result.refanged}</code>
               </div>
               <CopyButton text={result.refanged} iconOnly />
             </div>
@@ -109,24 +115,33 @@ export function DefangPanel() {
         </div>
       )}
 
-      <div className="wb-card p-5">
-        <p className="wb-label mb-4">Defang Reference</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { label: 'IP address',  fanged: '1.2.3.4',              defanged: '1[.]2[.]3[.]4' },
-            { label: 'Domain',      fanged: 'example.com',           defanged: 'example[.]com' },
-            { label: 'HTTPS URL',   fanged: 'https://example.com/p', defanged: 'hxxps://example[.]com/p' },
-            { label: 'HTTP URL',    fanged: 'http://example.com/p',  defanged: 'hxxp://example[.]com/p' },
-          ].map(row => (
-            <div key={row.label} className="flex items-start gap-3 text-xs">
-              <span className="text-fg-4 w-20 shrink-0 font-medium">{row.label}</span>
-              <div className="space-y-1">
-                <code className="block text-fg-2 font-mono">{row.fanged}</code>
-                <span className="block text-fg-4">↓</span>
-                <code className="block text-warn-fg font-mono">{row.defanged}</code>
-              </div>
-            </div>
-          ))}
+      <div className="wb-card overflow-hidden">
+        <p className="wb-label px-5 pt-4 pb-3">Defang reference</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-inset border-y border-line text-[11px] text-fg-4">
+                <th className="text-left font-normal px-5 py-2">Type</th>
+                <th className="text-left font-normal px-3 py-2">Live</th>
+                <th className="text-left font-normal px-3 py-2">Defanged</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line-soft">
+              {[
+                { type: 'ipv4',   fanged: '1.2.3.4',               defanged: '1[.]2[.]3[.]4' },
+                { type: 'domain', fanged: 'example.com',            defanged: 'example[.]com' },
+                { type: 'url',    fanged: 'https://example.com/p',  defanged: 'hxxps://example[.]com/p' },
+                { type: 'url',    fanged: 'http://example.com/p',   defanged: 'hxxp://example[.]com/p' },
+                { type: 'email',  fanged: 'user@example.com',       defanged: 'user[@]example[.]com' },
+              ].map(row => (
+                <tr key={row.fanged}>
+                  <td className="px-5 py-2"><IocTypeChip type={row.type} size="sm" /></td>
+                  <td className="px-3 py-2"><code className="font-mono text-fg-2">{row.fanged}</code></td>
+                  <td className="px-3 py-2"><code className="font-mono text-fg-1"><Marked text={row.defanged} /></code></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

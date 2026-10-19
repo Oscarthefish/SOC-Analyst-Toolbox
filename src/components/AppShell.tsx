@@ -12,10 +12,17 @@ interface NavItem {
   icon: ReactNode;
 }
 
+/** Ramp colour that marks a nav group (see --color-c* in index.css). */
+type GroupTone = 'c1' | 'c2' | 'c3' | 'c5';
+
 interface NavGroup {
   label: string;
+  tone: GroupTone;
   items: NavItem[];
 }
+
+const TONE_TILE: Record<GroupTone, string> = { c1: 'bg-c1-bg text-c1-fg', c2: 'bg-c2-bg text-c2-fg', c3: 'bg-c3-bg text-c3-fg', c5: 'bg-c5-bg text-c5-fg' };
+const TONE_DOT: Record<GroupTone, string> = { c1: 'bg-c1', c2: 'bg-c2', c3: 'bg-c3', c5: 'bg-c5' };
 
 // ── Icons (16px, 1.5 stroke) ────────────────────────────────────────────────
 
@@ -46,6 +53,7 @@ const icons = {
 export const NAV: NavGroup[] = [
   {
     label: 'Investigate',
+    tone: 'c1',
     items: [
       { id: 'single', label: 'Investigate', title: 'Investigate indicator', description: 'Classify an indicator, enrich it across providers and pivot to external tools.', icon: icons.search },
       { id: 'cases', label: 'Cases', title: 'Cases', description: 'Saved investigations with verdicts, notes and checklists. Stored in this browser.', icon: icons.cases },
@@ -55,6 +63,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'Intelligence',
+    tone: 'c2',
     items: [
       { id: 'threatfeed', label: 'Threat feed', title: 'Threat feed', description: 'Recently exploited vulnerabilities, ransomware activity and high-risk infrastructure.', icon: icons.feed },
       { id: 'history', label: 'History', title: 'Search history', description: 'Previous analyses stored in this browser.', icon: icons.history },
@@ -62,12 +71,14 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'Utilities',
+    tone: 'c3',
     items: [
       { id: 'defang', label: 'Defang / refang', title: 'Defang / refang', description: 'Convert indicators between live and safe-to-share forms.', icon: icons.defang },
     ],
   },
   {
     label: 'Configuration',
+    tone: 'c5',
     items: [
       { id: 'apikeys', label: 'Integrations', title: 'Integrations', description: 'API keys for enrichment providers. Keys are written to backend/.env and never reach the browser.', icon: icons.key },
       { id: 'tools', label: 'Tool library', title: 'Tool library', description: 'Built-in and custom pivot tools, and which ones are hidden.', icon: icons.tools },
@@ -80,14 +91,18 @@ const ABOUT: NavItem = { id: 'about', label: 'About', title: 'About', descriptio
 
 export const ALL_NAV_ITEMS: NavItem[] = [...NAV.flatMap(g => g.items), ABOUT];
 
+function toneOf(tab: Tab): GroupTone {
+  return NAV.find(g => g.items.some(i => i.id === tab))?.tone ?? 'c2';
+}
+
 // ── Brand mark ─────────────────────────────────────────────────────────────
 
 function BrandMark() {
   return (
     <svg className="w-6 h-6 shrink-0" viewBox="0 0 32 32" aria-hidden>
-      <rect width="32" height="32" rx="7" className="fill-fg-1" />
-      <path d="M11 9H8v14h3M21 9h3v14h-3" fill="none" className="stroke-canvas" strokeWidth={2.4} strokeLinecap="square" />
-      <rect x="14" y="17.5" width="4" height="4" className="fill-accent" />
+      <rect width="32" height="32" rx="8" className="fill-rail-fg-1" />
+      <path d="M11 9H8v14h3M21 9h3v14h-3" fill="none" className="stroke-rail" strokeWidth={2.4} strokeLinecap="square" />
+      <rect x="14" y="17.5" width="4" height="4" className="fill-rail-mark" />
     </svg>
   );
 }
@@ -110,24 +125,25 @@ function NavButton({ item, active, onClick }: { item: NavItem; active: boolean; 
     <button
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`w-full flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] transition-colors ${
+      className={`relative w-full flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] transition-colors ${
         active
-          ? 'bg-raised text-fg-1 font-medium'
-          : 'text-fg-3 hover:text-fg-1 hover:bg-raised/60'
+          ? 'bg-rail-active text-rail-fg-1 font-medium'
+          : 'text-rail-fg hover:text-rail-fg-1 hover:bg-rail-hover'
       }`}
     >
-      <span className={active ? 'text-accent-fg' : ''}>{item.icon}</span>
+      {active && <span className="absolute -left-2.5 top-1.5 bottom-1.5 w-[3px] rounded-r bg-rail-mark" aria-hidden />}
+      {item.icon}
       {item.label}
     </button>
   );
 }
 
-function BackendStatus({ online }: { online: boolean | null }) {
+function BackendStatus({ online, onRail }: { online: boolean | null; onRail?: boolean }) {
   const state = online === null ? 'checking' : online ? 'online' : 'offline';
   const dot = state === 'online' ? 'bg-ok' : state === 'offline' ? 'bg-danger' : 'bg-fg-4';
   const label = state === 'online' ? 'Backend connected' : state === 'offline' ? 'Backend offline' : 'Checking backend…';
   return (
-    <div className="flex items-center gap-2 text-[12px] text-fg-3" title={state === 'offline' ? 'Start it with: npm run backend:dev' : 'Local backend via /api'}>
+    <div className={`flex items-center gap-2 text-[12px] ${onRail ? 'text-rail-fg' : 'text-fg-3'}`} title={state === 'offline' ? 'Start it with: npm run backend:dev' : 'Local backend via /api'}>
       <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
       {label}
     </div>
@@ -136,16 +152,17 @@ function BackendStatus({ online }: { online: boolean | null }) {
 
 export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onToggleTheme, headerActions, onOpenPalette, children }: AppShellProps) {
   const current = ALL_NAV_ITEMS.find(i => i.id === activeTab) ?? ALL_NAV_ITEMS[0]!;
+  const tone = toneOf(current.id);
 
   return (
     <div className="min-h-screen bg-canvas lg:flex">
       {/* ── Sidebar (desktop) ─────────────────────────────────────────── */}
-      <aside className="hidden lg:flex flex-col w-[232px] shrink-0 h-screen sticky top-0 border-r border-line bg-surface">
-        <div className="h-14 flex items-center gap-2.5 px-4 border-b border-line">
+      <aside className="hidden lg:flex flex-col w-[232px] shrink-0 h-screen sticky top-0 bg-rail">
+        <div className="h-16 flex items-center gap-2.5 px-4 border-b border-rail-line">
           <BrandMark />
           <div className="leading-tight">
-            <p className="text-[13px] font-semibold text-fg-1">SOC Analyst Toolbox</p>
-            <p className="text-[11px] text-fg-4">Local workbench</p>
+            <p className="text-[13px] font-semibold text-rail-fg-1">SOC Analyst Toolbox</p>
+            <p className="text-[11px] text-rail-dim">Local workbench</p>
           </div>
         </div>
 
@@ -153,11 +170,11 @@ export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onTogg
           <div className="px-2.5 pt-3">
             <button
               onClick={onOpenPalette}
-              className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md border border-line bg-inset text-[13px] text-fg-4 hover:text-fg-2 hover:border-line-strong transition-colors"
+              className="w-full flex items-center gap-2 h-8 px-2.5 rounded-md border border-rail-line bg-rail-hover text-[13px] text-rail-fg hover:text-rail-fg-1 transition-colors"
             >
               {icons.search}
               <span className="flex-1 text-left">Jump to…</span>
-              <span className="kbd">⌘K</span>
+              <span className="kbd !bg-transparent !border-rail-line !text-rail-fg">⌘K</span>
             </button>
           </div>
         )}
@@ -165,7 +182,10 @@ export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onTogg
         <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-5">
           {NAV.map(group => (
             <div key={group.label}>
-              <p className="px-2.5 mb-1 text-[11px] font-medium text-fg-4">{group.label}</p>
+              <p className="flex items-center gap-2 px-2.5 mb-1 text-[11px] font-medium uppercase tracking-[.06em] text-rail-dim">
+                <span className={`w-1.5 h-1.5 rounded-full ${TONE_DOT[group.tone]}`} aria-hidden />
+                {group.label}
+              </p>
               <div className="space-y-px">
                 {group.items.map(item => (
                   <NavButton key={item.id} item={item} active={activeTab === item.id} onClick={() => onTabChange(item.id)} />
@@ -175,31 +195,31 @@ export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onTogg
           ))}
         </nav>
 
-        <div className="border-t border-line px-2.5 py-2.5 space-y-px">
+        <div className="border-t border-rail-line px-2.5 py-2.5 space-y-px">
           <NavButton item={ABOUT} active={activeTab === 'about'} onClick={() => onTabChange('about')} />
           <button
             onClick={onToggleTheme}
-            className="w-full flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] text-fg-3 hover:text-fg-1 hover:bg-raised/60 transition-colors"
+            className="w-full flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] text-rail-fg hover:text-rail-fg-1 hover:bg-rail-hover transition-colors"
           >
             {isDark ? icons.sun : icons.moon}
             {isDark ? 'Light theme' : 'Dark theme'}
           </button>
           <div className="px-2.5 pt-2">
-            <BackendStatus online={backendOnline} />
+            <BackendStatus online={backendOnline} onRail />
           </div>
         </div>
       </aside>
 
       {/* ── Top bar (mobile / tablet) ─────────────────────────────────── */}
-      <div className="lg:hidden sticky top-0 z-20 bg-surface border-b border-line">
+      <div className="lg:hidden sticky top-0 z-20 bg-rail">
         <div className="h-12 px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BrandMark />
-            <p className="text-[13px] font-semibold text-fg-1">SOC Analyst Toolbox</p>
+            <p className="text-[13px] font-semibold text-rail-fg-1">SOC Analyst Toolbox</p>
           </div>
           <div className="flex items-center gap-3">
-            <BackendStatus online={backendOnline} />
-            <button onClick={onToggleTheme} aria-label="Toggle theme" className="text-fg-3 hover:text-fg-1">
+            <BackendStatus online={backendOnline} onRail />
+            <button onClick={onToggleTheme} aria-label="Toggle theme" className="text-rail-fg hover:text-rail-fg-1">
               {isDark ? icons.sun : icons.moon}
             </button>
           </div>
@@ -210,7 +230,7 @@ export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onTogg
               key={item.id}
               onClick={() => onTabChange(item.id)}
               className={`h-7 px-2.5 rounded-md text-[12px] whitespace-nowrap ${
-                activeTab === item.id ? 'bg-raised text-fg-1 font-medium' : 'text-fg-3'
+                activeTab === item.id ? 'bg-rail-active text-rail-fg-1 font-medium' : 'text-rail-fg'
               }`}
             >
               {item.label}
@@ -223,9 +243,14 @@ export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onTogg
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="border-b border-line bg-surface">
           <div className="max-w-[1280px] mx-auto px-6 py-4 flex items-start justify-between gap-6">
-            <div className="min-w-0">
-              <h1 className="text-[17px] font-semibold text-fg-1 tracking-[-0.01em]">{current.title}</h1>
-              <p className="text-[13px] text-fg-3 mt-0.5">{current.description}</p>
+            <div className="min-w-0 flex items-start gap-3">
+              <span className={`mt-0.5 w-9 h-9 rounded-lg grid place-items-center shrink-0 [&>svg]:w-[18px] [&>svg]:h-[18px] ${TONE_TILE[tone]}`} aria-hidden>
+                {current.icon}
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-[17px] font-semibold text-fg-1 tracking-[-0.01em]">{current.title}</h1>
+                <p className="text-[13px] text-fg-3 mt-0.5">{current.description}</p>
+              </div>
             </div>
             {headerActions && <div className="shrink-0 flex items-center gap-2">{headerActions}</div>}
           </div>

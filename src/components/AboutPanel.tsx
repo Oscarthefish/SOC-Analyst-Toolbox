@@ -1,5 +1,21 @@
 import { useState } from 'react';
 import { storageUsage, clearAllLocalData } from '../lib/storage';
+import { IocTypeChip } from './IocTypeChip';
+import toolsData from '../data/tools.json';
+
+const TOOL_COUNT = (toolsData as unknown[]).length;
+
+/** About-page "supports" labels → indicator type ids, for the shared colour chips */
+const TYPE_ID: Record<string, string> = {
+  IPv4: 'ipv4', IPv6: 'ipv6', Domain: 'domain', URL: 'url', MD5: 'md5', SHA1: 'sha1', SHA256: 'sha256',
+  Email: 'email', ASN: 'asn', CIDR: 'cidr', CVE: 'cve', 'Email header': 'headers',
+};
+const Chip = ({ label }: { label: string }) => <IocTypeChip type={TYPE_ID[label] ?? label} size="sm" />;
+
+const TONES = [
+  'bg-c1-bg text-c1-fg', 'bg-c2-bg text-c2-fg', 'bg-c3-bg text-c3-fg', 'bg-c4-bg text-c4-fg', 'bg-c5-bg text-c5-fg',
+];
+const STEP_TONES = ['bg-c1', 'bg-c2', 'bg-c3', 'bg-c4', 'bg-c5', 'bg-c1', 'bg-c2'];
 const INTEGRATIONS = [
   // No key required
   { name: 'DNS Resolution',      id: 'dns',            tier: 'free',  keyRequired: false, supports: ['Domain'],                            desc: 'Node.js built-in resolver. Returns IPv4/IPv6 records and pivot links to each resolved IP.' },
@@ -70,7 +86,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Single IOC Investigation',
-    desc: 'Paste any IOC and the tool auto-detects the type. Choose a workflow and run enrichment across multiple providers simultaneously. Results include severity ratings, key facts, pivot links, and AI-generated narrative.',
+    desc: 'Paste any IOC and the tool auto-detects the type. Choose a workflow and run enrichment across multiple providers simultaneously. Results include a severity verdict, a relationship graph, a provider-by-provider breakdown, pivot links and an optional written summary from a local LLM.',
   },
   {
     icon: (
@@ -88,7 +104,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Batch Triage',
-    desc: 'Submit up to 50 IOCs at once. The toolbox runs 5 concurrent enrichment jobs, updates a live results table, and produces a severity breakdown bar. One click pivots any result into a full investigation.',
+    desc: 'Submit up to 50 IOCs at once. The toolbox runs 5 concurrent enrichment jobs, updates a live results table, and charts the severity mix as results arrive. One click pivots any result into a full investigation.',
   },
   {
     icon: (
@@ -97,8 +113,8 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
       </svg>
     ),
-    title: 'Auto AI Analysis',
-    desc: 'Powered by a local Ollama model (no data leaves your machine). After enrichment completes, the AI synthesises all provider results into a plain-English threat assessment with citation enforcement.',
+    title: 'Local LLM summary',
+    desc: 'Optional. A local Ollama model turns the provider results into a short written assessment. It is asked to name its sources, and is re-prompted once if it cites fewer than two. Nothing leaves your machine.',
   },
   {
     icon: (
@@ -107,8 +123,8 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 015.656 0l4-4a4 4 0 01-5.656-5.656l-1.102 1.101" />
       </svg>
     ),
-    title: 'Passive DNS & Certificate Pivots',
-    desc: 'DNS resolution surfaces resolved IPs as clickable pivot chips. crt.sh certificate transparency logs extract related SANs and subdomains — one click pushes either into the IOC input for immediate investigation.',
+    title: 'Relationship graph',
+    desc: 'ASN, operator, country, registration, open ports, resolved IPs, certificate names and threat labels, merged across providers so you can see which facts several sources agree on. Hosts and ASNs pivot into a new investigation.',
   },
   {
     icon: (
@@ -145,34 +161,20 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
       </svg>
     ),
-    title: 'Live Threat Feed',
-    desc: 'Polls URLhaus and ThreatFox feeds for recent IOC activity. Displays the last 100 entries per feed, lets you filter by type, and pivot any entry directly into a full investigation.',
+    title: 'Threat feed',
+    desc: 'A briefing of recent CISA KEV additions and Ransomware.live victim posts, with a 30-day timeline, the most active groups and the most-exploited vendors. Pulsedive high-risk indicators are available on a second tab.',
   },
 ];
 
 const ARCH_STEPS = [
-  { num: '1', title: 'IOC Input', desc: 'Type or paste an IOC. The frontend detects the type using regex patterns and displays relevant workflow tiles.' },
-  { num: '2', title: 'Workflow Selection', desc: 'Select a workflow to scope which providers run. Each workflow is tuned for a specific investigation type.' },
-  { num: '3', title: 'Backend Enrichment', desc: 'The React frontend calls the local Node.js/Express backend over http://localhost:3001. The backend fans out to all configured providers concurrently.' },
-  { num: '4', title: 'Caching', desc: 'Results are cached in-memory by provider TTL (10 min for DNS up to 24 hrs for WHOIS). Repeat lookups are served instantly without burning API quota.' },
-  { num: '5', title: 'Scoring & Contradictions', desc: 'The backend computes an overall severity from active (non-passive) sources and runs contradiction detection across the result set.' },
-  { num: '6', title: 'AI Narrative', desc: 'Optionally, the backend calls a local Ollama model to synthesise all results into a plain-English assessment. Nothing leaves your machine.' },
-  { num: '7', title: 'Results Rendered', desc: 'The frontend displays provider cards, a key facts summary strip, pivot chips, contradiction banners, and the AI narrative.' },
+  { num: '1', title: 'Classify', desc: 'Paste an indicator. The browser detects its type (defanged input is refanged first) and shows the workflows that apply.' },
+  { num: '2', title: 'Choose a workflow', desc: 'Optional. A workflow adds its pivot tools, analyst checklist and context for the written summary.' },
+  { num: '3', title: 'Enrich', desc: 'The browser calls the local backend (port 8787, proxied by Vite). It queries every provider that supports the indicator type at once and streams results back as they arrive.' },
+  { num: '4', title: 'Cache', desc: 'Provider results are cached on disk per provider (10 minutes for DNS up to 24 hours for WHOIS), so repeat lookups don’t spend API quota. Bypass cache forces fresh queries.' },
+  { num: '5', title: 'Score', desc: 'The backend works out an overall severity from sources that give a risk opinion, and flags where sources contradict each other.' },
+  { num: '6', title: 'Summarise', desc: 'Optional. If Ollama is running, a local model writes a short assessment. Nothing leaves your machine.' },
+  { num: '7', title: 'Review', desc: 'The verdict, relationship graph, provider verdicts and conflicts are shown together, ready to save as a case.' },
 ];
-
-function Badge({ label, color }: { label: string; color: 'green' | 'blue' | 'orange' | 'gray' }) {
-  const cls = {
-    green: 'bg-ok-bg border-ok-line text-ok-fg',
-    blue:  'bg-accent-bg border-accent-line text-accent-fg',
-    orange:'bg-warn-bg border-warn-line text-warn-fg',
-    gray:  'bg-raised border-line text-fg-2',
-  }[color];
-  return (
-    <span className={`inline-flex items-center text-[11px] font-medium px-1.5 py-0.5 rounded border ${cls}`}>
-      {label}
-    </span>
-  );
-}
 
 function formatBytes(n: number): string {
   return n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
@@ -248,70 +250,70 @@ export function AboutPanel() {
     <div className="space-y-8 max-w-[960px]">
 
       {/* Hero */}
-      <div className="wb-card p-6">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-fg-1 flex items-center justify-center shrink-0">
-            <svg className="w-6 h-6 text-surface" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-fg-1 leading-tight">SOC Analyst Toolbox</h1>
-            <p className="text-sm text-fg-3 mt-1 leading-relaxed">
-              A fully local, privacy-first threat intelligence workbench for SOC analysts and security researchers. Paste an IOC — IP, domain, URL, hash, email, CVE — and instantly pivot across {INTEGRATIONS.length} enrichment providers, {WORKFLOWS.length} investigation workflows, and {61} curated OSINT tools. Nothing is sent to any cloud service except the provider APIs you explicitly configure.
-            </p>
-            <div className="flex flex-wrap gap-2 mt-3">
-              <Badge label={`${INTEGRATIONS.length} Enrichment providers`} color="blue" />
-              <Badge label={`${WORKFLOWS.length} Workflows`} color="blue" />
-              <Badge label="61 OSINT tool links" color="blue" />
-              <Badge label="11 IOC types" color="blue" />
-              <Badge label="Local only · No telemetry" color="green" />
+      <div className="rounded-2xl bg-rail p-6 text-rail-fg">
+        <h1 className="text-xl font-semibold text-rail-fg-1 leading-tight">SOC Analyst Toolbox</h1>
+        <p className="text-sm mt-1.5 leading-relaxed max-w-[60ch]">
+          A local workbench for triaging indicators. Paste an IP, domain, URL, hash, email, ASN, CIDR or CVE, enrich it across the providers you’ve set up, and pivot to external tools. Nothing goes to a cloud service except the provider APIs you configure and the tool links you choose to open.
+        </p>
+        <dl className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { k: 'Enrichment providers', v: INTEGRATIONS.length },
+            { k: 'Workflows', v: WORKFLOWS.length },
+            { k: 'Pivot tools', v: TOOL_COUNT },
+            { k: 'Indicator types', v: IOC_TYPES.length },
+          ].map(x => (
+            <div key={x.k} className="rounded-lg bg-rail-hover border border-rail-line px-3 py-2.5">
+              <dt className="text-[11px] text-rail-fg">{x.k}</dt>
+              <dd className="text-[22px] font-semibold text-rail-fg-1 tabular-nums leading-tight">{x.v}</dd>
             </div>
-          </div>
-        </div>
+          ))}
+        </dl>
       </div>
 
       {/* Privacy */}
-      <div className="wb-card p-4 border-warn-line bg-warn-bg">
+      <div className="wb-card p-4 border-l-[3px] border-l-ok">
         <div className="flex items-start gap-3">
-          <svg className="w-4.5 h-4.5 text-warn-fg shrink-0 mt-0.5" style={{ width: 18, height: 18 }} fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
+          <span className="w-8 h-8 rounded-full grid place-items-center bg-ok-bg text-ok-fg shrink-0" aria-hidden>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </span>
           <div>
-            <p className="text-sm font-semibold text-warn-fg">Privacy model</p>
-            <p className="text-xs text-warn-fg mt-0.5 leading-relaxed">
-              All enrichment runs through a <strong>local Node.js backend</strong> (port 3001). API keys are stored in <code className="font-mono text-[11px] bg-warn-bg px-1 py-0.5 rounded">backend/.env</code> and never sent to the frontend. The React frontend never makes direct API calls to external providers. Clickable tool links open in your browser and may submit the IOC to that third-party service — check the <strong>Passive</strong> vs. <strong>Submits IOC</strong> badge on each tool before clicking. AI analysis uses a local Ollama model — no data leaves your machine.
-            </p>
+            <p className="text-sm font-semibold text-fg-1">Privacy model</p>
+            <ul className="mt-1 space-y-1 text-xs text-fg-2 leading-relaxed list-disc pl-4">
+              <li>All enrichment goes through the <strong>local backend</strong>; the browser never calls providers directly.</li>
+              <li>API keys live in <code className="font-mono text-[11px] bg-raised px-1 py-0.5 rounded">backend/.env</code> and are never sent to the browser.</li>
+              <li>Pivot tool links open in your browser and may send the indicator to that service. Check each tool’s <strong>Passive</strong>, <strong>Submits IOC</strong> or <strong>Public</strong> label first.</li>
+              <li>The written summary uses a local Ollama model, so no data leaves your machine.</li>
+            </ul>
           </div>
         </div>
       </div>
 
       {/* How it works */}
       <Section title="How It Works">
-        <div className="wb-card p-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {ARCH_STEPS.map(s => (
-              <div key={s.num} className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-accent text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  {s.num}
-                </div>
-                <div>
-                  <p className="text-[13px] font-semibold text-fg-1">{s.title}</p>
-                  <p className="text-xs text-fg-3 mt-0.5 leading-relaxed">{s.desc}</p>
-                </div>
+        <ol className="wb-card p-4 sm:p-5">
+          {ARCH_STEPS.map((s, i) => (
+            <li key={s.num} className="relative flex items-start gap-3.5 pb-4 last:pb-0">
+              {i < ARCH_STEPS.length - 1 && <span className="absolute left-[13px] top-7 bottom-0 w-[2px] bg-line" aria-hidden />}
+              <span className={`relative w-7 h-7 rounded-full text-white text-[12px] font-semibold grid place-items-center shrink-0 ${STEP_TONES[i]}`}>
+                {s.num}
+              </span>
+              <div className="pt-0.5">
+                <p className="text-[13px] font-semibold text-fg-1">{s.title}</p>
+                <p className="text-xs text-fg-3 mt-0.5 leading-relaxed max-w-[70ch]">{s.desc}</p>
               </div>
-            ))}
-          </div>
-        </div>
+            </li>
+          ))}
+        </ol>
       </Section>
 
       {/* Features */}
       <Section title="Features">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map(f => (
+          {FEATURES.map((f, i) => (
             <div key={f.title} className="wb-card p-4">
-              <div className="w-8 h-8 rounded-lg bg-raised text-fg-2 flex items-center justify-center mb-3">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center mb-3 ${TONES[i % TONES.length]}`}>
                 {f.icon}
               </div>
               <p className="text-[13px] font-semibold text-fg-1 mb-1">{f.title}</p>
@@ -335,7 +337,7 @@ export function AboutPanel() {
             <tbody>
               {IOC_TYPES.map((t, i) => (
                 <tr key={t.type} className={i % 2 === 0 ? 'bg-surface' : 'bg-inset'}>
-                  <td className="px-4 py-2 font-mono font-semibold text-accent-fg">{t.type}</td>
+                  <td className="px-4 py-2"><Chip label={t.type} /></td>
                   <td className="px-4 py-2 text-fg-2">{t.desc}</td>
                   <td className="px-4 py-2 font-mono text-fg-3">{t.example}</td>
                 </tr>
@@ -348,7 +350,7 @@ export function AboutPanel() {
 
       {/* Investigation Workflows */}
       <Section title="Investigation Workflows">
-        <p className="text-xs text-fg-3 px-1">Each workflow activates a pre-selected set of enrichment providers and curated OSINT tool links relevant to that investigation type. Workflows are shown as tiles and are automatically enabled/disabled based on the detected IOC type.</p>
+        <p className="text-xs text-fg-3 px-1">Each workflow activates a pre-selected set of enrichment providers and curated OSINT tool links relevant to that investigation type. Only the workflows that apply to the detected indicator type are offered.</p>
         <div className="grid gap-3 sm:grid-cols-2">
           {WORKFLOWS.map(w => (
             <div key={w.id} className="wb-card p-3.5 flex items-start gap-3">
@@ -356,9 +358,7 @@ export function AboutPanel() {
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <p className="text-[13px] font-semibold text-fg-1">{w.name}</p>
                   <div className="flex gap-1 flex-wrap">
-                    {w.types.map(t => (
-                      <span key={t} className="text-[10px] font-mono px-1.5 py-0 rounded bg-raised border border-line text-fg-2">{t}</span>
-                    ))}
+                    {w.types.map(t => <Chip key={t} label={t} />)}
                   </div>
                 </div>
                 <p className="text-xs text-fg-3 leading-relaxed">{w.desc}</p>
@@ -370,7 +370,7 @@ export function AboutPanel() {
 
       {/* Enrichment Integrations */}
       <Section title="Enrichment Integrations">
-        <p className="text-xs text-fg-3 px-1">All enrichment runs through the local backend. Configure API keys in the <strong>API Keys</strong> tab. Providers without a key requirement work out of the box.</p>
+        <p className="text-xs text-fg-3 px-1">All enrichment runs through the local backend. Add API keys on the <strong>Integrations</strong> page. Providers without a key requirement work out of the box.</p>
 
         {/* Free, no key */}
         <div className="space-y-2">
@@ -390,9 +390,7 @@ export function AboutPanel() {
                     <td className="px-4 py-2.5 font-semibold text-fg-1">{p.name}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex flex-wrap gap-1">
-                        {p.supports.map(s => (
-                          <span key={s} className="text-[10px] font-mono px-1 py-0 rounded bg-raised border border-line text-fg-2">{s}</span>
-                        ))}
+                        {p.supports.map(s => <Chip key={s} label={s} />)}
                       </div>
                     </td>
                     <td className="px-4 py-2.5 text-fg-3 leading-relaxed">{p.desc}</td>
@@ -421,9 +419,7 @@ export function AboutPanel() {
                     <td className="px-4 py-2.5 font-semibold text-fg-1">{p.name}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex flex-wrap gap-1">
-                        {p.supports.map(s => (
-                          <span key={s} className="text-[10px] font-mono px-1 py-0 rounded bg-raised border border-line text-fg-2">{s}</span>
-                        ))}
+                        {p.supports.map(s => <Chip key={s} label={s} />)}
                       </div>
                     </td>
                     <td className="px-4 py-2.5 text-fg-3 leading-relaxed">{p.desc}</td>
@@ -452,9 +448,7 @@ export function AboutPanel() {
                     <td className="px-4 py-2.5 font-semibold text-fg-1">{p.name}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex flex-wrap gap-1">
-                        {p.supports.map(s => (
-                          <span key={s} className="text-[10px] font-mono px-1 py-0 rounded bg-raised border border-line text-fg-2">{s}</span>
-                        ))}
+                        {p.supports.map(s => <Chip key={s} label={s} />)}
                       </div>
                     </td>
                     <td className="px-4 py-2.5 text-fg-3 leading-relaxed">{p.desc}</td>
@@ -470,33 +464,26 @@ export function AboutPanel() {
       <Section title="Getting Started">
         <div className="wb-card p-4 space-y-4">
           <div>
-            <p className="text-[13px] font-semibold text-fg-1 mb-1">1 — Start the backend</p>
+            <p className="text-[13px] font-semibold text-fg-1 mb-1">1 — Install and start</p>
             <pre className="bg-inset border border-line text-fg-2 text-[12px] font-mono rounded-lg px-4 py-3 overflow-x-auto">
-              {`cd backend\nnpm install\nnpm run dev`}
+              {`npm install\nnpm run backend:install\nnpm run dev`}
             </pre>
-            <p className="text-xs text-fg-3 mt-1.5">The backend starts on <code className="font-mono text-[11px]">http://localhost:3001</code>. The frontend polls the health endpoint every 30 seconds and shows online/offline status.</p>
+            <p className="text-xs text-fg-3 mt-1.5"><code className="font-mono text-[11px]">npm run dev</code> starts the backend on port 8787 and the app on <code className="font-mono text-[11px]">http://localhost:5173</code>. The sidebar shows whether the backend is reachable; it is checked every 30 seconds.</p>
           </div>
 
           <div>
             <p className="text-[13px] font-semibold text-fg-1 mb-1">2 — Configure API keys</p>
-            <p className="text-xs text-fg-3 leading-relaxed">Go to the <strong>API Keys</strong> tab and paste your credentials. Keys are saved to <code className="font-mono text-[11px] bg-raised px-1 py-0.5 rounded">backend/.env</code>. The backend reloads the config without restarting. You can also edit the <code className="font-mono text-[11px] bg-raised px-1 py-0.5 rounded">.env</code> file directly.</p>
+            <p className="text-xs text-fg-3 leading-relaxed">Open the <strong>Integrations</strong> page and paste your credentials. Keys are saved to <code className="font-mono text-[11px] bg-raised px-1 py-0.5 rounded">backend/.env</code>. The backend reloads the config without restarting. You can also edit the <code className="font-mono text-[11px] bg-raised px-1 py-0.5 rounded">.env</code> file directly.</p>
           </div>
 
           <div>
-            <p className="text-[13px] font-semibold text-fg-1 mb-1">3 — (Optional) Enable AI analysis</p>
+            <p className="text-[13px] font-semibold text-fg-1 mb-1">3 — (Optional) Enable the written summary</p>
             <pre className="bg-inset border border-line text-fg-2 text-[12px] font-mono rounded-lg px-4 py-3 overflow-x-auto">
               {`# Install Ollama from https://ollama.com\nollama pull qwen2.5\n# or: ollama pull llama3.2`}
             </pre>
-            <p className="text-xs text-fg-3 mt-1.5">Any Ollama model works. The backend auto-detects running models. The AI analysis panel lets you pick the model and runs the prompt entirely locally.</p>
+            <p className="text-xs text-fg-3 mt-1.5">The backend uses <code className="font-mono text-[11px]">qwen2.5</code> by default and picks whichever installed variant matches (for example <code className="font-mono text-[11px]">qwen2.5:7b</code>). If Ollama isn’t running, analysis still works without the written summary.</p>
           </div>
 
-          <div>
-            <p className="text-[13px] font-semibold text-fg-1 mb-1">4 — Start the frontend</p>
-            <pre className="bg-inset border border-line text-fg-2 text-[12px] font-mono rounded-lg px-4 py-3 overflow-x-auto">
-              {`npm install\nnpm run dev`}
-            </pre>
-            <p className="text-xs text-fg-3 mt-1.5">Opens at <code className="font-mono text-[11px]">http://localhost:5173</code>. The app is a local SPA — no build step needed during development.</p>
-          </div>
         </div>
       </Section>
 

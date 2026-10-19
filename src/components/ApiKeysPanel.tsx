@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getKeyStatus, saveApiKey } from '../lib/apiClient';
+import { RingGauge } from './charts';
+import { IocTypeChip, iocTypeDot } from './IocTypeChip';
 
 interface SecondaryField {
   id: string;
@@ -184,6 +186,59 @@ interface CardState {
   error: string | null;
 }
 
+/** Provider "supports" labels → indicator type ids (for colour) */
+const SUPPORT_TYPE: Record<string, string> = {
+  IPv4: 'ipv4', IPv6: 'ipv6', Domain: 'domain', URL: 'url', MD5: 'md5', SHA1: 'sha1', SHA256: 'sha256', Email: 'email',
+};
+
+const COVERAGE_ROWS: { label: string; type: string; match: string[] }[] = [
+  { label: 'IP address', type: 'ipv4', match: ['IPv4', 'IPv6'] },
+  { label: 'Domain', type: 'domain', match: ['Domain'] },
+  { label: 'URL', type: 'url', match: ['URL'] },
+  { label: 'File hash', type: 'sha256', match: ['MD5', 'SHA1', 'SHA256'] },
+  { label: 'Email', type: 'email', match: ['Email'] },
+];
+
+function CoverageOverview({ keyStatus }: { keyStatus: Record<string, boolean> }) {
+  const configured = PROVIDERS.filter(p => keyStatus[p.id]).length;
+  return (
+    <div className="grid gap-5 md:grid-cols-[auto_minmax(0,1fr)] items-center">
+      <div className="flex items-center gap-4">
+        <RingGauge fraction={configured / PROVIDERS.length} tone="stroke-ok" size={84} thickness={9} label={`${configured} of ${PROVIDERS.length} keyed providers configured`}>
+          <p className="leading-none">
+            <span className="text-[20px] font-semibold text-fg-1 tabular-nums">{configured}</span>
+            <span className="text-[12px] text-fg-4">/{PROVIDERS.length}</span>
+          </p>
+        </RingGauge>
+        <div>
+          <p className="text-[13px] font-medium text-fg-1">Keys configured</p>
+          <p className="text-[11px] text-fg-4 max-w-[14rem]">Keyless sources (DNS, WHOIS, crt.sh, Tor list and others) run without any key.</p>
+        </div>
+      </div>
+      <div>
+        <p className="text-[11px] text-fg-3 mb-2">Keyed providers per indicator type — solid is configured</p>
+        <ul className="space-y-1.5">
+          {COVERAGE_ROWS.map(row => {
+            const covering = PROVIDERS.filter(p => p.supports.some(s => row.match.includes(s)));
+            const on = covering.filter(p => keyStatus[p.id]).length;
+            return (
+              <li key={row.label} className="grid grid-cols-[5.5rem_1fr_3rem] items-center gap-2 text-[11px]">
+                <span className="text-fg-2">{row.label}</span>
+                <span className="flex gap-[3px]" role="img" aria-label={`${row.label}: ${on} of ${covering.length} configured`}>
+                  {covering.map((p, i) => (
+                    <span key={p.id} title={p.name} className={`h-2.5 flex-1 rounded-sm ${i < on ? iocTypeDot(row.type) : 'bg-raised'}`} />
+                  ))}
+                </span>
+                <span className="text-right tabular-nums text-fg-1 font-medium">{on}<span className="text-fg-4">/{covering.length}</span></span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 function makeDefaultCardState(): CardState {
   return { inputValue: '', saving: false, saved: false, error: null };
 }
@@ -293,21 +348,15 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
     );
   }
 
-  const configuredCount = keyStatus
-    ? PROVIDERS.filter(p => keyStatus[p.id]).length
-    : 0;
-
   return (
     <div className="space-y-5">
       {/* Page header */}
       <div className="wb-card p-5">
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <div>
-            <p className="text-xs text-fg-3 mt-0.5">
-              {keyStatus !== null
-                ? `${configuredCount} of ${PROVIDERS.length} providers configured`
-                : 'Configure third-party enrichment provider credentials.'}
-            </p>
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex-1 min-w-0">
+            {keyStatus !== null
+              ? <CoverageOverview keyStatus={keyStatus} />
+              : <p className="text-xs text-fg-3 mt-0.5">Configure third-party enrichment provider credentials.</p>}
           </div>
           <button
             onClick={() => void fetchStatus()}
@@ -341,7 +390,8 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
           const hasInput = state.inputValue.trim().length > 0;
 
           return (
-            <div key={provider.id} className="wb-card p-4 flex flex-col gap-3">
+            <div key={provider.id} className="relative wb-card overflow-hidden p-4 pl-5 flex flex-col gap-3">
+              <span className={`absolute left-0 top-0 bottom-0 w-[3px] ${isConfigured ? 'bg-ok' : 'bg-line'}`} aria-hidden />
               {/* Card header */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -353,14 +403,7 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
 
               {/* Supported IOC types */}
               <div className="flex flex-wrap gap-1">
-                {provider.supports.map(s => (
-                  <span
-                    key={s}
-                    className="text-[11px] px-1.5 py-0.5 rounded font-mono bg-raised text-fg-2 border border-line"
-                  >
-                    {s}
-                  </span>
-                ))}
+                {provider.supports.map(s => <IocTypeChip key={s} type={SUPPORT_TYPE[s] ?? s} size="sm" />)}
               </div>
 
               {/* Tier */}
@@ -368,9 +411,9 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
 
               {/* Optional note */}
               {provider.note && (
-                <div className="bg-warn-bg border border-warn-line rounded-lg px-2.5 py-2 text-xs text-warn-fg leading-relaxed">
+                <p className="border-l-2 border-c1 bg-c1-bg rounded-r-md px-2.5 py-2 text-xs text-fg-2 leading-relaxed">
                   {provider.note}
-                </div>
+                </p>
               )}
 
               {/* Sign up link */}

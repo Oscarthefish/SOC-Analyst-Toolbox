@@ -4,6 +4,9 @@ import { parseBatchInput, topFinding, rowsToCsv, SEVERITY_ORDER, BATCH_LIMIT } f
 import type { BatchRow } from '../lib/batch';
 import { downloadText } from '../lib/cases';
 import type { Severity } from '../types/enrichment';
+import { countSeverities } from '../lib/severityMix';
+import { RingGauge, SeverityDonut, SeverityLegend } from './charts';
+import { IocTypeChip } from './IocTypeChip';
 
 interface BatchTriagePanelProps {
   onInvestigate: (ioc: string) => void;
@@ -11,18 +14,13 @@ interface BatchTriagePanelProps {
 
 const CONCURRENCY = 5;
 
-const TYPE_LABELS: Record<string, string> = {
-  ipv4: 'IPv4', ipv6: 'IPv6', domain: 'Domain', url: 'URL', md5: 'MD5', sha1: 'SHA-1', sha256: 'SHA-256',
-  email: 'Email', asn: 'ASN', cidr: 'CIDR', cve: 'CVE', secret: 'Secret', unknown: '—',
-};
-
-const SEV: Record<Severity, { dot: string; text: string; label: string }> = {
-  critical: { dot: 'bg-danger', text: 'text-danger-fg', label: 'Critical' },
-  high:     { dot: 'bg-high',   text: 'text-high-fg',   label: 'High' },
-  medium:   { dot: 'bg-warn',   text: 'text-warn-fg',   label: 'Medium' },
-  low:      { dot: 'bg-accent', text: 'text-accent-fg', label: 'Low' },
-  benign:   { dot: 'bg-ok',     text: 'text-ok-fg',     label: 'Benign' },
-  unknown:  { dot: 'bg-fg-4',   text: 'text-fg-3',      label: 'Inconclusive' },
+const SEV: Record<Severity, { dot: string; pill: string; label: string }> = {
+  critical: { dot: 'bg-danger',       pill: 'bg-danger-bg text-danger-fg border-danger-line', label: 'Critical' },
+  high:     { dot: 'bg-high',         pill: 'bg-high-bg text-high-fg border-high-line',       label: 'High' },
+  medium:   { dot: 'bg-warn',         pill: 'bg-warn-bg text-warn-fg border-warn-line',       label: 'Medium' },
+  low:      { dot: 'bg-c1',           pill: 'bg-c1-bg text-c1-fg border-line',                label: 'Low' },
+  benign:   { dot: 'bg-ok',           pill: 'bg-ok-bg text-ok-fg border-ok-line',             label: 'Benign' },
+  unknown:  { dot: 'bg-line-strong',  pill: 'bg-raised text-fg-2 border-line',                label: 'Inconclusive' },
 };
 
 type SortKey = 'severity' | 'indicator' | 'type' | 'sources';
@@ -129,6 +127,10 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
     return [...list].sort((a, b) => cmp(a, b) * sort.dir || a.normalised.localeCompare(b.normalised));
   }, [rows, filter, sort]);
 
+  const mix = useMemo(() => countSeverities(rows.filter(r => r.status === 'done' && r.severity).map(r => r.severity!)), [rows]);
+  const done = rows.filter(r => r.status === 'done').length;
+  const severe = (counts.critical ?? 0) + (counts.high ?? 0);
+
   const toggleSort = (key: SortKey) =>
     setSort(s => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: 1 }));
 
@@ -176,16 +178,41 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
       </div>
 
       {rows.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)]">
+          <section className="wb-card p-4 flex items-center gap-4">
+            <RingGauge fraction={total ? finished / total : 0} tone="stroke-accent" size={72} thickness={8} label={`${finished} of ${total} finished`}>
+              <span className="text-[13px] font-semibold text-fg-1 tabular-nums">{total ? Math.round((finished / total) * 100) : 0}%</span>
+            </RingGauge>
+            <div>
+              <p className="text-[13px] font-medium text-fg-1">{running ? 'Running' : 'Finished'}</p>
+              <p className="text-[11px] text-fg-4">{finished} of {total} indicators</p>
+            </div>
+          </section>
+          <section className="wb-card p-4 flex items-center gap-4 min-w-0">
+            <SeverityDonut mix={mix} label="Triage results by severity" size={72} thickness={10}>
+              <span className="text-[15px] font-semibold text-fg-1 tabular-nums">{done}</span>
+            </SeverityDonut>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-fg-1">
+                {severe > 0 ? <><span className="text-danger-fg">{severe}</span> high or critical</> : done ? 'Nothing high or critical' : 'Waiting for results'}
+              </p>
+              <div className="mt-1.5"><SeverityLegend mix={mix} /></div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {rows.length > 0 && (
         <div className="wb-card overflow-hidden">
           <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-line">
             <div role="tablist" className="flex flex-wrap gap-1">
               <button role="tab" aria-selected={filter === 'all'} onClick={() => setFilter('all')}
-                className={`h-7 px-2.5 rounded-md text-xs ${filter === 'all' ? 'bg-raised text-fg-1 font-medium' : 'text-fg-3 hover:text-fg-1'}`}>
+                className={`h-7 px-2.5 rounded-md text-xs ${filter === 'all' ? 'bg-selected text-selected-fg font-medium' : 'text-fg-3 hover:text-fg-1'}`}>
                 All {rows.length}
               </button>
               {(Object.keys(SEV) as Severity[]).filter(s => counts[s]).map(s => (
                 <button key={s} role="tab" aria-selected={filter === s} onClick={() => setFilter(s)}
-                  className={`h-7 px-2.5 rounded-md text-xs inline-flex items-center gap-1.5 ${filter === s ? 'bg-raised text-fg-1 font-medium' : 'text-fg-3 hover:text-fg-1'}`}>
+                  className={`h-7 px-2.5 rounded-md text-xs inline-flex items-center gap-1.5 ${filter === s ? 'bg-selected text-selected-fg font-medium' : 'text-fg-3 hover:text-fg-1'}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${SEV[s].dot}`} />{SEV[s].label} {counts[s]}
                 </button>
               ))}
@@ -213,7 +240,7 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
                   <SortableTh k="type" sort={sort} onSort={toggleSort}>Type</SortableTh>
                   <SortableTh k="sources" sort={sort} onSort={toggleSort}>Sources</SortableTh>
                   <th className="font-normal px-3 py-2">Top finding</th>
-                  <th className="px-3 py-2" />
+                  <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-soft">
@@ -223,8 +250,8 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
                     <tr key={row.id} className={`group hover:bg-inset ${row.status === 'skipped' ? 'text-fg-4' : ''}`}>
                       <td className="sticky left-0 bg-surface group-hover:bg-inset px-3 py-2 whitespace-nowrap">
                         {row.status === 'done' && sev ? (
-                          <span className={`inline-flex items-center gap-2 font-medium ${sev.text}`}>
-                            <span className={`w-2 h-2 rounded-full ${sev.dot}`} />{sev.label}
+                          <span className={`inline-flex items-center gap-1.5 h-[22px] px-2 rounded-full border text-[11px] font-medium ${sev.pill}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${sev.dot}`} />{sev.label}
                           </span>
                         ) : row.status === 'running' ? (
                           <span className="inline-flex items-center gap-2 text-xs text-fg-3">
@@ -237,14 +264,21 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
                         ) : (
                           <span className="text-xs text-fg-4">{stopped && !running ? 'Not run' : 'Queued'}</span>
                         )}
-                        {row.confidence && <p className="text-[11px] text-fg-4 pl-4">{row.confidence} conf.</p>}
+                        {row.confidence && <p className="mt-0.5 text-[11px] text-fg-4">{row.confidence} confidence</p>}
                       </td>
                       <td className="px-3 py-2 max-w-[340px]">
                         <code className="font-mono text-xs text-fg-1 break-all">{row.normalised}</code>
                       </td>
-                      <td className="px-3 py-2 text-xs text-fg-3 whitespace-nowrap">{TYPE_LABELS[row.type] ?? row.type}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{row.type === 'unknown' ? <span className="text-xs text-fg-4">—</span> : <IocTypeChip type={row.type} size="sm" />}</td>
                       <td className="px-3 py-2 text-xs text-fg-3 tabular-nums whitespace-nowrap">
-                        {row.sources ? `${row.sources.withData}/${row.sources.total}` : ''}
+                        {row.sources && (
+                          <span className="flex items-center gap-2" title={`${row.sources.withData} of ${row.sources.total} sources returned data`}>
+                            <span className="w-10 h-1.5 rounded-full bg-raised overflow-hidden">
+                              <span className="block h-full rounded-full bg-c1" style={{ width: `${(row.sources.withData / Math.max(1, row.sources.total)) * 100}%` }} />
+                            </span>
+                            {row.sources.withData}/{row.sources.total}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-xs text-fg-2 max-w-[420px]">
                         <span className="line-clamp-2">{row.errorMsg ?? row.topFinding ?? ''}</span>
