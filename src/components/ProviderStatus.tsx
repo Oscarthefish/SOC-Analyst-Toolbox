@@ -41,8 +41,8 @@ export function ProviderStatus({ onHealthChange }: ProviderStatusProps) {
 
   if (health === undefined) {
     return (
-      <div className="flex items-center gap-2 text-xs text-[#667085]">
-        <span className="w-2 h-2 rounded-full bg-[#d0d5dd] animate-pulse shrink-0" />
+      <div className="flex items-center gap-2 text-xs text-fg-3">
+        <span className="w-2 h-2 rounded-full bg-line-strong animate-pulse shrink-0" />
         Checking enrichment backend…
       </div>
     );
@@ -50,36 +50,36 @@ export function ProviderStatus({ onHealthChange }: ProviderStatusProps) {
 
   if (health === null) {
     return (
-      <div className="flex items-center justify-between gap-3 bg-[#fffaeb] border border-[#fedf89] rounded-lg px-3 py-2">
-        <div className="flex items-center gap-2 text-xs text-[#b54708]">
-          <span className="w-2 h-2 rounded-full bg-[#dc6803] shrink-0" />
+      <div className="flex items-center justify-between gap-3 bg-warn-bg border border-warn-line rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 text-xs text-warn-fg">
+          <span className="w-2 h-2 rounded-full bg-warn shrink-0" />
           <span>
             <strong>Backend offline</strong> — static tool links still work. Run{' '}
-            <code className="bg-[#fedf89]/40 px-1 rounded font-mono">npm run backend:dev</code> to enable API enrichment.
+            <code className="bg-warn-line/40 px-1 rounded font-mono">npm run backend:dev</code> to enable API enrichment.
           </span>
         </div>
-        {refreshBtn('Retry', 'border-[#fedf89] text-[#b54708] hover:bg-[#fedf89]/30')}
+        {refreshBtn('Retry', 'border-warn-line text-warn-fg hover:bg-warn-line/30')}
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 bg-[#ecfdf3] border border-[#abefc6] rounded-lg px-3 py-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#067647]">
+    <div className="flex items-center justify-between gap-3 bg-ok-bg border border-ok-line rounded-lg px-3 py-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ok-fg">
         <span className="flex items-center gap-1.5 font-semibold">
-          <span className="w-2 h-2 rounded-full bg-[#079455] shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-ok shrink-0" />
           Backend online
         </span>
         {health.configuredProviders.length > 0 ? (
-          <span className="text-[#079455]/80">{health.configuredProviders.length} providers configured</span>
+          <span className="text-ok-fg/80">{health.configuredProviders.length} providers configured</span>
         ) : (
-          <span className="text-[#b54708]">No API keys configured</span>
+          <span className="text-warn-fg">No API keys configured</span>
         )}
         {lastChecked && (
-          <span className="text-[#067647]/60 font-mono">{lastChecked.toLocaleTimeString()}</span>
+          <span className="text-ok-fg/60 font-mono">{lastChecked.toLocaleTimeString()}</span>
         )}
       </div>
-      {refreshBtn('Refresh', 'border-[#abefc6] text-[#067647] hover:bg-[#abefc6]/30')}
+      {refreshBtn('Refresh', 'border-ok-line text-ok-fg hover:bg-ok-line/30')}
     </div>
   );
 }

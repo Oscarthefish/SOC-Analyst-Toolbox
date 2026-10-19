@@ -137,15 +137,15 @@ function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v
         type="checkbox"
         checked={checked}
         onChange={e => onChange(e.target.checked)}
-        className="w-3.5 h-3.5 rounded border-[#d0d5dd] text-[#1570ef] focus:ring-[#1570ef]/20"
+        className="w-3.5 h-3.5 rounded border-line-strong text-accent-fg focus:ring-accent/20"
       />
-      <span className="text-[12px] text-[#344054]">{label}</span>
+      <span className="text-[12px] text-fg-2">{label}</span>
     </label>
   );
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-[11px] font-semibold text-[#344054] uppercase tracking-wide mb-1.5">{children}</p>;
+  return <p className="text-[11px] font-semibold text-fg-2 uppercase tracking-wide mb-1.5">{children}</p>;
 }
 
 function InputField({ value, onChange, placeholder, error }: {
@@ -158,18 +158,18 @@ function InputField({ value, onChange, placeholder, error }: {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full text-[13px] px-3 py-2 border rounded-lg bg-white text-[#101828] placeholder-[#98a2b3] focus:outline-none focus:ring-2 transition-colors ${
-          error ? 'border-[#fecdca] focus:border-[#d92d20] focus:ring-[#d92d20]/10' : 'border-[#d0d5dd] focus:border-[#1570ef] focus:ring-[#1570ef]/10'
+        className={`w-full text-[13px] px-3 py-2 border rounded-lg bg-surface text-fg-1 placeholder-fg-4 focus:outline-none focus:ring-2 transition-colors ${
+          error ? 'border-danger-line focus:border-danger focus:ring-danger/10' : 'border-line-strong focus:border-accent focus:ring-accent/10'
         }`}
       />
-      {error && <p className="text-[11px] text-[#d92d20] mt-1">{error}</p>}
+      {error && <p className="text-[11px] text-danger-fg mt-1">{error}</p>}
     </div>
   );
 }
 
 function CategoryBadge({ category }: { category: string }) {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#f2f4f7] border border-[#e4e7ec] text-[#475467]">
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-raised border border-line text-fg-2">
       {category}
     </span>
   );
@@ -179,23 +179,23 @@ function CategoryBadge({ category }: { category: string }) {
 
 function CustomToolRow({ tool, onDelete }: { tool: Tool; onDelete: () => void }) {
   return (
-    <div className="flex items-start gap-3 p-4 border border-[#e4e7ec] rounded-xl bg-white">
+    <div className="flex items-start gap-3 p-4 border border-line rounded-xl bg-surface">
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2 mb-1">
-          <span className="text-[13px] font-semibold text-[#101828]">{tool.name}</span>
+          <span className="text-[13px] font-semibold text-fg-1">{tool.name}</span>
           <CategoryBadge category={tool.category} />
         </div>
-        <p className="text-[11px] font-mono text-[#667085] truncate mb-2">{tool.urlTemplate}</p>
+        <p className="text-[11px] font-mono text-fg-3 truncate mb-2">{tool.urlTemplate}</p>
         <div className="flex flex-wrap gap-1.5">
           {tool.inputTypes.map(t => (
-            <span key={t} className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-[#eff8ff] border border-[#b2ddff] text-[#175cd3]">
+            <span key={t} className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-accent-bg border border-accent-line text-accent-fg">
               {t.toUpperCase()}
             </span>
           ))}
           {tool.workflows.map(w => {
             const wf = ALL_WORKFLOWS.find(x => x.id === w);
             return wf ? (
-              <span key={w} className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#f9fafb] border border-[#e4e7ec] text-[#667085]">
+              <span key={w} className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-inset border border-line text-fg-3">
                 {wf.name}
               </span>
             ) : null;
@@ -204,7 +204,7 @@ function CustomToolRow({ tool, onDelete }: { tool: Tool; onDelete: () => void })
       </div>
       <button
         onClick={onDelete}
-        className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg border border-[#fecdca] bg-[#fef3f2] text-[#b42318] hover:bg-[#fee4e2] transition-colors"
+        className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg border border-danger-line bg-danger-bg text-danger-fg hover:bg-danger-bg transition-colors"
       >
         Delete
       </button>
@@ -216,23 +216,23 @@ function CustomToolRow({ tool, onDelete }: { tool: Tool; onDelete: () => void })
 
 function BuiltinToolRow({ tool, hidden, onToggle }: { tool: Tool; hidden: boolean; onToggle: () => void }) {
   return (
-    <div className={`flex items-start gap-3 px-4 py-3 border-b border-[#f2f4f7] last:border-0 transition-opacity ${hidden ? 'opacity-50' : ''}`}>
+    <div className={`flex items-start gap-3 px-4 py-3 border-b border-line-soft last:border-0 transition-opacity ${hidden ? 'opacity-50' : ''}`}>
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2 mb-0.5">
-          <span className="text-[13px] font-semibold text-[#101828]">{tool.name}</span>
+          <span className="text-[13px] font-semibold text-fg-1">{tool.name}</span>
           <CategoryBadge category={tool.category} />
         </div>
-        <p className="text-[12px] text-[#667085] truncate">{tool.description}</p>
+        <p className="text-[12px] text-fg-3 truncate">{tool.description}</p>
       </div>
       <button
         onClick={onToggle}
-        className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+        className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded border transition-colors ${
           hidden
-            ? 'bg-[#f2f4f7] border-[#e4e7ec] text-[#98a2b3] hover:border-[#d0d5dd] hover:text-[#667085]'
-            : 'bg-[#ecfdf3] border-[#abefc6] text-[#067647] hover:bg-[#d1fadf]'
+            ? 'bg-raised border-line text-fg-4 hover:border-line-strong hover:text-fg-3'
+            : 'bg-ok-bg border-ok-line text-ok-fg hover:bg-ok-bg'
         }`}
       >
-        <span className={`w-1.5 h-1.5 rounded-full ${hidden ? 'bg-[#98a2b3]' : 'bg-[#079455]'}`} />
+        <span className={`w-1.5 h-1.5 rounded-full ${hidden ? 'bg-fg-4' : 'bg-ok'}`} />
         {hidden ? 'Hidden' : 'Visible'}
       </button>
     </div>
@@ -338,13 +338,13 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
           <div>
             <p className="wb-label">Custom Tools</p>
             {customTools.length > 0 && (
-              <p className="text-[12px] text-[#98a2b3] mt-0.5">{customTools.length} custom tool{customTools.length !== 1 ? 's' : ''} added</p>
+              <p className="text-[12px] text-fg-4 mt-0.5">{customTools.length} custom tool{customTools.length !== 1 ? 's' : ''} added</p>
             )}
           </div>
           {!showForm && (
             <button
               onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3.5 py-2 rounded-lg bg-[#1570ef] text-white hover:bg-[#175cd3] transition-colors"
+              className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3.5 py-2 rounded-lg bg-accent text-white hover:bg-accent-strong transition-colors"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -356,8 +356,8 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
 
         {/* Add form */}
         {showForm && (
-          <div className="border border-[#e4e7ec] rounded-xl p-5 bg-[#fafbfc] mb-4 space-y-4">
-            <p className="text-[13px] font-semibold text-[#101828]">New Custom Tool</p>
+          <div className="border border-line rounded-xl p-5 bg-inset mb-4 space-y-4">
+            <p className="text-[13px] font-semibold text-fg-1">New Custom Tool</p>
 
             {/* Name + Category */}
             <div className="grid grid-cols-2 gap-3">
@@ -375,7 +375,7 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
                 <select
                   value={form.category}
                   onChange={e => patchForm({ category: e.target.value })}
-                  className="w-full text-[13px] px-3 py-2 border border-[#d0d5dd] rounded-lg bg-white text-[#101828] focus:outline-none focus:border-[#1570ef] focus:ring-2 focus:ring-[#1570ef]/10"
+                  className="w-full text-[13px] px-3 py-2 border border-line-strong rounded-lg bg-surface text-fg-1 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/10"
                 >
                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -388,7 +388,7 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
                 <FieldLabel>URL Template *</FieldLabel>
                 <button
                   onClick={() => setShowVarRef(v => !v)}
-                  className="text-[11px] text-[#1570ef] hover:underline"
+                  className="text-[11px] text-accent-fg hover:underline"
                 >
                   {showVarRef ? 'Hide' : 'Show'} template variables
                 </button>
@@ -400,13 +400,13 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
                 error={errors.urlTemplate}
               />
               {showVarRef && (
-                <div className="mt-2 p-3 rounded-lg border border-[#e4e7ec] bg-white">
-                  <p className="text-[11px] font-semibold text-[#667085] uppercase tracking-wide mb-2">Available variables</p>
+                <div className="mt-2 p-3 rounded-lg border border-line bg-surface">
+                  <p className="text-[11px] font-semibold text-fg-3 uppercase tracking-wide mb-2">Available variables</p>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-1">
                     {TEMPLATE_VARS.map(({ v, desc }) => (
                       <div key={v} className="flex items-baseline gap-2">
-                        <code className="text-[11px] font-mono text-[#175cd3] shrink-0">{v}</code>
-                        <span className="text-[11px] text-[#98a2b3]">{desc}</span>
+                        <code className="text-[11px] font-mono text-accent-fg shrink-0">{v}</code>
+                        <span className="text-[11px] text-fg-4">{desc}</span>
                       </div>
                     ))}
                   </div>
@@ -427,7 +427,7 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
                   />
                 ))}
               </div>
-              {errors.inputTypes && <p className="text-[11px] text-[#d92d20] mt-1">{errors.inputTypes}</p>}
+              {errors.inputTypes && <p className="text-[11px] text-danger-fg mt-1">{errors.inputTypes}</p>}
             </div>
 
             {/* Workflows */}
@@ -448,7 +448,7 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
             {/* Optional fields toggle */}
             <button
               onClick={() => setShowOptional(v => !v)}
-              className="text-[12px] text-[#667085] hover:text-[#344054] flex items-center gap-1.5 transition-colors"
+              className="text-[12px] text-fg-3 hover:text-fg-2 flex items-center gap-1.5 transition-colors"
             >
               <svg className={`w-3.5 h-3.5 transition-transform ${showOptional ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
@@ -457,7 +457,7 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
             </button>
 
             {showOptional && (
-              <div className="space-y-3 pt-1 border-t border-[#f2f4f7]">
+              <div className="space-y-3 pt-1 border-t border-line-soft">
                 <div>
                   <FieldLabel>Description</FieldLabel>
                   <InputField value={form.description} onChange={v => patchForm({ description: v })} placeholder="Brief description of what this tool does" />
@@ -482,7 +482,7 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
                     <select
                       value={form.submissionRisk}
                       onChange={e => patchForm({ submissionRisk: e.target.value as SubmissionRisk })}
-                      className="w-full text-[13px] px-3 py-2 border border-[#d0d5dd] rounded-lg bg-white text-[#101828] focus:outline-none focus:border-[#1570ef]"
+                      className="w-full text-[13px] px-3 py-2 border border-line-strong rounded-lg bg-surface text-fg-1 focus:outline-none focus:border-accent"
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
@@ -494,7 +494,7 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
                     <select
                       value={form.requiresAccount}
                       onChange={e => patchForm({ requiresAccount: e.target.value as RequiresAccount })}
-                      className="w-full text-[13px] px-3 py-2 border border-[#d0d5dd] rounded-lg bg-white text-[#101828] focus:outline-none focus:border-[#1570ef]"
+                      className="w-full text-[13px] px-3 py-2 border border-line-strong rounded-lg bg-surface text-fg-1 focus:outline-none focus:border-accent"
                     >
                       <option value="none">None</option>
                       <option value="free_account">Free account</option>
@@ -512,17 +512,17 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
             )}
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#f2f4f7]">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line-soft">
               <button
                 onClick={handleCancel}
-                className="text-[13px] font-medium px-4 py-2 rounded-lg border border-[#e4e7ec] bg-white text-[#475467] hover:border-[#d0d5dd] transition-colors"
+                className="text-[13px] font-medium px-4 py-2 rounded-lg border border-line bg-surface text-fg-2 hover:border-line-strong transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => { void handleSave(); }}
                 disabled={saving}
-                className="text-[13px] font-semibold px-4 py-2 rounded-lg bg-[#1570ef] text-white hover:bg-[#175cd3] disabled:opacity-60 transition-colors"
+                className="text-[13px] font-semibold px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent-strong disabled:opacity-60 transition-colors"
               >
                 {saving ? 'Saving…' : 'Save Tool'}
               </button>
@@ -534,13 +534,13 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
         {customTools.length === 0 ? (
           <div className={`flex items-center justify-center py-10 ${showForm ? 'hidden' : ''}`}>
             <div className="text-center space-y-2">
-              <div className="w-10 h-10 rounded-xl bg-[#f2f4f7] flex items-center justify-center mx-auto">
-                <svg className="w-5 h-5 text-[#98a2b3]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-xl bg-raised flex items-center justify-center mx-auto">
+                <svg className="w-5 h-5 text-fg-4" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
                 </svg>
               </div>
-              <p className="text-[13px] text-[#667085]">No custom tools yet.</p>
-              <p className="text-[12px] text-[#98a2b3]">Click "Add Custom Tool" to add your own investigation links.</p>
+              <p className="text-[13px] text-fg-3">No custom tools yet.</p>
+              <p className="text-[12px] text-fg-4">Click "Add Custom Tool" to add your own investigation links.</p>
             </div>
           </div>
         ) : !showForm ? (
@@ -558,12 +558,12 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
 
       {/* ── Built-in tools ────────────────────────────────────────────────── */}
       <div className="wb-card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#f2f4f7]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line-soft">
           <div>
             <p className="wb-label">Built-in Tools</p>
-            <p className="text-[12px] text-[#98a2b3] mt-0.5">
+            <p className="text-[12px] text-fg-4 mt-0.5">
               {builtinTools.length} tools
-              {hiddenCount > 0 && <> · <span className="text-[#b54708]">{hiddenCount} hidden</span></>}
+              {hiddenCount > 0 && <> · <span className="text-warn-fg">{hiddenCount} hidden</span></>}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -572,15 +572,15 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
                 onClick={() => setShowHiddenOnly(v => !v)}
                 className={`text-[12px] font-medium px-3 py-1.5 rounded-lg border transition-colors ${
                   showHiddenOnly
-                    ? 'border-[#fedf89] bg-[#fffaeb] text-[#b54708]'
-                    : 'border-[#e4e7ec] bg-white text-[#667085] hover:border-[#d0d5dd]'
+                    ? 'border-warn-line bg-warn-bg text-warn-fg'
+                    : 'border-line bg-surface text-fg-3 hover:border-line-strong'
                 }`}
               >
                 {showHiddenOnly ? 'Show all' : `Show ${hiddenCount} hidden`}
               </button>
             )}
             <div className="relative">
-              <svg className="w-4 h-4 text-[#98a2b3] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-fg-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                 <circle cx="11" cy="11" r="8" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
               </svg>
               <input
@@ -588,7 +588,7 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search tools…"
-                className="pl-9 pr-3 py-1.5 text-[13px] border border-[#e4e7ec] rounded-lg bg-white text-[#101828] placeholder-[#98a2b3] focus:outline-none focus:border-[#1570ef] focus:ring-2 focus:ring-[#1570ef]/10 w-52 transition-colors"
+                className="pl-9 pr-3 py-1.5 text-[13px] border border-line rounded-lg bg-surface text-fg-1 placeholder-fg-4 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/10 w-52 transition-colors"
               />
             </div>
           </div>
@@ -596,7 +596,7 @@ export function ToolsManagementPanel({ builtinTools, customTools, hiddenToolIds,
 
         {filteredBuiltin.length === 0 ? (
           <div className="flex items-center justify-center py-10">
-            <p className="text-[13px] text-[#98a2b3]">No tools match your search.</p>
+            <p className="text-[13px] text-fg-4">No tools match your search.</p>
           </div>
         ) : (
           <div>

@@ -51,71 +51,71 @@ export function EnrichmentPanel({ ioc, workflowId, isSensitiveUrl, onEnrichmentC
   const canRun = backendHealth !== null && ioc && ioc.type !== 'unknown' && !ioc.isEmailHeader;
 
   const sev = enrichmentResponse?.overall.severity;
-  const sevCls = sev === 'critical' || sev === 'high' ? 'bg-[#fef3f2] border-[#fecdca] text-[#b42318]'
-    : sev === 'medium' ? 'bg-[#fffaeb] border-[#fedf89] text-[#b54708]'
-    : sev === 'low' ? 'bg-[#eff8ff] border-[#b2ddff] text-[#175cd3]'
-    : sev === 'benign' ? 'bg-[#ecfdf3] border-[#abefc6] text-[#067647]'
-    : 'bg-[#f2f4f7] border-[#e4e7ec] text-[#344054]';
+  const sevCls = sev === 'critical' || sev === 'high' ? 'bg-danger-bg border-danger-line text-danger-fg'
+    : sev === 'medium' ? 'bg-warn-bg border-warn-line text-warn-fg'
+    : sev === 'low' ? 'bg-accent-bg border-accent-line text-accent-fg'
+    : sev === 'benign' ? 'bg-ok-bg border-ok-line text-ok-fg'
+    : 'bg-raised border-line text-fg-2';
 
   return (
     <div className="wb-card p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <p className="wb-label">API Enrichment</p>
-          <p className="text-xs text-[#98a2b3] mt-0.5">Direct provider lookups via local backend</p>
+          <p className="text-xs text-fg-4 mt-0.5">Direct provider lookups via local backend</p>
         </div>
       </div>
 
       <ProviderStatus onHealthChange={handleHealthChange} />
 
       {backendHealth === null && (
-        <p className="text-xs text-[#98a2b3]">Start the enrichment backend to enable automated API lookups.</p>
+        <p className="text-xs text-fg-4">Start the enrichment backend to enable automated API lookups.</p>
       )}
 
       {backendHealth !== null && (!ioc || ioc.type === 'unknown') && (
-        <p className="text-xs text-[#98a2b3]">Enter a valid IOC to run enrichment.</p>
+        <p className="text-xs text-fg-4">Enter a valid IOC to run enrichment.</p>
       )}
 
       {canRun && (
         <div className="space-y-3">
-          <div className="text-xs text-[#667085] bg-[#fafbfc] border border-[#e4e7ec] rounded-lg p-3 space-y-1">
-            <p><strong className="text-[#344054]">VirusTotal:</strong> Lookup only — no file upload or URL submission.</p>
-            <p><strong className="text-[#344054]">urlscan.io:</strong> Search only — existing scans queried, no new submissions.</p>
+          <div className="text-xs text-fg-3 bg-inset border border-line rounded-lg p-3 space-y-1">
+            <p><strong className="text-fg-2">VirusTotal:</strong> Lookup only — no file upload or URL submission.</p>
+            <p><strong className="text-fg-2">urlscan.io:</strong> Search only — existing scans queried, no new submissions.</p>
             {isSensitiveUrl && (
-              <p className="text-[#b54708]"><strong>Sensitive URL detected.</strong> Enable override below only if comfortable sending this URL to third-party APIs.</p>
+              <p className="text-warn-fg"><strong>Sensitive URL detected.</strong> Enable override below only if comfortable sending this URL to third-party APIs.</p>
             )}
           </div>
 
           {isSensitiveUrl && (
-            <label className="flex items-center gap-2 text-xs text-[#475467] cursor-pointer">
+            <label className="flex items-center gap-2 text-xs text-fg-2 cursor-pointer">
               <input type="checkbox" checked={allowSensitiveUrl} onChange={e => setAllowSensitiveUrl(e.target.checked)}
-                className="rounded border-[#d0d5dd]" />
+                className="rounded border-line-strong" />
               Allow sensitive URL lookups
             </label>
           )}
 
           <div className="flex flex-wrap gap-2">
             <button onClick={() => void handleRun(false)} disabled={loading}
-              className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#1570ef] text-white hover:bg-[#175cd3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent-strong transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               {loading ? 'Running…' : 'Run Enrichment'}
             </button>
             {enrichmentResponse && (
               <button onClick={() => void handleRun(true)} disabled={loading}
-                className="px-3 py-2 text-xs font-medium rounded-lg border border-[#e4e7ec] bg-white text-[#475467] hover:border-[#d0d5dd] transition-colors disabled:opacity-50">
+                className="px-3 py-2 text-xs font-medium rounded-lg border border-line bg-surface text-fg-2 hover:border-line-strong transition-colors disabled:opacity-50">
                 Refresh (bypass cache)
               </button>
             )}
           </div>
 
           {loading && (
-            <div className="flex items-center gap-2 text-xs text-[#667085]">
-              <div className="w-4 h-4 rounded-full border-2 border-[#e4e7ec] border-t-[#1570ef] animate-spin shrink-0" />
+            <div className="flex items-center gap-2 text-xs text-fg-3">
+              <div className="w-4 h-4 rounded-full border-2 border-line border-t-accent animate-spin shrink-0" />
               Querying enrichment providers…
             </div>
           )}
 
           {error && (
-            <div className="text-xs text-[#b42318] bg-[#fef3f2] border border-[#fecdca] rounded-lg p-3">{error}</div>
+            <div className="text-xs text-danger-fg bg-danger-bg border border-danger-line rounded-lg p-3">{error}</div>
           )}
 
           {enrichmentResponse && !loading && (

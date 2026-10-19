@@ -186,15 +186,15 @@ interface ApiKeysPanelProps {
 function StatusBadge({ configured }: { configured: boolean }) {
   if (configured) {
     return (
-      <span className="inline-flex items-center gap-1.5 shrink-0 text-xs px-2 py-0.5 rounded-full bg-[#ecfdf3] border border-[#abefc6] text-[#067647] font-medium">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#079455]" />
+      <span className="inline-flex items-center gap-1.5 shrink-0 text-xs px-2 py-0.5 rounded bg-ok-bg border border-ok-line text-ok-fg font-medium">
+        <span className="w-1.5 h-1.5 rounded-full bg-ok" />
         Configured
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 shrink-0 text-xs px-2 py-0.5 rounded-full bg-[#f2f4f7] border border-[#e4e7ec] text-[#475467] font-medium">
-      <span className="w-1.5 h-1.5 rounded-full bg-[#98a2b3]" />
+    <span className="inline-flex items-center gap-1.5 shrink-0 text-xs px-2 py-0.5 rounded bg-raised border border-line text-fg-2 font-medium">
+      <span className="w-1.5 h-1.5 rounded-full bg-fg-4" />
       Not configured
     </span>
   );
@@ -271,14 +271,14 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
     return (
       <div className="flex items-center justify-center py-16">
         <div className="wb-card px-6 py-8 text-center max-w-md">
-          <div className="w-10 h-10 rounded-xl bg-[#f2f4f7] flex items-center justify-center mx-auto mb-3">
-            <svg className="w-5 h-5 text-[#98a2b3]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+          <div className="w-10 h-10 rounded-xl bg-raised flex items-center justify-center mx-auto mb-3">
+            <svg className="w-5 h-5 text-fg-4" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
             </svg>
           </div>
-          <p className="text-[#344054] font-semibold text-sm">Backend is offline</p>
-          <p className="text-[#667085] text-xs mt-1">Start the backend to manage API keys.</p>
+          <p className="text-fg-2 font-semibold text-sm">Backend is offline</p>
+          <p className="text-fg-3 text-xs mt-1">Start the backend to manage API keys.</p>
         </div>
       </div>
     );
@@ -294,8 +294,7 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
       <div className="wb-card p-5">
         <div className="flex items-start justify-between gap-4 mb-3">
           <div>
-            <h2 className="text-[15px] font-semibold text-[#101828]">API Keys</h2>
-            <p className="text-xs text-[#667085] mt-0.5">
+            <p className="text-xs text-fg-3 mt-0.5">
               {keyStatus !== null
                 ? `${configuredCount} of ${PROVIDERS.length} providers configured`
                 : 'Configure third-party enrichment provider credentials.'}
@@ -304,20 +303,20 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
           <button
             onClick={() => void fetchStatus()}
             disabled={loading}
-            className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-white border border-[#d0d5dd] text-[#344054] font-medium hover:bg-[#f9fafb] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-surface border border-line-strong text-fg-2 font-medium hover:bg-inset transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Refreshing…' : 'Refresh status'}
           </button>
         </div>
 
         {/* Storage notice */}
-        <div className="bg-[#fffaeb] border border-[#fedf89] rounded-lg px-3 py-2.5 text-xs text-[#b54708] flex items-start gap-2">
+        <div className="bg-warn-bg border border-warn-line rounded-lg px-3 py-2.5 text-xs text-warn-fg flex items-start gap-2">
           <svg className="w-3.5 h-3.5 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
           <span>
             API keys are stored in{' '}
-            <code className="bg-[#fef0c7] border border-[#fedf89] text-[#7a2e08] px-1 py-0.5 rounded font-mono text-[11px]">
+            <code className="bg-warn-bg border border-warn-line text-warn-fg px-1 py-0.5 rounded font-mono text-[11px]">
               backend/.env
             </code>{' '}
             on your local machine only. They are never sent to the frontend or logged.
@@ -337,8 +336,8 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
               {/* Card header */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="text-[13px] font-semibold text-[#101828]">{provider.name}</h3>
-                  <p className="text-xs text-[#667085] mt-0.5 leading-relaxed">{provider.description}</p>
+                  <h3 className="text-[13px] font-semibold text-fg-1">{provider.name}</h3>
+                  <p className="text-xs text-fg-3 mt-0.5 leading-relaxed">{provider.description}</p>
                 </div>
                 {keyStatus !== null && <StatusBadge configured={isConfigured} />}
               </div>
@@ -348,7 +347,7 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
                 {provider.supports.map(s => (
                   <span
                     key={s}
-                    className="text-[11px] px-1.5 py-0.5 rounded font-mono bg-[#f2f4f7] text-[#344054] border border-[#e4e7ec]"
+                    className="text-[11px] px-1.5 py-0.5 rounded font-mono bg-raised text-fg-2 border border-line"
                   >
                     {s}
                   </span>
@@ -356,11 +355,11 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
               </div>
 
               {/* Tier */}
-              <p className="text-xs text-[#667085]">{provider.tier}</p>
+              <p className="text-xs text-fg-3">{provider.tier}</p>
 
               {/* Optional note */}
               {provider.note && (
-                <div className="bg-[#fffaeb] border border-[#fedf89] rounded-lg px-2.5 py-2 text-xs text-[#b54708] leading-relaxed">
+                <div className="bg-warn-bg border border-warn-line rounded-lg px-2.5 py-2 text-xs text-warn-fg leading-relaxed">
                   {provider.note}
                 </div>
               )}
@@ -370,7 +369,7 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
                 href={provider.signupUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-[#1570ef] hover:text-[#175cd3] font-medium self-start transition-colors flex items-center gap-1"
+                className="text-xs text-accent-fg hover:text-accent-fg font-medium self-start transition-colors flex items-center gap-1"
               >
                 Sign up / get API key
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
@@ -379,11 +378,11 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
               </a>
 
               {/* Input row(s) */}
-              <div className="flex flex-col gap-2 mt-auto pt-1 border-t border-[#f2f4f7]">
+              <div className="flex flex-col gap-2 mt-auto pt-1 border-t border-line-soft">
                 {provider.secondaryField ? (
                   <>
                     <div>
-                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#98a2b3] mb-1">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-fg-4 mb-1">
                         API ID
                       </label>
                       <input
@@ -392,12 +391,12 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
                         value={state.inputValue}
                         onChange={e => updateCard(provider.id, { inputValue: e.target.value, error: null, saved: false })}
                         onKeyDown={e => { if (e.key === 'Enter') void handleSave(provider); }}
-                        className="w-full bg-white border border-[#e4e7ec] rounded-lg px-2.5 py-2 text-xs text-[#101828] placeholder-[#98a2b3] focus:outline-none focus:border-[#1570ef] focus:ring-2 focus:ring-[#1570ef]/20 transition-colors"
+                        className="w-full bg-surface border border-line rounded-lg px-2.5 py-2 text-xs text-fg-1 placeholder-fg-4 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
                         autoComplete="off"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#98a2b3] mb-1">
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-fg-4 mb-1">
                         API Secret
                       </label>
                       <input
@@ -406,7 +405,7 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
                         value={cardState[provider.secondaryField.id]?.inputValue ?? ''}
                         onChange={e => updateCard(provider.secondaryField!.id, { inputValue: e.target.value, error: null, saved: false })}
                         onKeyDown={e => { if (e.key === 'Enter') void handleSave(provider); }}
-                        className="w-full bg-white border border-[#e4e7ec] rounded-lg px-2.5 py-2 text-xs text-[#101828] placeholder-[#98a2b3] focus:outline-none focus:border-[#1570ef] focus:ring-2 focus:ring-[#1570ef]/20 transition-colors"
+                        className="w-full bg-surface border border-line rounded-lg px-2.5 py-2 text-xs text-fg-1 placeholder-fg-4 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
                         autoComplete="off"
                       />
                     </div>
@@ -415,10 +414,10 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
                       disabled={state.saving || !hasInput}
                       className={`self-end text-xs px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
                         state.saved
-                          ? 'bg-[#ecfdf3] border border-[#abefc6] text-[#067647]'
+                          ? 'bg-ok-bg border border-ok-line text-ok-fg'
                           : hasInput && !state.saving
-                          ? 'bg-[#1570ef] hover:bg-[#175cd3] text-white border border-[#1570ef]'
-                          : 'bg-[#f2f4f7] text-[#98a2b3] border border-[#e4e7ec] cursor-not-allowed'
+                          ? 'bg-accent hover:bg-accent-strong text-white border border-accent'
+                          : 'bg-raised text-fg-4 border border-line cursor-not-allowed'
                       }`}
                     >
                       {state.saving ? (
@@ -443,7 +442,7 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
                       value={state.inputValue}
                       onChange={e => updateCard(provider.id, { inputValue: e.target.value, error: null, saved: false })}
                       onKeyDown={e => { if (e.key === 'Enter') void handleSave(provider); }}
-                      className="flex-1 min-w-0 bg-white border border-[#e4e7ec] rounded-lg px-2.5 py-2 text-xs text-[#101828] placeholder-[#98a2b3] focus:outline-none focus:border-[#1570ef] focus:ring-2 focus:ring-[#1570ef]/20 transition-colors"
+                      className="flex-1 min-w-0 bg-surface border border-line rounded-lg px-2.5 py-2 text-xs text-fg-1 placeholder-fg-4 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
                       autoComplete="off"
                     />
                     <button
@@ -451,10 +450,10 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
                       disabled={state.saving || !hasInput}
                       className={`shrink-0 text-xs px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
                         state.saved
-                          ? 'bg-[#ecfdf3] border border-[#abefc6] text-[#067647]'
+                          ? 'bg-ok-bg border border-ok-line text-ok-fg'
                           : hasInput && !state.saving
-                          ? 'bg-[#1570ef] hover:bg-[#175cd3] text-white border border-[#1570ef]'
-                          : 'bg-[#f2f4f7] text-[#98a2b3] border border-[#e4e7ec] cursor-not-allowed'
+                          ? 'bg-accent hover:bg-accent-strong text-white border border-accent'
+                          : 'bg-raised text-fg-4 border border-line cursor-not-allowed'
                       }`}
                     >
                       {state.saving ? (
@@ -476,7 +475,7 @@ export function ApiKeysPanel({ backendOnline }: ApiKeysPanelProps) {
 
               {/* Inline error */}
               {state.error && (
-                <p className="text-xs text-[#b42318] flex items-center gap-1">
+                <p className="text-xs text-danger-fg flex items-center gap-1">
                   <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                   </svg>

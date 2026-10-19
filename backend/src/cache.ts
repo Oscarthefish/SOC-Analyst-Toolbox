@@ -57,7 +57,8 @@ export function buildCacheKey(
   isSensitiveUrl = false,
 ): string {
   const iocPart =
-    isSensitiveUrl || iocType === 'url'
+    // Never write raw URLs (may carry tokens) or credentials to disk
+    isSensitiveUrl || iocType === 'url' || iocType === 'secret'
       ? createHash('sha256').update(normalisedIoc).digest('hex').slice(0, 16)
       : normalisedIoc;
   return `${providerId}:${iocType}:${iocPart}`;

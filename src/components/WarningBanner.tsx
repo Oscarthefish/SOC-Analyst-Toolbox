@@ -5,9 +5,9 @@ interface WarningBannerProps {
 }
 
 const styles = {
-  info:    'bg-[#eff8ff] border-[#b2ddff] text-[#175cd3]',
-  warning: 'bg-[#fffaeb] border-[#fedf89] text-[#b54708]',
-  danger:  'bg-[#fef3f2] border-[#fecdca] text-[#b42318]',
+  info:    'bg-accent-bg border-accent-line text-accent-fg',
+  warning: 'bg-warn-bg border-warn-line text-warn-fg',
+  danger:  'bg-danger-bg border-danger-line text-danger-fg',
 };
 
 const icons = {

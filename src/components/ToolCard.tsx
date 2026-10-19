@@ -12,141 +12,127 @@ interface ToolCardProps {
   onToggleFavorite?: (toolId: string) => void;
 }
 
-function RiskBadge({ risk }: { risk: string }) {
-  if (risk === 'low') return (
-    <span className="inline-flex items-center gap-1 h-5 px-2 rounded-md text-[11px] font-semibold bg-[#ecfdf3] border border-[#abefc6] text-[#067647]">
-      <span className="w-1.5 h-1.5 rounded-full bg-[#079455]" />
-      Passive
-    </span>
-  );
-  if (risk === 'medium') return (
-    <span className="inline-flex items-center gap-1 h-5 px-2 rounded-md text-[11px] font-semibold bg-[#fffaeb] border border-[#fedf89] text-[#b54708]">
-      Submits IOC
-    </span>
-  );
+const RISK: Record<string, { label: string; title: string; cls: string; dot: string }> = {
+  low:    { label: 'Passive',     title: 'Lookup only — the indicator is not shared or stored publicly.', cls: 'text-ok-fg',     dot: 'bg-ok' },
+  medium: { label: 'Submits IOC', title: 'The indicator is sent to the service and may be logged or visible to its users.', cls: 'text-warn-fg',   dot: 'bg-warn' },
+  high:   { label: 'Public',      title: 'Submitting makes the indicator public (e.g. live scans, shared sandboxes).', cls: 'text-danger-fg', dot: 'bg-danger' },
+};
+
+const ACCESS: Record<string, string> = {
+  none: 'Free',
+  free_account: 'Free account',
+  trial: 'Trial',
+  paid: 'Paid',
+  mixed: 'Free / paid',
+};
+
+export function RiskBadge({ risk }: { risk: string }) {
+  const r = RISK[risk] ?? RISK['high']!;
   return (
-    <span className="inline-flex items-center gap-1 h-5 px-2 rounded-md text-[11px] font-semibold bg-[#fef3f2] border border-[#fecdca] text-[#b42318]">
-      Submits IOC
+    <span title={r.title} className={`inline-flex items-center gap-1.5 text-[11px] font-medium whitespace-nowrap ${r.cls}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${r.dot}`} />
+      {r.label}
     </span>
   );
 }
 
-function AccessBadge({ requires }: { requires: string }) {
-  if (requires === 'none') return (
-    <span className="text-[11px] text-[#667085]">Free</span>
-  );
-  if (requires === 'free_account') return (
-    <span className="text-[11px] text-[#667085]">Free account</span>
-  );
-  if (requires === 'paid') return (
-    <span className="text-[11px] text-[#667085]">Paid</span>
-  );
-  return <span className="text-[11px] text-[#667085]">{requires}</span>;
-}
-
-// Monogram initials tile
-function Initials({ name }: { name: string }) {
-  const parts = name.split(/[\s-_/]+/).filter(Boolean);
-  const letters = parts.length >= 2
-    ? (parts[0]![0]! + parts[1]![0]!).toUpperCase()
-    : name.slice(0, 2).toUpperCase();
+function StarIcon({ filled }: { filled: boolean }) {
   return (
-    <div className="w-9 h-9 rounded-[9px] bg-[#f2f4f7] border border-[#e4e7ec] flex items-center justify-center shrink-0">
-      <span className="text-[11px] font-bold font-mono text-[#475467] tracking-wide">{letters}</span>
-    </div>
+    <svg className="w-3.5 h-3.5" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </svg>
   );
 }
 
 export function ToolCard({ tool, ioc, isSensitiveUrl, isFavorite = false, onToggleFavorite }: ToolCardProps) {
   const vars = buildTemplateVars(ioc);
   const generatedUrl = applyTemplate(tool.urlTemplate, vars);
-  const hasUnfilledVars = /\{\{[^}]+\}\}/.test(generatedUrl);
-  const canGenerate = !hasUnfilledVars;
+  const canGenerate = !/\{\{[^}]+\}\}/.test(generatedUrl);
+  const href = canGenerate ? generatedUrl : tool.urlTemplate;
   const [expanded, setExpanded] = useState(false);
+  const blockedBySensitivity = isSensitiveUrl && tool.submissionRisk !== 'low';
 
   return (
-    <div className={`group flex items-start gap-3 p-3 rounded-[10px] border transition-colors ${
-      expanded
-        ? 'bg-[#f9fafb] border-[#d0d5dd]'
-        : 'bg-white border-[#e4e7ec] hover:border-[#d0d5dd] hover:bg-[#f9fafb]'
-    }`}>
-      <Initials name={tool.name} />
+    <div className={`group ${expanded ? 'bg-inset' : 'hover:bg-inset'} transition-colors`}>
+      <div className="grid grid-cols-[1fr_auto] md:grid-cols-[minmax(0,1fr)_96px_96px_auto] items-center gap-x-4 px-4 py-2.5">
+        <button
+          onClick={() => setExpanded(e => !e)}
+          aria-expanded={expanded}
+          className="min-w-0 text-left flex items-start gap-2"
+        >
+          <svg className={`w-3 h-3 mt-1 shrink-0 text-fg-4 transition-transform ${expanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          <span className="min-w-0">
+            <span className="flex items-center gap-2">
+              <span className="text-[13px] font-medium text-fg-1 truncate">{tool.name}</span>
+              {!canGenerate && <span className="text-[10px] text-fg-4 border border-line rounded px-1">manual</span>}
+            </span>
+            <span className="block text-xs text-fg-3 truncate">{tool.description}</span>
+          </span>
+        </button>
 
-      <div className="flex-1 min-w-0 space-y-1.5">
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-[#101828] leading-tight truncate">{tool.name}</p>
-            <p className="text-xs text-[#667085] leading-snug mt-0.5 line-clamp-2">{tool.description}</p>
-          </div>
+        <div className="hidden md:block"><RiskBadge risk={tool.submissionRisk} /></div>
+        <div className="hidden md:block text-[11px] text-fg-3 whitespace-nowrap">{ACCESS[tool.requiresAccount] ?? tool.requiresAccount}</div>
+
+        <div className="flex items-center gap-1">
+          {onToggleFavorite && (
+            <button
+              onClick={() => onToggleFavorite(tool.id)}
+              title={isFavorite ? 'Remove from pinned' : 'Pin to top'}
+              aria-pressed={isFavorite}
+              className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
+                isFavorite ? 'text-warn' : 'text-fg-4 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-fg-2'
+              }`}
+            >
+              <StarIcon filled={isFavorite} />
+            </button>
+          )}
           <a
-            href={canGenerate ? generatedUrl : tool.urlTemplate}
+            href={href}
             target="_blank"
             rel="noopener noreferrer"
-            title={`Open ${tool.name}`}
-            className="shrink-0 w-7 h-7 rounded-lg border border-[#e4e7ec] bg-white flex items-center justify-center text-[#667085] hover:border-[#1570ef] hover:text-[#1570ef] transition-colors"
+            title={blockedBySensitivity ? 'Sensitive URL — this tool shares indicators externally' : `Open in ${tool.name}`}
+            className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-md border text-xs font-medium transition-colors ${
+              blockedBySensitivity
+                ? 'border-warn-line text-warn-fg bg-warn-bg'
+                : 'border-line bg-surface text-fg-2 hover:border-accent hover:text-accent-fg'
+            }`}
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6m4-3h6v6m-11 5L21 3" />
+            Open
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M9 7h8v8" />
             </svg>
           </a>
         </div>
+      </div>
 
-        {/* Badges row */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <RiskBadge risk={tool.submissionRisk} />
-          <AccessBadge requires={tool.requiresAccount} />
-          {isSensitiveUrl && (
-            <span className="text-[11px] text-[#b54708] font-medium">· Sensitive URL</span>
+      {expanded && (
+        <div className="px-4 pb-3 pl-9 grid md:grid-cols-3 gap-x-6 gap-y-2 text-xs">
+          <div className="md:hidden flex items-center gap-3 col-span-full">
+            <RiskBadge risk={tool.submissionRisk} />
+            <span className="text-[11px] text-fg-3">{ACCESS[tool.requiresAccount] ?? tool.requiresAccount}</span>
+          </div>
+          <div>
+            <p className="text-fg-4 mb-0.5">Why use it</p>
+            <p className="text-fg-2 leading-relaxed">{tool.whyUse}</p>
+          </div>
+          <div>
+            <p className="text-fg-4 mb-0.5">What to look for</p>
+            <p className="text-fg-2 leading-relaxed">{tool.lookFor}</p>
+          </div>
+          <div>
+            <p className="text-fg-4 mb-0.5">Exposure</p>
+            <p className="text-fg-2 leading-relaxed">{tool.riskNote}</p>
+          </div>
+          {canGenerate && (
+            <div className="col-span-full flex items-center gap-2 pt-1">
+              <code className="flex-1 min-w-0 text-[11px] font-mono text-fg-3 truncate">{generatedUrl}</code>
+              <CopyButton text={generatedUrl} label="link" iconOnly />
+            </div>
           )}
         </div>
-
-        {/* Favourite toggle */}
-        {onToggleFavorite && (
-          <button
-            onClick={() => onToggleFavorite(tool.id)}
-            className={`text-[11px] flex items-center gap-1 transition-colors ${
-              isFavorite ? 'text-[#b54708]' : 'text-[#98a2b3] hover:text-[#667085]'
-            }`}
-          >
-            <svg className="w-3 h-3" fill={isFavorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
-            {isFavorite ? 'Favourited' : 'Favourite'}
-          </button>
-        )}
-
-        {/* Expandable detail */}
-        {expanded && (
-          <div className="pt-2 border-t border-[#f2f4f7] space-y-2">
-            <div>
-              <p className="text-[11px] font-semibold text-[#98a2b3] uppercase tracking-wider mb-0.5">Why use it</p>
-              <p className="text-xs text-[#475467]">{tool.whyUse}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold text-[#98a2b3] uppercase tracking-wider mb-0.5">What to look for</p>
-              <p className="text-xs text-[#475467]">{tool.lookFor}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold text-[#98a2b3] uppercase tracking-wider mb-0.5">Risk note</p>
-              <p className="text-xs text-[#667085] italic">{tool.riskNote}</p>
-            </div>
-            {canGenerate && (
-              <div className="flex items-center gap-2">
-                <code className="text-[11px] font-mono text-[#667085] break-all flex-1">{generatedUrl}</code>
-                <CopyButton text={generatedUrl} label="link" iconOnly />
-              </div>
-            )}
-          </div>
-        )}
-
-        <button
-          onClick={() => setExpanded(e => !e)}
-          className="text-[11px] text-[#98a2b3] hover:text-[#667085] transition-colors"
-        >
-          {expanded ? 'Show less' : 'Details'}
-        </button>
-      </div>
+      )}
     </div>
   );
 }

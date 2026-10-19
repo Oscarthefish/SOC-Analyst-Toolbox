@@ -29,12 +29,12 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const SEV_CLS: Record<Severity, string> = {
-  critical: 'bg-[#fef3f2] border-[#fecdca] text-[#b42318]',
-  high:     'bg-[#fef3f2] border-[#fecdca] text-[#b42318]',
-  medium:   'bg-[#fffaeb] border-[#fedf89] text-[#b54708]',
-  low:      'bg-[#eff8ff] border-[#b2ddff] text-[#175cd3]',
-  benign:   'bg-[#ecfdf3] border-[#abefc6] text-[#067647]',
-  unknown:  'bg-[#f2f4f7] border-[#e4e7ec] text-[#667085]',
+  critical: 'bg-danger-bg border-danger-line text-danger-fg',
+  high:     'bg-danger-bg border-danger-line text-danger-fg',
+  medium:   'bg-warn-bg border-warn-line text-warn-fg',
+  low:      'bg-accent-bg border-accent-line text-accent-fg',
+  benign:   'bg-ok-bg border-ok-line text-ok-fg',
+  unknown:  'bg-raised border-line text-fg-3',
 };
 
 const SEVERITY_ORDER: Record<Severity, number> = {
@@ -143,7 +143,7 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
       <div className="wb-card p-5 space-y-4">
         <div>
           <p className="wb-label mb-1">Batch IOC Triage</p>
-          <p className="text-xs text-[#98a2b3]">Paste up to 50 IOCs — one per line or comma-separated. Mixed types supported.</p>
+          <p className="text-xs text-fg-4">Paste up to 50 IOCs — one per line or comma-separated. Mixed types supported.</p>
         </div>
 
         <textarea
@@ -151,7 +151,7 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleRun(); }}
           placeholder={'185.220.101.42\nevil-phishing.com\ne3b0c44298fc1c149afbf4c8996fb924...\nCVE-2024-1234'}
-          className="w-full h-32 px-3 py-2.5 text-xs font-mono rounded-lg border border-[#e4e7ec] bg-[#fafbfc] placeholder-[#d0d5dd] text-[#101828] resize-none focus:outline-none focus:border-[#84caff] focus:bg-white transition-colors"
+          className="w-full h-32 px-3 py-2.5 text-xs font-mono rounded-lg border border-line bg-inset placeholder-fg-4 text-fg-1 resize-none focus:outline-none focus:border-accent-line focus:bg-surface transition-colors"
           disabled={running}
         />
 
@@ -159,28 +159,28 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
           <button
             onClick={handleParse}
             disabled={!input.trim() || running}
-            className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-[#e4e7ec] bg-white text-[#344054] hover:bg-[#f9fafb] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-line bg-surface text-fg-2 hover:bg-inset disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Parse IOCs
           </button>
           <button
             onClick={() => void handleRun()}
             disabled={running || rows.filter(r => r.status === 'pending').length === 0}
-            className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#1570ef] text-white hover:bg-[#175cd3] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {running ? `Running… ${done}/${total}` : `Run Triage (${rows.filter(r => r.status === 'pending').length})`}
           </button>
           {rows.length > 0 && (
             <button
               onClick={handleClear}
-              className="px-3 py-2 text-xs font-medium rounded-lg border border-[#e4e7ec] bg-white text-[#667085] hover:text-[#344054] transition-colors"
+              className="px-3 py-2 text-xs font-medium rounded-lg border border-line bg-surface text-fg-3 hover:text-fg-2 transition-colors"
             >
               Clear
             </button>
           )}
           {running && (
-            <div className="flex items-center gap-1.5 text-xs text-[#667085]">
-              <div className="w-3 h-3 rounded-full border-2 border-[#e4e7ec] border-t-[#1570ef] animate-spin" />
+            <div className="flex items-center gap-1.5 text-xs text-fg-3">
+              <div className="w-3 h-3 rounded-full border-2 border-line border-t-accent animate-spin" />
               {total - done} remaining
             </div>
           )}
@@ -189,16 +189,16 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
 
       {rows.length > 0 && (
         <div className="wb-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-[#f2f4f7] flex items-center justify-between">
+          <div className="px-5 py-3 border-b border-line-soft flex items-center justify-between">
             <p className="wb-label">
               Results
-              <span className="ml-2 font-normal text-[#98a2b3]">
+              <span className="ml-2 font-normal text-fg-4">
                 {rows.length} IOC{rows.length !== 1 ? 's' : ''}
                 {rows.some(r => r.status === 'skipped') ? ` · ${rows.filter(r => r.status === 'skipped').length} skipped (unknown type)` : ''}
               </span>
             </p>
             {!running && done > 0 && (
-              <div className="flex gap-3 text-xs text-[#667085]">
+              <div className="flex gap-3 text-xs text-fg-3">
                 {(['critical', 'high', 'medium'] as Severity[]).map(s => {
                   const n = rows.filter(r => r.severity === s).length;
                   return n > 0 ? (
@@ -211,46 +211,46 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
             )}
           </div>
 
-          <div className="divide-y divide-[#f2f4f7]">
+          <div className="divide-y divide-line-soft">
             {rows.map(row => (
               <div
                 key={row.id}
                 className={`flex items-start gap-3 px-5 py-3 transition-colors ${
-                  row.status === 'running' ? 'bg-[#f9fafb]' : ''
+                  row.status === 'running' ? 'bg-inset' : ''
                 } ${row.status === 'skipped' ? 'opacity-40' : ''}`}
               >
                 {/* Status indicator */}
                 <div className="mt-0.5 shrink-0">
                   {row.status === 'running' && (
-                    <div className="w-3.5 h-3.5 rounded-full border-2 border-[#e4e7ec] border-t-[#1570ef] animate-spin" />
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-line border-t-accent animate-spin" />
                   )}
                   {row.status === 'pending' && (
-                    <div className="w-3.5 h-3.5 rounded-full border border-[#d0d5dd] bg-white" />
+                    <div className="w-3.5 h-3.5 rounded-full border border-line-strong bg-surface" />
                   )}
                   {row.status === 'done' && row.severity && (
                     <div className={`w-3.5 h-3.5 rounded-full border ${
-                      row.severity === 'critical' || row.severity === 'high' ? 'bg-[#d92d20] border-[#d92d20]'
-                      : row.severity === 'medium' ? 'bg-[#dc6803] border-[#dc6803]'
-                      : row.severity === 'low' ? 'bg-[#1570ef] border-[#1570ef]'
-                      : row.severity === 'benign' ? 'bg-[#079455] border-[#079455]'
-                      : 'bg-[#98a2b3] border-[#98a2b3]'
+                      row.severity === 'critical' || row.severity === 'high' ? 'bg-danger border-danger'
+                      : row.severity === 'medium' ? 'bg-warn border-warn'
+                      : row.severity === 'low' ? 'bg-accent border-accent'
+                      : row.severity === 'benign' ? 'bg-ok border-ok'
+                      : 'bg-fg-4 border-fg-4'
                     }`} />
                   )}
                   {row.status === 'error' && (
-                    <div className="w-3.5 h-3.5 rounded-full bg-[#d92d20] border-[#d92d20]" />
+                    <div className="w-3.5 h-3.5 rounded-full bg-danger border-danger" />
                   )}
                   {row.status === 'skipped' && (
-                    <div className="w-3.5 h-3.5 rounded-full border border-[#d0d5dd] bg-[#f2f4f7]" />
+                    <div className="w-3.5 h-3.5 rounded-full border border-line-strong bg-raised" />
                   )}
                 </div>
 
                 {/* IOC value */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <code className="text-[12px] font-mono text-[#101828] break-all leading-snug">
+                    <code className="text-[12px] font-mono text-fg-1 break-all leading-snug">
                       {row.normalised.length > 60 ? row.normalised.slice(0, 57) + '…' : row.normalised}
                     </code>
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#f2f4f7] text-[#667085] shrink-0">
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-raised text-fg-3 shrink-0">
                       {TYPE_LABELS[row.type] ?? row.type.toUpperCase()}
                     </span>
                     {row.status === 'done' && row.severity && (
@@ -260,13 +260,13 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
                     )}
                   </div>
                   {row.topFinding && (
-                    <p className="text-[11px] text-[#475467] mt-0.5 leading-snug">{row.topFinding}</p>
+                    <p className="text-[11px] text-fg-2 mt-0.5 leading-snug">{row.topFinding}</p>
                   )}
                   {row.errorMsg && (
-                    <p className="text-[11px] text-[#b42318] mt-0.5">{row.errorMsg}</p>
+                    <p className="text-[11px] text-danger-fg mt-0.5">{row.errorMsg}</p>
                   )}
                   {row.status === 'skipped' && (
-                    <p className="text-[11px] text-[#98a2b3] mt-0.5">Type not recognised — skipped</p>
+                    <p className="text-[11px] text-fg-4 mt-0.5">Type not recognised — skipped</p>
                   )}
                 </div>
 
@@ -274,7 +274,7 @@ export function BatchTriagePanel({ onInvestigate }: BatchTriagePanelProps) {
                 {(row.status === 'done' || row.status === 'pending') && row.type !== 'unknown' && (
                   <button
                     onClick={() => onInvestigate(row.normalised)}
-                    className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#e4e7ec] bg-white text-[#475467] text-xs font-medium hover:border-[#b2ddff] hover:text-[#1570ef] transition-colors"
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-line bg-surface text-fg-2 text-xs font-medium hover:border-accent-line hover:text-accent-fg transition-colors"
                     title="Open in Single IOC tab"
                   >
                     Triage

@@ -26,8 +26,8 @@ export function CopyButton({ text, label = 'Copy', className = '', iconOnly = fa
         title={`Copy ${label}`}
         className={`inline-flex items-center justify-center w-7 h-7 rounded-lg border transition-colors ${
           copied
-            ? 'border-[#abefc6] bg-[#ecfdf3] text-[#067647]'
-            : 'border-[#e4e7ec] bg-white text-[#667085] hover:border-[#d0d5dd] hover:text-[#344054]'
+            ? 'border-ok-line bg-ok-bg text-ok-fg'
+            : 'border-line bg-surface text-fg-3 hover:border-line-strong hover:text-fg-2'
         } ${className}`}
       >
         {copied ? (
@@ -50,8 +50,8 @@ export function CopyButton({ text, label = 'Copy', className = '', iconOnly = fa
       title={`Copy ${label}`}
       className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
         copied
-          ? 'border-[#abefc6] bg-[#ecfdf3] text-[#067647]'
-          : 'border-[#e4e7ec] bg-white text-[#475467] hover:border-[#d0d5dd] hover:text-[#101828]'
+          ? 'border-ok-line bg-ok-bg text-ok-fg'
+          : 'border-line bg-surface text-fg-2 hover:border-line-strong hover:text-fg-1'
       } ${className}`}
     >
       {copied ? (

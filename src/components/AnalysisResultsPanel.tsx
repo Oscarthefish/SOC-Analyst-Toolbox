@@ -15,12 +15,12 @@ interface AnalysisResultsPanelProps {
 }
 
 const SEV_BAR: Record<string, { bar: string; text: string }> = {
-  critical: { bar: 'bg-[#fef3f2] border-[#fecdca]', text: 'text-[#b42318]' },
-  high:     { bar: 'bg-[#fef3f2] border-[#fecdca]', text: 'text-[#b42318]' },
-  medium:   { bar: 'bg-[#fffaeb] border-[#fedf89]', text: 'text-[#b54708]' },
-  low:      { bar: 'bg-[#eff8ff] border-[#b2ddff]', text: 'text-[#175cd3]' },
-  benign:   { bar: 'bg-[#ecfdf3] border-[#abefc6]', text: 'text-[#067647]' },
-  unknown:  { bar: 'bg-[#f2f4f7] border-[#e4e7ec]', text: 'text-[#344054]' },
+  critical: { bar: 'bg-danger-bg border-danger-line', text: 'text-danger-fg' },
+  high:     { bar: 'bg-danger-bg border-danger-line', text: 'text-danger-fg' },
+  medium:   { bar: 'bg-warn-bg border-warn-line', text: 'text-warn-fg' },
+  low:      { bar: 'bg-accent-bg border-accent-line', text: 'text-accent-fg' },
+  benign:   { bar: 'bg-ok-bg border-ok-line', text: 'text-ok-fg' },
+  unknown:  { bar: 'bg-raised border-line', text: 'text-fg-2' },
 };
 
 export function AnalysisResultsPanel({ response, onPivot }: AnalysisResultsPanelProps) {
@@ -97,13 +97,13 @@ export function AnalysisResultsPanel({ response, onPivot }: AnalysisResultsPanel
           onClick={() => setShowCards(v => !v)}
           className="flex items-center gap-1.5 w-full text-left"
         >
-          <svg className={`w-3 h-3 text-[#98a2b3] transition-transform ${showCards ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <svg className={`w-3 h-3 text-fg-4 transition-transform ${showCards ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
-          <span className="text-[11px] font-semibold text-[#98a2b3] uppercase tracking-wider">
+          <span className="text-[11px] font-semibold text-fg-4 uppercase tracking-wider">
             Provider Results ({results.length})
           </span>
-          <span className="ml-auto text-[11px] text-[#98a2b3]">
+          <span className="ml-auto text-[11px] text-fg-4">
             {ok.length} with data
           </span>
         </button>

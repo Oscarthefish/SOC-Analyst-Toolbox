@@ -67,12 +67,12 @@ function parseNarrative(text: string): ParsedNarrative {
 interface VStyle { bar: string; text: string; dot: string; meter: string; }
 
 const VSTYLES: Record<string, VStyle> = {
-  'benign':            { bar: 'bg-[#ecfdf3] border-[#abefc6]', text: 'text-[#067647]', dot: 'bg-[#079455]', meter: 'bg-[#079455]' },
-  'low risk':          { bar: 'bg-[#eff8ff] border-[#b2ddff]', text: 'text-[#175cd3]', dot: 'bg-[#1570ef]', meter: 'bg-[#1570ef]' },
-  'suspicious':        { bar: 'bg-[#fffaeb] border-[#fedf89]', text: 'text-[#b54708]', dot: 'bg-[#dc6803]', meter: 'bg-[#dc6803]' },
-  'likely malicious':  { bar: 'bg-[#fff6ed] border-[#fddcab]', text: 'text-[#c4320a]', dot: 'bg-[#ef6820]', meter: 'bg-[#ef6820]' },
-  'malicious':         { bar: 'bg-[#fef3f2] border-[#fecdca]', text: 'text-[#b42318]', dot: 'bg-[#d92d20]', meter: 'bg-[#d92d20]' },
-  'insufficient data': { bar: 'bg-[#f9fafb] border-[#e4e7ec]', text: 'text-[#344054]', dot: 'bg-[#98a2b3]', meter: 'bg-[#98a2b3]' },
+  'benign':            { bar: 'bg-ok-bg border-ok-line', text: 'text-ok-fg', dot: 'bg-ok', meter: 'bg-ok' },
+  'low risk':          { bar: 'bg-accent-bg border-accent-line', text: 'text-accent-fg', dot: 'bg-accent', meter: 'bg-accent' },
+  'suspicious':        { bar: 'bg-warn-bg border-warn-line', text: 'text-warn-fg', dot: 'bg-warn', meter: 'bg-warn' },
+  'likely malicious':  { bar: 'bg-high-bg border-high-line', text: 'text-high-fg', dot: 'bg-high', meter: 'bg-high' },
+  'malicious':         { bar: 'bg-danger-bg border-danger-line', text: 'text-danger-fg', dot: 'bg-danger', meter: 'bg-danger' },
+  'insufficient data': { bar: 'bg-inset border-line', text: 'text-fg-2', dot: 'bg-fg-4', meter: 'bg-fg-4' },
 };
 
 function getVStyle(v: string | null): VStyle {
@@ -109,13 +109,13 @@ function ElapsedTimer({ running, isEmail }: { running: boolean; isEmail?: boolea
   const pct = Math.min(95, e < 15 ? (e / 15) * 40 : e < 40 ? 40 + ((e - 15) / 25) * 30 : 70 + ((e - 40) / 30) * 25);
   return (
     <div className="py-8 px-4 space-y-4 text-center">
-      <div className="w-10 h-10 rounded-full border-2 border-[#e4e7ec] border-t-[#1570ef] animate-spin mx-auto" />
+      <div className="w-10 h-10 rounded-full border-2 border-line border-t-accent animate-spin mx-auto" />
       <div>
-        <p className="text-sm font-medium text-[#101828]">{stage}</p>
-        <p className="text-xs font-mono text-[#98a2b3] mt-0.5">{e}s elapsed</p>
+        <p className="text-sm font-medium text-fg-1">{stage}</p>
+        <p className="text-xs font-mono text-fg-4 mt-0.5">{e}s elapsed</p>
       </div>
-      <div className="w-full bg-[#f2f4f7] rounded-full h-1.5 max-w-[200px] mx-auto">
-        <div className="bg-[#1570ef] h-1.5 rounded-full transition-all duration-1000" style={{ width: `${pct}%` }} />
+      <div className="w-full bg-raised rounded-full h-1.5 max-w-[200px] mx-auto">
+        <div className="bg-accent h-1.5 rounded-full transition-all duration-1000" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -124,21 +124,21 @@ function ElapsedTimer({ running, isEmail }: { running: boolean; isEmail?: boolea
 // ── Source row ────────────────────────────────────────────────────────────
 
 function SourceRow({ result }: { result: EnrichmentResult }) {
-  const dotCls = { ok: 'bg-[#079455]', cached: 'bg-[#079455]', error: 'bg-[#d92d20]',
-    rate_limited: 'bg-[#dc6803]', missing_key: 'bg-[#98a2b3]',
-    unsupported_ioc: 'bg-[#98a2b3]', skipped_safety: 'bg-[#dc6803]',
-  }[result.status] ?? 'bg-[#98a2b3]';
+  const dotCls = { ok: 'bg-ok', cached: 'bg-ok', error: 'bg-danger',
+    rate_limited: 'bg-warn', missing_key: 'bg-fg-4',
+    unsupported_ioc: 'bg-fg-4', skipped_safety: 'bg-warn',
+  }[result.status] ?? 'bg-fg-4';
   const hasData = result.status === 'ok' || result.status === 'cached';
   return (
-    <div className={`flex items-start gap-2.5 px-3 py-2 border-b border-[#f2f4f7] last:border-0 ${!hasData ? 'opacity-40' : ''}`}>
+    <div className={`flex items-start gap-2.5 px-3 py-2 border-b border-line-soft last:border-0 ${!hasData ? 'opacity-40' : ''}`}>
       <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${dotCls}`} />
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-[#344054]">{result.providerName}</p>
+        <p className="text-xs font-semibold text-fg-2">{result.providerName}</p>
         {hasData && result.summary && (
-          <p className="text-[11px] text-[#667085] mt-0.5 line-clamp-2 leading-snug">{result.summary}</p>
+          <p className="text-[11px] text-fg-3 mt-0.5 line-clamp-2 leading-snug">{result.summary}</p>
         )}
         {!hasData && (
-          <p className="text-[11px] text-[#98a2b3] mt-0.5">
+          <p className="text-[11px] text-fg-4 mt-0.5">
             {result.status === 'missing_key' ? 'No API key' : result.status === 'rate_limited' ? 'Rate limited' : 'No data'}
           </p>
         )}
@@ -152,12 +152,12 @@ function SourceRow({ result }: { result: EnrichmentResult }) {
 function AuthBadge({ label, result, subtitle }: { label: string; result: string | null; subtitle?: string }) {
   const r = result?.toLowerCase();
   const { bg, border, ink, dot } = r === 'pass'
-    ? { bg: 'bg-[#ecfdf3]', border: 'border-[#abefc6]', ink: 'text-[#067647]', dot: 'bg-[#079455]' }
+    ? { bg: 'bg-ok-bg', border: 'border-ok-line', ink: 'text-ok-fg', dot: 'bg-ok' }
     : r === 'fail' || r === 'permerror'
-    ? { bg: 'bg-[#fef3f2]', border: 'border-[#fecdca]', ink: 'text-[#b42318]', dot: 'bg-[#d92d20]' }
+    ? { bg: 'bg-danger-bg', border: 'border-danger-line', ink: 'text-danger-fg', dot: 'bg-danger' }
     : r === 'softfail' || r === 'temperror' || r === 'neutral'
-    ? { bg: 'bg-[#fffaeb]', border: 'border-[#fedf89]', ink: 'text-[#b54708]', dot: 'bg-[#dc6803]' }
-    : { bg: 'bg-[#f2f4f7]', border: 'border-[#e4e7ec]', ink: 'text-[#667085]', dot: 'bg-[#98a2b3]' };
+    ? { bg: 'bg-warn-bg', border: 'border-warn-line', ink: 'text-warn-fg', dot: 'bg-warn' }
+    : { bg: 'bg-raised', border: 'border-line', ink: 'text-fg-3', dot: 'bg-fg-4' };
 
   return (
     <div className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg border ${bg} ${border}`}>
@@ -167,7 +167,7 @@ function AuthBadge({ label, result, subtitle }: { label: string; result: string 
         <span className={`text-xs font-semibold font-mono ${ink}`}>{result ?? 'none'}</span>
       </div>
       {subtitle && (
-        <span className="text-[9px] font-mono text-[#98a2b3] mt-0.5">{subtitle}</span>
+        <span className="text-[9px] font-mono text-fg-4 mt-0.5">{subtitle}</span>
       )}
     </div>
   );
@@ -206,42 +206,42 @@ function EmailAuthCard({ parsed }: { parsed: ParsedEmailHeaders }) {
   const toDisplay = extractDisplayName(parsed.toAddress);
 
   return (
-    <div className="border border-[#e4e7ec] rounded-[10px] overflow-hidden">
+    <div className="border border-line rounded-lg overflow-hidden">
 
       {/* ── Self-sent warning banner ── */}
       {isSelfSent && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-[#fef3f2] border-b border-[#fecdca]">
-          <svg className="w-3.5 h-3.5 text-[#d92d20] shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+        <div className="flex items-center gap-2 px-3 py-2 bg-danger-bg border-b border-danger-line">
+          <svg className="w-3.5 h-3.5 text-danger-fg shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3l9 16H3L12 3z" />
           </svg>
-          <span className="text-[11px] font-bold text-[#b42318] uppercase tracking-wide">Self-sent — sender and recipient are the same address</span>
+          <span className="text-[11px] font-bold text-danger-fg uppercase tracking-wide">Self-sent — sender and recipient are the same address</span>
         </div>
       )}
 
       {/* ── FROM / TO envelope ── */}
-      <div className="p-3 bg-white border-b border-[#f2f4f7] space-y-2">
+      <div className="p-3 bg-surface border-b border-line-soft space-y-2">
         {/* FROM */}
         <div className="flex items-start gap-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#98a2b3] w-6 pt-0.5 shrink-0">FROM</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-fg-4 w-6 pt-0.5 shrink-0">FROM</span>
           <div className="min-w-0">
             {fromDisplay && (
-              <p className="text-[13px] font-semibold text-[#101828] leading-tight truncate">{fromDisplay}</p>
+              <p className="text-[13px] font-semibold text-fg-1 leading-tight truncate">{fromDisplay}</p>
             )}
-            <p className={`font-mono text-[12px] break-all leading-snug ${fromDisplay ? 'text-[#667085]' : 'text-[#101828] font-semibold'}`}>
-              {fromEmail ?? parsed.fromAddress ?? <span className="text-[#98a2b3]">unknown</span>}
+            <p className={`font-mono text-[12px] break-all leading-snug ${fromDisplay ? 'text-fg-3' : 'text-fg-1 font-semibold'}`}>
+              {fromEmail ?? parsed.fromAddress ?? <span className="text-fg-4">unknown</span>}
             </p>
           </div>
         </div>
 
         {/* TO */}
         <div className="flex items-start gap-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#98a2b3] w-6 pt-0.5 shrink-0">TO</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-fg-4 w-6 pt-0.5 shrink-0">TO</span>
           <div className="min-w-0">
             {toDisplay && (
-              <p className="text-[13px] font-semibold text-[#101828] leading-tight truncate">{toDisplay}</p>
+              <p className="text-[13px] font-semibold text-fg-1 leading-tight truncate">{toDisplay}</p>
             )}
-            <p className={`font-mono text-[12px] break-all leading-snug ${toDisplay ? 'text-[#667085]' : 'text-[#101828] font-semibold'}`}>
-              {toEmail ?? parsed.toAddress ?? <span className="text-[#98a2b3]">unknown</span>}
+            <p className={`font-mono text-[12px] break-all leading-snug ${toDisplay ? 'text-fg-3' : 'text-fg-1 font-semibold'}`}>
+              {toEmail ?? parsed.toAddress ?? <span className="text-fg-4">unknown</span>}
             </p>
           </div>
         </div>
@@ -249,14 +249,14 @@ function EmailAuthCard({ parsed }: { parsed: ParsedEmailHeaders }) {
         {/* Subject */}
         {parsed.subject && (
           <div className="flex items-start gap-2.5">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#98a2b3] w-6 pt-0.5 shrink-0">RE</span>
-            <p className="text-[12px] text-[#344054] leading-snug break-all">{parsed.subject}</p>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-fg-4 w-6 pt-0.5 shrink-0">RE</span>
+            <p className="text-[12px] text-fg-2 leading-snug break-all">{parsed.subject}</p>
           </div>
         )}
       </div>
 
       {/* ── Auth badges ── */}
-      <div className="p-3 bg-[#fafbfc] border-b border-[#f2f4f7]">
+      <div className="p-3 bg-inset border-b border-line-soft">
         <p className="wb-label mb-2">Email Authentication</p>
         <div className="grid grid-cols-3 gap-2">
           <AuthBadge label="SPF"   result={parsed.spf} />
@@ -272,41 +272,41 @@ function EmailAuthCard({ parsed }: { parsed: ParsedEmailHeaders }) {
       {/* ── Spam score ── */}
       {parsed.spamScore !== null && (
         <div className={`flex items-center justify-between px-3 py-2 border-b ${
-          spamHigh   ? 'bg-[#fef3f2] border-[#fecdca]' :
-          spamMedium ? 'bg-[#fffaeb] border-[#fedf89]' :
-                       'bg-[#f9fafb] border-[#f2f4f7]'
+          spamHigh   ? 'bg-danger-bg border-danger-line' :
+          spamMedium ? 'bg-warn-bg border-warn-line' :
+                       'bg-inset border-line-soft'
         }`}>
           <span className={`text-[11px] font-bold uppercase tracking-wide ${
-            spamHigh ? 'text-[#b42318]' : spamMedium ? 'text-[#b54708]' : 'text-[#667085]'
+            spamHigh ? 'text-danger-fg' : spamMedium ? 'text-warn-fg' : 'text-fg-3'
           }`}>Spam Score</span>
           <span className={`text-[13px] font-bold font-mono ${
-            spamHigh ? 'text-[#d92d20]' : spamMedium ? 'text-[#dc6803]' : 'text-[#344054]'
+            spamHigh ? 'text-danger-fg' : spamMedium ? 'text-warn-fg' : 'text-fg-2'
           }`}>{parsed.spamScore}{spamHigh ? ' ⚠ HIGH' : ''}</span>
         </div>
       )}
 
       {/* ── Suspicious indicators (non-self-sent) ── */}
       {parsed.suspiciousIndicators.filter(s => !s.startsWith('Self-sent')).length > 0 && (
-        <div className="px-3 py-2.5 bg-[#fffaeb] border-b border-[#fedf89]">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#b54708] mb-1.5">
+        <div className="px-3 py-2.5 bg-warn-bg border-b border-warn-line">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-warn-fg mb-1.5">
             Suspicious indicators
           </p>
           {parsed.suspiciousIndicators.filter(s => !s.startsWith('Self-sent') && !s.startsWith('High spam')).map((s, i) => (
             <div key={i} className="flex items-start gap-1.5 mb-1 last:mb-0">
-              <svg className="w-3 h-3 text-[#dc6803] shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg className="w-3 h-3 text-warn-fg shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3l9 16H3L12 3z" />
               </svg>
-              <span className="text-[11px] text-[#b54708]">{s}</span>
+              <span className="text-[11px] text-warn-fg">{s}</span>
             </div>
           ))}
         </div>
       )}
 
       {/* ── Collapsible technical details ── */}
-      <div className="border-t border-[#f2f4f7]">
+      <div className="border-t border-line-soft">
         <button
           onClick={() => setShowDetails(v => !v)}
-          className="w-full flex items-center justify-between px-3 py-2 text-[11px] text-[#98a2b3] hover:text-[#667085] transition-colors"
+          className="w-full flex items-center justify-between px-3 py-2 text-[11px] text-fg-4 hover:text-fg-3 transition-colors"
         >
           <span className="font-semibold uppercase tracking-wider">Technical details</span>
           <svg className={`w-3 h-3 transition-transform ${showDetails ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -314,7 +314,7 @@ function EmailAuthCard({ parsed }: { parsed: ParsedEmailHeaders }) {
           </svg>
         </button>
         {showDetails && (
-          <div className="divide-y divide-[#f2f4f7]">
+          <div className="divide-y divide-line-soft">
             {[
               { label: 'Sending IP',   value: parsed.sendingIp },
               { label: 'Delivered-To', value: parsed.deliveredTo },
@@ -325,19 +325,19 @@ function EmailAuthCard({ parsed }: { parsed: ParsedEmailHeaders }) {
               { label: 'Date',         value: parsed.date },
             ].map(({ label, value }) => value ? (
               <div key={label} className="flex items-baseline gap-2 px-3 py-1.5">
-                <span className="text-[11px] text-[#98a2b3] w-24 shrink-0">{label}</span>
-                <code className="text-[11px] font-mono text-[#344054] break-all">{value}</code>
+                <span className="text-[11px] text-fg-4 w-24 shrink-0">{label}</span>
+                <code className="text-[11px] font-mono text-fg-2 break-all">{value}</code>
               </div>
             ) : null)}
 
             {/* Hops */}
             {parsed.hops.length > 0 && (
               <div className="px-3 py-2 space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#98a2b3] mb-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-fg-4 mb-1">
                   Received hops ({parsed.hops.length})
                 </p>
                 {parsed.hops.map((h, i) => (
-                  <div key={i} className="text-[10px] font-mono text-[#667085] bg-[#fafbfc] rounded p-1.5 break-all leading-relaxed">
+                  <div key={i} className="text-[10px] font-mono text-fg-3 bg-inset rounded p-1.5 break-all leading-relaxed">
                     {h.slice(0, 120)}{h.length > 120 ? '…' : ''}
                   </div>
                 ))}
@@ -390,14 +390,14 @@ function CopySummaryButton({ verdict, findings }: { verdict: string | null; find
     <button
       onClick={handleCopy}
       title="Copy verdict and findings"
-      className="flex items-center gap-1 text-[11px] text-[#667085] hover:text-[#344054] font-medium transition-colors"
+      className="flex items-center gap-1 text-[11px] text-fg-3 hover:text-fg-2 font-medium transition-colors"
     >
       {copied ? (
         <>
-          <svg className="w-3 h-3 text-[#079455]" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <svg className="w-3 h-3 text-ok-fg" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
-          <span className="text-[#079455]">Copied</span>
+          <span className="text-ok-fg">Copied</span>
         </>
       ) : (
         <>
@@ -438,7 +438,7 @@ function NarrativeView({
   const sourceMap = buildSourceMap(sortedResults);
 
   if (!parsed.verdict && parsed.findings.length === 0 && parsed.actions.length === 0) {
-    return <pre className="text-xs text-[#475467] whitespace-pre-wrap leading-relaxed font-sans p-4 bg-[#fafbfc] rounded-lg border border-[#e4e7ec]">{narrative}</pre>;
+    return <pre className="text-xs text-fg-2 whitespace-pre-wrap leading-relaxed font-sans p-4 bg-inset rounded-lg border border-line">{narrative}</pre>;
   }
 
   return (
@@ -448,7 +448,7 @@ function NarrativeView({
 
       {/* Verdict */}
       {parsed.verdict && (
-        <div className={`rounded-[10px] border p-4 ${s.bar}`}>
+        <div className={`rounded-lg border p-4 ${s.bar}`}>
           <p className="text-[11px] font-semibold uppercase tracking-wider opacity-60 mb-1">Analyst Verdict</p>
           <p className={`text-xl font-bold tracking-wide ${s.text}`}>{parsed.verdict}</p>
           <div className="mt-3 space-y-1">
@@ -456,7 +456,7 @@ function NarrativeView({
               <span className={`text-[11px] font-medium opacity-60 ${s.text}`}>Confidence</span>
               <span className={`text-lg font-bold font-mono ${s.text}`}>{pct}%</span>
             </div>
-            <div className="w-full bg-white/50 rounded-full h-1.5">
+            <div className="w-full bg-surface/50 rounded-full h-1.5">
               <div className={`h-1.5 rounded-full transition-all duration-700 ${s.meter}`} style={{ width: `${pct}%` }} />
             </div>
             <p className={`text-[10px] opacity-50 ${s.text}`}>{dataCount}/{results.length} sources returned data</p>
@@ -477,13 +477,13 @@ function NarrativeView({
           {parsed.findings.map((f, i) => {
             const srcUrl = findSourceUrl(f, sourceMap);
             return (
-              <div key={i} className="flex gap-2.5 text-xs text-[#344054] leading-relaxed">
+              <div key={i} className="flex gap-2.5 text-xs text-fg-2 leading-relaxed">
                 <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${s.dot}`} />
                 <span className="flex-1">{f}</span>
                 {srcUrl && (
                   <a href={srcUrl} target="_blank" rel="noopener noreferrer"
                     title="View source"
-                    className="shrink-0 mt-0.5 text-[#1570ef] hover:text-[#175cd3] transition-colors">
+                    className="shrink-0 mt-0.5 text-accent-fg hover:text-accent-fg transition-colors">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                       <polyline points="15 3 21 3 21 9" />
@@ -501,15 +501,15 @@ function NarrativeView({
       {emailParsed && (
         <div>
           <button onClick={() => setShowSrc(v => !v)}
-            className="flex items-center gap-1.5 wb-label hover:text-[#475467] transition-colors w-full text-left">
+            className="flex items-center gap-1.5 wb-label hover:text-fg-2 transition-colors w-full text-left">
             <svg className={`w-3 h-3 transition-transform ${showSrc ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
             Enrichment Sources
-            <span className="ml-auto font-mono font-normal normal-case tracking-normal text-[#98a2b3]">{dataCount}/{results.length}</span>
+            <span className="ml-auto font-mono font-normal normal-case tracking-normal text-fg-4">{dataCount}/{results.length}</span>
           </button>
           {showSrc && (
-            <div className="mt-2 border border-[#e4e7ec] rounded-[10px] overflow-hidden">
+            <div className="mt-2 border border-line rounded-lg overflow-hidden">
               {sortedResults.map(r => <SourceRow key={r.providerId} result={r} />)}
             </div>
           )}
@@ -520,11 +520,11 @@ function NarrativeView({
       {parsed.notes && (
         <div>
           <p className="wb-label mb-2">Analyst Notes</p>
-          <p className="text-xs text-[#475467] leading-relaxed p-3 bg-[#fafbfc] rounded-lg border border-[#e4e7ec]">{parsed.notes}</p>
+          <p className="text-xs text-fg-2 leading-relaxed p-3 bg-inset rounded-lg border border-line">{parsed.notes}</p>
         </div>
       )}
 
-      <p className="text-[10px] font-mono text-[#98a2b3]">{new Date(analysedAt).toLocaleTimeString()} · {ollamaModel}</p>
+      <p className="text-[10px] font-mono text-fg-4">{new Date(analysedAt).toLocaleTimeString()} · {ollamaModel}</p>
     </div>
   );
 }
@@ -648,14 +648,14 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
     <div className="wb-card overflow-hidden">
       {/* Card header — hidden when the AnalysisBar owns the Run button */}
       {!hideHeader && (
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#f2f4f7]">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line-soft">
           <div className="flex items-center gap-2.5">
-            <div className="w-[34px] h-[34px] rounded-[9px] bg-[#f2f4f7] text-[#475467] flex items-center justify-center">
+            <div className="w-[34px] h-[34px] rounded-lg bg-raised text-fg-2 flex items-center justify-center">
               <SparkIcon />
             </div>
             <div>
-              <p className="text-[13px] font-semibold text-[#101828]">Auto Analysis</p>
-              <p className="text-[11px] text-[#98a2b3]">
+              <p className="text-[13px] font-semibold text-fg-1">Auto Analysis</p>
+              <p className="text-[11px] text-fg-4">
                 {(isEmailHeader || isEmailHeaderWorkflow) ? 'Email security verdict' : 'AI-assisted verdict'}
               </p>
             </div>
@@ -663,12 +663,12 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
           <div className="flex items-center gap-2">
             {result && !loading && (
               <button onClick={() => void handleRun(true)}
-                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[#e4e7ec] bg-white text-[#475467] hover:border-[#d0d5dd] transition-colors">
+                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-line bg-surface text-fg-2 hover:border-line-strong transition-colors">
                 Re-run
               </button>
             )}
             <button onClick={() => void handleRun(false)} disabled={loading || disabled}
-              className="text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-[#1570ef] text-white hover:bg-[#175cd3] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              className="text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-accent text-white hover:bg-accent-strong transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               Run Analysis
             </button>
           </div>
@@ -677,13 +677,13 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
 
       {/* Hunter toggle — only for domain/url IOCs */}
       {hunterApplicable && (
-        <div className="flex items-center justify-between px-5 py-2.5 border-b border-[#f2f4f7] bg-[#fafbfc]">
+        <div className="flex items-center justify-between px-5 py-2.5 border-b border-line-soft bg-inset">
           <div className="flex items-center gap-2">
-            <svg className="w-3.5 h-3.5 text-[#98a2b3] shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 text-fg-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
             </svg>
-            <span className="text-xs font-medium text-[#344054]">Include Hunter.io</span>
-            <span className="text-[11px] text-[#98a2b3]">— {hunterLabel}</span>
+            <span className="text-xs font-medium text-fg-2">Include Hunter.io</span>
+            <span className="text-[11px] text-fg-4">— {hunterLabel}</span>
           </div>
           <button
             role="switch"
@@ -691,10 +691,10 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
             onClick={() => setIncludeHunter(v => !v)}
             disabled={loading}
             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${
-              includeHunter ? 'bg-[#1570ef]' : 'bg-[#d0d5dd]'
+              includeHunter ? 'bg-accent' : 'bg-line-strong'
             }`}
           >
-            <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ${
+            <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-surface shadow-sm ring-0 transition-transform duration-200 ${
               includeHunter ? 'translate-x-4' : 'translate-x-0'
             }`} />
           </button>
@@ -706,12 +706,12 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
         {/* Idle state only shown when header is also visible (bar handles the idle prompt) */}
         {!loading && !result && !error && !hideHeader && (
           <div className="text-center py-8 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-[#f2f4f7] flex items-center justify-center mx-auto text-[#98a2b3]">
+            <div className="w-10 h-10 rounded-xl bg-raised flex items-center justify-center mx-auto text-fg-4">
               <SparkIcon />
             </div>
             <div>
-              <p className="text-sm font-medium text-[#101828]">Ready to analyse</p>
-              <p className="text-xs text-[#98a2b3] mt-1 max-w-[260px] mx-auto leading-relaxed">
+              <p className="text-sm font-medium text-fg-1">Ready to analyse</p>
+              <p className="text-xs text-fg-4 mt-1 max-w-[260px] mx-auto leading-relaxed">
                 {idleDesc}
               </p>
             </div>
@@ -721,7 +721,7 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
         {loading && <ElapsedTimer running isEmail={isEmailHeader || isEmailHeaderWorkflow} />}
 
         {error && !loading && (
-          <div className="flex gap-2.5 p-3 rounded-lg bg-[#fef3f2] border border-[#fecdca] text-xs text-[#b42318]">
+          <div className="flex gap-2.5 p-3 rounded-lg bg-danger-bg border border-danger-line text-xs text-danger-fg">
             <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
             </svg>
@@ -744,13 +744,13 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
             : (
               <div className="space-y-3">
                 <EmailAuthCard parsed={emailResult.parsed} />
-                <div className="flex gap-2.5 p-3 rounded-lg bg-[#fffaeb] border border-[#fedf89] text-xs text-[#b54708]">
+                <div className="flex gap-2.5 p-3 rounded-lg bg-warn-bg border border-warn-line text-xs text-warn-fg">
                   <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4m0 4h.01" />
                   </svg>
                   <span><strong>Narrative unavailable</strong> — {emailResult.narrativeError ?? 'Ollama did not respond.'}</span>
                 </div>
-                <div className="border border-[#e4e7ec] rounded-[10px] overflow-hidden">
+                <div className="border border-line rounded-lg overflow-hidden">
                   {sortBySeverity(emailResult.results).map(r => <SourceRow key={r.providerId} result={r} />)}
                 </div>
               </div>
@@ -769,7 +769,7 @@ export const AutoAnalysisPanel = forwardRef<AutoAnalysisPanelHandle, AutoAnalysi
                 iocType={ioc?.type}
               />
             : (
-              <div className="flex gap-2.5 p-3 rounded-lg bg-[#fffaeb] border border-[#fedf89] text-xs text-[#b54708]">
+              <div className="flex gap-2.5 p-3 rounded-lg bg-warn-bg border border-warn-line text-xs text-warn-fg">
                 <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4m0 4h.01" />
                 </svg>
