@@ -59,6 +59,8 @@ export interface Config extends ProviderConfig {
   enableHighRiskEnrichment: boolean;
   logLevel: string;
   configuredProviders: string[];
+  /** Base URL of a Threat Watch instance to link to ('' when unset or invalid). */
+  threatWatchUrl: string;
 }
 
 function readProviderConfig(): ProviderConfig {
@@ -73,6 +75,19 @@ function listConfigured(): string[] {
   return PROVIDER_KEYS.filter(p => envStr(p.env)).map(p => p.provider);
 }
 
+/**
+ * THREATWATCH_URL as a clean base URL: http(s) only, no credentials, query or fragment,
+ * no trailing slash. Anything else is ignored rather than linked to.
+ */
+export function parseThreatWatchUrl(raw: string): string {
+  const v = raw.trim();
+  if (!v) return '';
+  let u: URL;
+  try { u = new URL(v); } catch { return ''; }
+  if ((u.protocol !== 'https:' && u.protocol !== 'http:') || u.username || u.password || u.search || u.hash) return '';
+  return `${u.origin}${u.pathname.replace(/\/+$/, '')}`;
+}
+
 export const config: Config = {
   ...readProviderConfig(),
   port: envInt('PORT', 8787),
@@ -81,6 +96,7 @@ export const config: Config = {
   enableHighRiskEnrichment: envBool('ENABLE_HIGH_RISK_ENRICHMENT', false),
   logLevel: envStr('LOG_LEVEL', 'info'),
   configuredProviders: listConfigured(),
+  threatWatchUrl: parseThreatWatchUrl(envStr('THREATWATCH_URL')),
 };
 
 /**

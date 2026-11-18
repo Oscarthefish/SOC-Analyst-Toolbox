@@ -13,6 +13,9 @@ router.get('/health', (_req: Request, res: Response) => {
       enableUrlSubmission: config.enableUrlSubmission,
       enableHighRiskEnrichment: config.enableHighRiskEnrichment,
     },
+    links: {
+      threatWatch: config.threatWatchUrl || null,
+    },
   });
 });
 

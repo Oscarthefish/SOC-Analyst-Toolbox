@@ -101,4 +101,8 @@ export interface HealthResponse {
     enableUrlSubmission: boolean;
     enableHighRiskEnrichment: boolean;
   };
+  /** Optional companion apps; older backends omit this. */
+  links?: {
+    threatWatch: string | null;
+  };
 }
