@@ -48,6 +48,8 @@ const icons = {
   check:    <Svg><path d="M9 11l2 2 4-4" /><rect x="3" y="3" width="18" height="18" rx="2" /></Svg>,
   info:     <Svg><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></Svg>,
   sun:      <Svg><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></Svg>,
+  watch:    <Svg><path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6l8-3z" /><path d="M8.5 12h2l1.5-3 2 6 1.5-3h1" /></Svg>,
+  external: <Svg><path d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" /></Svg>,
   moon:     <Svg><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z" /></Svg>,
 };
 
@@ -119,6 +121,8 @@ interface AppShellProps {
   onToggleTheme: () => void;
   headerActions?: ReactNode;
   onOpenPalette?: () => void;
+  /** Base URL of a Threat Watch instance (backend THREATWATCH_URL); no link when unset. */
+  threatWatchUrl?: string | null;
   children: ReactNode;
 }
 
@@ -140,6 +144,24 @@ function NavButton({ item, active, onClick }: { item: NavItem; active: boolean; 
   );
 }
 
+/** A link out to Threat Watch, styled like a nav item; opens in a new tab. */
+function ThreatWatchLink({ href }: { href: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Your Threat Watch instance (opens in a new tab)"
+      className="relative w-full flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] text-rail-fg hover:text-rail-fg-1 hover:bg-rail-hover transition-colors"
+    >
+      {icons.watch}
+      <span className="flex-1">Threat Watch</span>
+      <span className="text-rail-dim [&>svg]:w-3.5 [&>svg]:h-3.5" aria-hidden>{icons.external}</span>
+      <span className="sr-only">(opens in a new tab)</span>
+    </a>
+  );
+}
+
 function BackendStatus({ online, onRail }: { online: boolean | null; onRail?: boolean }) {
   const state = online === null ? 'checking' : online ? 'online' : 'offline';
   const dot = state === 'online' ? 'bg-ok' : state === 'offline' ? 'bg-danger' : 'bg-fg-4';
@@ -152,7 +174,7 @@ function BackendStatus({ online, onRail }: { online: boolean | null; onRail?: bo
   );
 }
 
-export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onToggleTheme, headerActions, onOpenPalette, children }: AppShellProps) {
+export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onToggleTheme, headerActions, onOpenPalette, threatWatchUrl, children }: AppShellProps) {
   const current = ALL_NAV_ITEMS.find(i => i.id === activeTab) ?? ALL_NAV_ITEMS[0]!;
   const tone = toneOf(current.id);
 
@@ -192,6 +214,7 @@ export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onTogg
                 {group.items.map(item => (
                   <NavButton key={item.id} item={item} active={activeTab === item.id} onClick={() => onTabChange(item.id)} />
                 ))}
+                {group.label === 'Intelligence' && threatWatchUrl && <ThreatWatchLink href={threatWatchUrl} />}
               </div>
             </div>
           ))}
@@ -238,6 +261,11 @@ export function AppShell({ activeTab, onTabChange, backendOnline, isDark, onTogg
               {item.label}
             </button>
           ))}
+          {threatWatchUrl && (
+            <a href={threatWatchUrl} target="_blank" rel="noopener noreferrer" className="relative shrink-0 h-7 px-2.5 rounded-md text-[12px] whitespace-nowrap text-rail-fg inline-flex items-center">
+              Threat Watch<span aria-hidden>&nbsp;↗</span><span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          )}
         </nav>
       </div>
 

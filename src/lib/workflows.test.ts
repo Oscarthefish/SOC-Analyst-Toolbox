@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { isWorkflowEnabled } from './workflows';
+import { isWorkflowEnabled, toolsForWorkflow } from './workflows';
 import { detectIoc } from './detectIoc';
 import workflowsData from '../data/workflows.json';
 import type { Workflow } from '../types/workflow';
+import type { Tool } from '../types/tool';
 
 const workflows = workflowsData as Workflow[];
 const applicable = (input: string) => workflows.filter(w => isWorkflowEnabled(w, detectIoc(input)).enabled).map(w => w.id);
@@ -26,5 +27,21 @@ describe('isWorkflowEnabled', () => {
 
   it('offers nothing for unrecognised input', () => {
     expect(applicable('hello world')).toEqual([]);
+  });
+});
+
+describe('toolsForWorkflow', () => {
+  const wf = workflows.find(w => w.id === 'cve-context')!;
+  const builtin = (id: string): Tool => ({
+    id, name: id, category: 'x', description: '', inputTypes: ['cve'], workflows: [], urlTemplate: 'https://a.example/{{value}}',
+    whyUse: '', lookFor: '', riskNote: '', submissionRisk: 'low', requiresAccount: 'none', tags: [],
+  });
+  const custom = (id: string, workflows: string[], inputTypes: Tool['inputTypes']): Tool => ({ ...builtin(id), workflows, inputTypes });
+
+  it('lists the workflow tools first, then custom tools assigned to it for this indicator type', () => {
+    const own = wf.toolIds.slice(0, 2).map(builtin);
+    const tools = [custom('custom-a', ['cve-context'], ['cve']), ...own, custom('custom-b', ['ip-triage'], ['cve']),
+      custom('custom-c', ['cve-context'], ['ipv4'])];
+    expect(toolsForWorkflow(wf, tools, detectIoc('CVE-2024-3400')).map(t => t.id)).toEqual([...wf.toolIds.slice(0, 2), 'custom-a']);
   });
 });

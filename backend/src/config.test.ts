@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { PROVIDER_KEYS, config, reloadConfig } from './config.js';
+import { PROVIDER_KEYS, config, reloadConfig, parseThreatWatchUrl } from './config.js';
 
 describe('provider registry', () => {
   it('documents every provider key in .env.example', () => {
@@ -27,5 +27,20 @@ describe('provider registry', () => {
     reloadConfig();
     expect(config.configuredProviders).not.toContain('shodan');
     if (prev === undefined) delete process.env.SHODAN_API_KEY; else process.env.SHODAN_API_KEY = prev;
+  });
+});
+
+describe('THREATWATCH_URL', () => {
+  it('keeps clean http(s) base URLs without a trailing slash', () => {
+    expect(parseThreatWatchUrl(' https://tw.example.ts.net/ ')).toBe('https://tw.example.ts.net');
+    expect(parseThreatWatchUrl('http://localhost:8790')).toBe('http://localhost:8790');
+    expect(parseThreatWatchUrl('https://example.com/tw//')).toBe('https://example.com/tw');
+  });
+
+  it('ignores anything that is not a plain web address', () => {
+    for (const bad of ['', 'tw.example.ts.net', 'javascript:alert(1)', 'ftp://example.com',
+      'https://user:pass@example.com', 'https://example.com/?q=1', 'https://example.com/#x']) {
+      expect(parseThreatWatchUrl(bad)).toBe('');
+    }
   });
 });

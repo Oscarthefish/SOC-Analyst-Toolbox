@@ -4,6 +4,7 @@ import type { Workflow } from '../types/workflow';
 import { ToolCard } from './ToolCard';
 import { CopyButton } from './CopyButton';
 import { applyTemplate, buildTemplateVars } from '../lib/template';
+import { toolsForWorkflow } from '../lib/workflows';
 
 interface ToolPanelProps {
   workflow: Workflow | null;
@@ -32,9 +33,7 @@ export function ToolPanel({ workflow, ioc, tools, favorites, onToggleFavorite }:
     );
   }
 
-  const workflowTools = workflow.toolIds
-    .map(id => tools.find(t => t.id === id))
-    .filter((t): t is Tool => t !== undefined);
+  const workflowTools = toolsForWorkflow(workflow, tools, ioc);
 
   if (workflowTools.length === 0) {
     return (

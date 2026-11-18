@@ -5,6 +5,7 @@ import type { CaseRecord } from '../types/case';
 import { detectIoc } from '../lib/detectIoc';
 import { loadRecentIndicators } from '../lib/recentIndicators';
 import { verdictLabel } from '../lib/cases';
+import { openExternal, threatWatchLink } from '../lib/threatWatch';
 
 interface Command {
   id: string;
@@ -22,6 +23,8 @@ interface Props {
   onNavigate: (tab: Tab) => void;
   onInvestigate: (value: string) => void;
   onOpenCase: (c: CaseRecord) => void;
+  /** Base URL of a Threat Watch instance; adds look-up and open commands when set. */
+  threatWatchUrl?: string | null;
 }
 
 function matches(text: string, q: string): boolean {
@@ -31,7 +34,7 @@ function matches(text: string, q: string): boolean {
 }
 
 /** ⌘K / Ctrl+K: jump to a page, a recent indicator or an open case, or investigate what you type. */
-export function CommandPalette({ open, onClose, cases, onNavigate, onInvestigate, onOpenCase }: Props) {
+export function CommandPalette({ open, onClose, cases, onNavigate, onInvestigate, onOpenCase, threatWatchUrl }: Props) {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +70,17 @@ export function CommandPalette({ open, onClose, cases, onNavigate, onInvestigate
         mono: true,
         run: () => onInvestigate(q),
       });
+      const tw = threatWatchUrl ? threatWatchLink(threatWatchUrl, detected) : null;
+      if (tw) {
+        out.push({
+          id: 'threatwatch-lookup',
+          group: 'Indicator',
+          label: detected.type === 'cve' ? `Open ${detected.normalised.toUpperCase()} in Threat Watch` : `Search Threat Watch for ${detected.type === 'url' ? detected.urlExtract?.domain : detected.normalised}`,
+          hint: 'New tab',
+          mono: detected.type !== 'cve',
+          run: () => openExternal(tw),
+        });
+      }
     }
 
 
@@ -90,9 +104,13 @@ export function CommandPalette({ open, onClose, cases, onNavigate, onInvestigate
     const pages: Command[] = ALL_NAV_ITEMS
       .filter(item => matches(`${item.label} ${item.title}`, q))
       .map(item => ({ id: `nav:${item.id}`, group: 'Go to', label: item.label, run: () => onNavigate(item.id) }));
+    if (threatWatchUrl && matches('Threat Watch', q)) {
+      pages.push({ id: 'threatwatch', group: 'Go to', label: 'Threat Watch', hint: 'New tab', run: () => openExternal(threatWatchUrl) });
+    }
+    const lead = detected ? out.filter(c => c.group === 'Indicator').length : 0;
     // With a query, page names are the likeliest target; without one, recent work is
-    return q ? [...out.slice(0, detected ? 1 : 0), ...pages, ...out.slice(detected ? 1 : 0)] : [...out, ...pages];
-  }, [open, query, cases, onInvestigate, onNavigate, onOpenCase]);
+    return q ? [...out.slice(0, lead), ...pages, ...out.slice(lead)] : [...out, ...pages];
+  }, [open, query, cases, onInvestigate, onNavigate, onOpenCase, threatWatchUrl]);
 
   useEffect(() => { setIndex(0); }, [query]);
   useEffect(() => {

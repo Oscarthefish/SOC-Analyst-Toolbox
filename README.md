@@ -159,7 +159,7 @@ Always follow your organisation's policy on sharing indicators with external ser
 
 ## Customising tools and workflows
 
-**Custom tools.** Add them on the **Tool library** page. They're saved to `backend/data/customTools.json`, which is gitignored. `src/data/customTools.example.json` shows the format, with templates for Splunk, Cortex XDR, Mimecast, Palo Alto and Jira.
+**Custom tools.** Add them on the **Tool library** page. They're saved to `backend/data/customTools.json`, which is gitignored. `src/data/customTools.example.json` shows the format, with templates for Splunk, Cortex XDR, Mimecast, Palo Alto and Jira. A custom tool appears in the pivot list of every workflow you tick for it, for the indicator types it accepts.
 
 **Built-in tools** live in `src/data/tools.json`:
 
@@ -181,7 +181,7 @@ Always follow your organisation's policy on sharing indicators with external ser
 }
 ```
 
-- `inputTypes`: `ipv4`, `ipv6`, `domain`, `url`, `md5`, `sha1`, `sha256`, `email`, `asn`, `cidr`
+- `inputTypes`: `ipv4`, `ipv6`, `domain`, `url`, `md5`, `sha1`, `sha256`, `email`, `asn`, `cidr`, `cve`
 - `submissionRisk`: `low` (Passive), `medium` (Submits IOC), `high` (Public)
 - `requiresAccount`: `none`, `free_account`, `trial`, `paid`, `mixed`
 
@@ -201,6 +201,23 @@ URL template variables:
 If a template still contains an unfilled variable for the current indicator type, the tool is marked **manual**: open it and paste the indicator in yourself.
 
 **Workflows** live in `src/data/workflows.json`. Each one lists the indicator types it accepts (`allowedInputTypes`), its pivot tools (`toolIds`), an analyst checklist and internal search templates. Tool ids that don't exist are skipped.
+
+### Threat Watch
+
+If you also run [Threat Watch](https://github.com/Oscarthefish/threatwatch), set its address in `backend/.env`:
+
+```bash
+THREATWATCH_URL=https://threatwatch.example.ts.net
+```
+
+Restart the backend. The sidebar then links to it, and ⌘K offers **Open CVE-… in Threat Watch** for a CVE and **Search Threat Watch for …** for other indicators (a URL is searched by host name only; secrets and email headers are never sent). Links open in a new tab and use your normal Threat Watch sign-in. The address stays in your gitignored `.env`.
+
+For pivots in the Investigate page, add two custom tools with category *Threat Watch* and exposure *Passive*:
+
+| Tool | Input types | URL template |
+|---|---|---|
+| Vulnerability | `cve` | `https://<your-threat-watch>/vuln/{{value}}` |
+| Reporting search | IPs, domains, URLs, hashes | `https://<your-threat-watch>/search?q={{encodedQuery}}` |
 
 ---
 

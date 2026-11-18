@@ -48,6 +48,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('single');
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
   const [configuredProviders, setConfiguredProviders] = useState<number | null>(null);
+  const [threatWatchUrl, setThreatWatchUrl] = useState<string | null>(null);
   const [customTools, setCustomTools] = useState<Tool[]>([]);
   const [hiddenToolIds, setHiddenToolIds] = useState<Set<string>>(() => loadHiddenToolIds());
   const [toolsSaving, setToolsSaving] = useState(false);
@@ -101,6 +102,7 @@ export default function App() {
       if (cancelled) return;
       setBackendOnline(result !== null);
       setConfiguredProviders(result ? result.configuredProviders.length : null);
+      if (result) setThreatWatchUrl(result.links?.threatWatch ?? null);
     }
     void check();
     const interval = setInterval(() => { void check(); }, 30_000);
@@ -281,6 +283,7 @@ export default function App() {
       isDark={isDark}
       onToggleTheme={handleToggleTheme}
       onOpenPalette={() => setPaletteOpen(true)}
+      threatWatchUrl={threatWatchUrl}
     >
       <CommandPalette
         open={paletteOpen}
@@ -289,6 +292,7 @@ export default function App() {
         onNavigate={setActiveTab}
         onInvestigate={handleLoadIndicator}
         onOpenCase={handleOpenCase}
+        threatWatchUrl={threatWatchUrl}
       />
       {activeTab === 'single' && (
         <div className="space-y-4">
